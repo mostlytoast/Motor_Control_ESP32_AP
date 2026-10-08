@@ -130,11 +130,24 @@ size_t LvTrackMap::trackCount() const {
 // ============================================================
 // VIEW / TRANSFORM
 // ============================================================
-void LvTrackMap::calculateTransform() {
+void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
   transform_ = {};
   transform_.scale = 1.0f;
 
   if (!map_ || !root_) {
+    return;
+  }
+
+  // If dimensions weren't explicitly supplied, get them here.
+  if (width <= 0) {
+    width = lv_obj_get_width(root_);
+  }
+
+  if (height <= 0) {
+    height = lv_obj_get_height(root_);
+  }
+
+  if (width <= 0 || height <= 0) {
     return;
   }
 
@@ -493,26 +506,6 @@ void LvTrackMap::calculateTransform() {
 
   worldHeight = maxY - minY;
 
-  // ----------------------------------------------------------
-  // Get actual LVGL object dimensions
-  // ----------------------------------------------------------
-
-  lv_coord_t width = lv_obj_get_width(root_);
-
-  lv_coord_t height = lv_obj_get_height(root_);
-
-  if (width <= 0) {
-    width = config_.width;
-  }
-
-  if (height <= 0) {
-    height = config_.height;
-  }
-
-  if (width <= 0 || height <= 0) {
-    return;
-  }
-
   const float padding = static_cast<float>(config_.padding);
 
   const float availableWidth =
@@ -619,7 +612,7 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
   if (!e) {
     return;
   }
-  Serial.println("draw event ");
+
   LvTrackMap* self = static_cast<LvTrackMap*>(lv_event_get_user_data(e));
 
   if (!self || !self->root_) {
@@ -635,7 +628,21 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
   lv_area_t area;
   lv_obj_get_coords(self->root_, &area);
 
+  const lv_coord_t width = lv_area_get_width(&area);
+
+  const lv_coord_t height = lv_area_get_height(&area);
+
+  if (width <= 0 || height <= 0) {
+    return;
+  }
+
+  // IMPORTANT:
+  // Recalculate after LVGL has established the
+  // real size of the object.
+  self->calculateTransform();
+
   self->drawBackground(layer, area);
+
   self->drawConnections(layer);
 
   if (self->map_) {
@@ -657,13 +664,9 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
   snprintf(countText, sizeof(countText), "Tracks: %u",
            static_cast<unsigned>(self->trackCount()));
 
-  self->drawText(layer,
-                 {static_cast<float>(lv_area_get_width(&area)) / 2.0f, 10.0f},
-                 countText, self->config_.label);
-
-  // resetView();  //  TODO diff solution just temp
+  self->drawText(layer, {static_cast<float>(width) / 2.0f, 10.0f}, countText,
+                 self->config_.label);
 }
-
 // ============================================================
 // BACKGROUND
 // ============================================================
@@ -703,7 +706,7 @@ void LvTrackMap::drawBackground(lv_layer_t* layer,
 
 void LvTrackMap::drawSegment(lv_layer_t* layer, Point a, Point b,
                              lv_color_t color, uint8_t width) const {
-  if (!root_) {
+  if (!layer || !root_) {
     return;
   }
 
@@ -711,31 +714,27 @@ void LvTrackMap::drawSegment(lv_layer_t* layer, Point a, Point b,
   lv_draw_line_dsc_init(&dsc);
 
   dsc.color = color;
-  dsc.width = width;
+  dsc.width = (width > 0) ? width : 1;
+  dsc.opa = LV_OPA_COVER;
   dsc.round_start = true;
   dsc.round_end = true;
 
   lv_area_t rootArea;
   lv_obj_get_coords(root_, &rootArea);
 
-  lv_point_precise_t points[2];
+  dsc.p1.x = rootArea.x1 + static_cast<lv_coord_t>(lroundf(a.x));
 
-  points[0].x = rootArea.x1 + static_cast<lv_coord_t>(lroundf(a.x));
+  dsc.p1.y = rootArea.y1 + static_cast<lv_coord_t>(lroundf(a.y));
 
-  points[0].y = rootArea.y1 + static_cast<lv_coord_t>(lroundf(a.y));
+  dsc.p2.x = rootArea.x1 + static_cast<lv_coord_t>(lroundf(b.x));
 
-  points[1].x = rootArea.x1 + static_cast<lv_coord_t>(lroundf(b.x));
-
-  points[1].y = rootArea.y1 + static_cast<lv_coord_t>(lroundf(b.y));
-
-  dsc.points = points;
+  dsc.p2.y = rootArea.y1 + static_cast<lv_coord_t>(lroundf(b.y));
 
   lv_draw_line(layer, &dsc);
 }
-
 void LvTrackMap::drawCircle(lv_layer_t* layer, Point center, int32_t radius,
                             lv_color_t color, bool filled) const {
-  Serial.println("draw circle");
+  // Serial.println("draw circle");
 
   if (!root_) {
     return;
@@ -809,10 +808,7 @@ void LvTrackMap::drawText(lv_layer_t* layer, Point center, const char* text,
 // ============================================================
 // CONNECTIONS
 // ============================================================
-
 void LvTrackMap::drawConnections(lv_layer_t* layer) const {
-  Serial.println("draw connections");
-
   if (!map_) {
     return;
   }
@@ -830,11 +826,20 @@ void LvTrackMap::drawConnections(lv_layer_t* layer) const {
                          &track->exitB};
 
     for (const Tag* tag : tags) {
-      if (!tag || !map_->findTagByUid(tag->connectedTagUid)) {
+      if (!tag) {
+        continue;
+      }
+
+      // No connection stored.
+      if (!tag->connectedTagUid.isValid()) {
         continue;
       }
 
       const Tag* otherTag = map_->findTagByUid(tag->connectedTagUid);
+
+      if (!otherTag) {
+        continue;
+      }
 
       if (!otherTag->track) {
         continue;
@@ -852,7 +857,8 @@ void LvTrackMap::drawConnections(lv_layer_t* layer) const {
         continue;
       }
 
-      // A connection is stored in both directions. Draw it only once.
+      // Connection exists in both directions.
+      // Only draw it once.
       if (i > static_cast<uint8_t>(otherIndex)) {
         continue;
       }
@@ -862,14 +868,12 @@ void LvTrackMap::drawConnections(lv_layer_t* layer) const {
       const Point bWorld = tagWorldPosition(*otherTrack, *otherTag);
 
       const Point a = worldToMap(aWorld);
-
       const Point b = worldToMap(bWorld);
 
       drawSegment(layer, a, b, config_.connection, config_.connectionWidth);
     }
   }
 }
-
 // ============================================================
 // TRACK INDEX / TAG POSITION
 // ============================================================
@@ -919,7 +923,7 @@ LvTrackMap::Point LvTrackMap::tagWorldPosition(const Track& track,
 
 void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
                            size_t index) const {
-  Serial.println("draw track");
+  // Serial.println("draw track");
 
   if (!track.positioned) {
     Serial.println("track has not been positioned");
@@ -962,9 +966,9 @@ void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
 // ============================================================
 
 void LvTrackMap::drawStraight(lv_layer_t* layer, Point a, Point b) const {
-  drawSegment(layer, a, b, config_.track, config_.trackWidth);
+  drawSegment(layer, a, b, lv_color_hex(0xFF0000), 10);
 
-  drawSegment(layer, a, b, config_.trackCenter, config_.centerWidth);
+  drawSegment(layer, a, b, lv_color_hex(0X00FF00), 4);
 }
 
 // ============================================================
@@ -980,47 +984,38 @@ void LvTrackMap::drawStraight(lv_layer_t* layer, Point a, Point b) const {
 
 void LvTrackMap::drawCurve(lv_layer_t* layer, const Track& track) const {
   const TrackPose& pose = track.pose;
-  Serial.println("draw curve");
 
+  // Fallback if radius is invalid.
   if (track.radius <= 0.0f) {
     drawStraight(layer, worldToMap(pose.entrance), worldToMap(pose.exit));
-
     return;
   }
 
   const float radius = track.radius;
-  Serial.println("radius");
 
-  Serial.println(radius);
-
-  const float heading = pose.entranceAHeading * DEG_TO_RAD_F;
-
-  // map.cpp uses:
-  //
-  //   true  -> heading - 90 degrees
-  //   false -> heading + 90 degrees
-  //
-  // to locate the curve center.
+  // Determine which side of the entrance heading the curve center lies on.
   const float centerHeading = track.direction ? pose.entranceAHeading - 90.0f
                                               : pose.entranceAHeading + 90.0f;
 
   const float centerHeadingRad = centerHeading * DEG_TO_RAD_F;
 
-  Point centerWorld;
+  // Calculate the curve center in world coordinates.
+  const Point centerWorld = {pose.entrance.x + cosf(centerHeadingRad) * radius,
 
-  centerWorld.x = pose.entrance.x + cosf(centerHeadingRad) * radius;
+                             pose.entrance.y + sinf(centerHeadingRad) * radius};
 
-  centerWorld.y = pose.entrance.y + sinf(centerHeadingRad) * radius;
-
-  float startAngle =
+  // Calculate the angular position of the entrance and exit
+  // relative to the curve center.
+  const float startAngle =
       atan2f(pose.entrance.y - centerWorld.y, pose.entrance.x - centerWorld.x);
 
-  float endAngle =
+  const float endAngle =
       atan2f(pose.exit.y - centerWorld.y, pose.exit.x - centerWorld.x);
 
+  // Calculate angular travel.
   float delta = normalizeAngle(endAngle - startAngle);
 
-  // Force the arc to follow the same direction as map.cpp.
+  // Make sure the arc travels in the correct direction.
   if (track.direction) {
     if (delta > 0.0f) {
       delta -= 2.0f * PI_F;
@@ -1031,58 +1026,77 @@ void LvTrackMap::drawCurve(lv_layer_t* layer, const Track& track) const {
     }
   }
 
-  const float radiusPixels = fabsf(radius * transform_.scale);
+  // ---------------------------------------------------------
+  // Determine number of segments.
+  // More segments = smoother curve.
+  // ---------------------------------------------------------
 
-  int segments = static_cast<int>(fabsf(delta) * radiusPixels / 8.0f);
+  const float pixelRadius = fabsf(radius * transform_.scale);
 
-  if (segments < 8) {
-    segments = 8;
+  int segments = static_cast<int>(fabsf(delta) * pixelRadius / 5.0f);
+
+  if (segments < 12) {
+    segments = 12;
   }
 
-  if (segments > 96) {
-    segments = 96;
+  if (segments > 128) {
+    segments = 128;
   }
 
-  Point previous = worldToMap({centerWorld.x + cosf(startAngle) * radius,
+  // ---------------------------------------------------------
+  // Draw OUTER track
+  // ---------------------------------------------------------
 
-                               centerWorld.y + sinf(startAngle) * radius});
+  Point previousWorld = {centerWorld.x + cosf(startAngle) * radius,
 
-  // Dark outer track.
+                         centerWorld.y + sinf(startAngle) * radius};
+
+  Point previous = worldToMap(previousWorld);
+
   for (int i = 1; i <= segments; ++i) {
     const float t = static_cast<float>(i) / static_cast<float>(segments);
 
     const float angle = startAngle + delta * t;
 
-    Point current = worldToMap({centerWorld.x + cosf(angle) * radius,
+    const Point currentWorld = {centerWorld.x + cosf(angle) * radius,
 
-                                centerWorld.y + sinf(angle) * radius});
+                                centerWorld.y + sinf(angle) * radius};
 
-    drawSegment(layer, previous, current, config_.track, config_.trackWidth);
+    const Point current = worldToMap(currentWorld);
+
+    // Temporary highly-visible outer track.
+    drawSegment(layer, previous, current, lv_color_hex(0xFF0000), 10);
 
     previous = current;
   }
 
-  // Light center line.
-  previous = worldToMap({centerWorld.x + cosf(startAngle) * radius,
+  // ---------------------------------------------------------
+  // Draw CENTER of track
+  // ---------------------------------------------------------
 
-                         centerWorld.y + sinf(startAngle) * radius});
+  previousWorld = {centerWorld.x + cosf(startAngle) * radius,
+
+                   centerWorld.y + sinf(startAngle) * radius};
+
+  previous = worldToMap(previousWorld);
 
   for (int i = 1; i <= segments; ++i) {
     const float t = static_cast<float>(i) / static_cast<float>(segments);
 
     const float angle = startAngle + delta * t;
 
-    Point current = worldToMap({centerWorld.x + cosf(angle) * radius,
+    const Point currentWorld = {centerWorld.x + cosf(angle) * radius,
 
-                                centerWorld.y + sinf(angle) * radius});
+                                centerWorld.y + sinf(angle) * radius};
 
-    drawSegment(layer, previous, current, config_.trackCenter,
-                config_.centerWidth);
+    const Point current = worldToMap(currentWorld);
+
+    // Temporary highly-visible center line.
+    drawSegment(layer, previous, current, lv_color_hex(0x00FF00), 4);
 
     previous = current;
   }
 }
-
 // ============================================================
 // SWITCH
 //

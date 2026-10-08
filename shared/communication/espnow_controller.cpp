@@ -666,7 +666,7 @@ bool sendServerState(const uint8_t* destination) {
     return false;
   }
   if (!hasPreviousStateChanged()){
-    Serial.println("sendServerState: state has not changed ");
+    // Serial.println("sendServerState: state has not changed ");
 
     return false;
   }
@@ -686,7 +686,7 @@ bool sendServerState(const uint8_t* destination) {
   // ---------------------------------------------------
   // Send each state property separately
   // ---------------------------------------------------
-
+  // TODO might want to make this functionality generic? 
   for (JsonPairConst pair : state) {
     JsonDocument packet;
 
@@ -843,23 +843,23 @@ void processStateChanges() {
          receivers[activeReceiver].used && receivers[activeReceiver].paired) ) {
       bool sent = sendServerState(receivers[activeReceiver].mac);
 
-      if (!sent) {
-        Serial.println("SERVER STATE SEND FAILED");
-      } else {
-        Serial.println("SEVER STATE SEND COMPLETED");
-      }
+      // if (!sent) {
+      //   Serial.println("SERVER STATE SEND FAILED");
+      // } else {
+      //   Serial.println("SEVER STATE SEND COMPLETED");
+      // }
     } else if (isActiveController(currentControllerMac)) {
       bool sent = sendServerState(currentControllerMac);
 
-      if (!sent) {
-        Serial.println("SERVER STATE SEND FAILED");
-      } else {
-        Serial.println("SEVER STATE SEND COMPLETED");
-      }
+      // if (!sent) {
+      //   Serial.println("SERVER STATE SEND FAILED");
+      // } else {
+      //   Serial.println("SEVER STATE SEND COMPLETED");
+      // }
     } else {
-      Serial.println(
-          "ERROR: did not send state change active receiver not paired or "
-          "found");
+      // Serial.println(
+      //     "ERROR: did not send state change active receiver not paired or "
+      //     "found");
     }
   }
 

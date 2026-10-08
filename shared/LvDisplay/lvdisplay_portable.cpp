@@ -155,7 +155,7 @@ void LvDisplayController::init(lv_obj_t* screen) {
                             LV_PART_MAIN);
 
   titleLabel_ = lv_label_create(screen_);
-  lv_label_set_text(titleLabel_, "MOTOR CONTROLS3");
+  lv_label_set_text(titleLabel_, "MOTOR CONTROLS V5");
   lv_obj_set_style_text_color(titleLabel_, lv_color_hex(kColorText),
                               LV_PART_MAIN);
   lv_obj_set_style_text_font(titleLabel_, &lv_font_montserrat_16, LV_PART_MAIN);

@@ -99,7 +99,8 @@ class LvTrackMap {
 
   static void drawEvent(lv_event_t* e);
 
-  void calculateTransform();
+  void calculateTransform(lv_coord_t width = 0,
+                        lv_coord_t height = 0);
 
   Point worldToMap(Point p) const;
 
