@@ -75,11 +75,15 @@ class LvTrackMap {
 
  private:
   using Point = ::Point;
-  
+
   struct Transform {
-    float minX = 0;
-    float minY = 0;
-    float scale = 1;
+    float minX = 0.0f;
+    float minY = 0.0f;
+
+    float scale = 1.0f;
+
+    float offsetX = 0.0f;
+    float offsetY = 0.0f;
   };
 
   lv_obj_t* root_ = nullptr;

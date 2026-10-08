@@ -1,11 +1,11 @@
 #pragma once
-#include "Arduino.h"
 #include <ArduinoJson.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "../utils/uidLogic.h"
+#include "Arduino.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -19,7 +19,8 @@ struct Track;
 struct Tag {
   Uid uid;
   Track* track = nullptr;
-  Tag* connectedTag = nullptr;
+  // Tag* connectedTag = nullptr;
+  Uid connectedTagUid;
 };
 
 struct Point {
@@ -95,7 +96,10 @@ class TrackMap {
                      float branchAngle, float branchRadius, float branchLength,
                      bool direction, Uid entranceAUid, Uid exitAUid,
                      Uid entranceBUid = Uid(), Uid exitBUid = Uid(),
-                     bool dontAdd = false);
+                     bool dontAdd = false, Uid connectEntranceAUid = Uid(),
+                     Uid connectExitAUid = Uid(),
+                     Uid connectEntranceBUid = Uid(),
+                     Uid connectExitBUid = Uid());
 
   /*
    * Calculate the complete map.
@@ -119,13 +123,17 @@ class TrackMap {
 
   uint8_t getTrackCount() const;
 
-  void mapToJson(JsonDocument& doc);
+  void JsonToMap(JsonArray doc);
 
   Track* jsonToTrack(JsonObject obj);
 
   void trackToJson(Track& track, JsonObject& ojb);
 
+  void mapToJson(JsonDocument& doc);
+
   void printTrack(Track& track);
+  
+  const char* trackTypeToString(TrackType type);
 
  private:
   static constexpr uint8_t MAX_TRACKS = 100;
@@ -134,7 +142,6 @@ class TrackMap {
   uint8_t trackCount = 0;
   //  used when creating track that should not be added
   Track tempTrack;
-  const char* trackTypeToString(TrackType type);
 
   void addTagJson(JsonArray& array, const char* name, Tag& tag);
 
@@ -195,4 +202,7 @@ class TrackMap {
   void calculateCrossPose(Track& track);
 
   int findTrackIndex(Track* track);
+  void clearMap();
 };
+
+extern TrackMap trackMap;

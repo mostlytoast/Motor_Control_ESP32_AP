@@ -1,6 +1,5 @@
 #include "map.h"
 
-
 // ============================================================
 // MATH HELPERS
 // ============================================================
@@ -240,9 +239,9 @@ void TrackMap::calculateCrossPose(Track& track) {
 // ============================================================
 
 bool TrackMap::positionConnectedTrack(Track& source, Tag& sourceTag) {
-  if (!sourceTag.connectedTag) return false;
+  if (!findTagByUid(sourceTag.connectedTagUid)) return false;
 
-  Tag* destinationTag = sourceTag.connectedTag;
+  Tag* destinationTag = findTagByUid(sourceTag.connectedTagUid);
 
   Track* destinationTrack = destinationTag->track;
 
@@ -332,9 +331,10 @@ void TrackMap::calculateMap() {
       Track& track = tracks[i];
 
       Serial.printf("Track %d: entranceA=%p entranceB=%p exitA=%p exitB=%p\n",
-                    i, track.entranceA.connectedTag,
-                    track.entranceB.connectedTag, track.exitA.connectedTag,
-                    track.exitB.connectedTag);
+                    i, findTagByUid(track.entranceA.connectedTagUid),
+                    findTagByUid(track.entranceB.connectedTagUid),
+                    findTagByUid(track.exitA.connectedTagUid),
+                    findTagByUid(track.exitB.connectedTagUid));
 
       if (!track.positioned) continue;
 
@@ -342,9 +342,9 @@ void TrackMap::calculateMap() {
                      &track.exitB};
 
       for (Tag* tag : tags) {
-        if (!tag->connectedTag) continue;
+        if (!findTagByUid(tag->connectedTagUid)) continue;
 
-        Track* next = tag->connectedTag->track;
+        Track* next = findTagByUid(tag->connectedTagUid)->track;
 
         if (!next || next->positioned) continue;
 
@@ -365,7 +365,9 @@ Track* TrackMap::createTrack(TrackType type, float length, float radius,
                              float branchAngle, float branchRadius,
                              float branchLength, bool direction,
                              Uid entranceAUid, Uid exitAUid, Uid entranceBUid,
-                             Uid exitBUid, bool dontAdd) {
+                             Uid exitBUid, bool dontAdd,
+                             Uid connectEntranceAUid, Uid connectExitAUid,
+                             Uid connectEntranceBUid, Uid connectExitBUid) {
   if (trackCount >= MAX_TRACKS && !dontAdd) return nullptr;
 
   Track* track;
@@ -392,10 +394,19 @@ Track* TrackMap::createTrack(TrackType type, float length, float radius,
   Tag* tags[] = {&track->entranceA, &track->entranceB, &track->exitA,
                  &track->exitB};
 
+  // Uid connectedTagUid[] = {connectEntranceAUid, connectExitAUid,
+  //                          connectEntranceBUid, connectExitBUid};
+
   for (Tag* tag : tags) {
     tag->track = track;
-    tag->connectedTag = nullptr;
+
+    // tag->connectedTag = nullptr;
   }
+
+  track->entranceA.connectedTagUid = connectEntranceAUid;
+  track->exitA.connectedTagUid = connectExitAUid;
+  track->entranceB.connectedTagUid = connectEntranceBUid;
+  track->exitB.connectedTagUid = connectExitBUid;
 
   track->entranceA.uid = entranceAUid;
   track->exitA.uid = exitAUid;
@@ -415,8 +426,10 @@ bool TrackMap::connectTags(Tag* a, Tag* b) {
     return false;
   }
 
-  a->connectedTag = b;
-  b->connectedTag = a;
+  // a->connectedTag = b;
+  a->connectedTagUid = b->uid;
+  // b->connectedTag = a;
+  b->connectedTagUid = a->uid;
 
   if (a->track) {
     a->track->positioned = false;
@@ -622,6 +635,8 @@ void TrackMap::mapToJson(JsonDocument& doc) {
       count++;
     }
   }
+  // Serial.println("tracks json");
+  // serializeJsonPretty(tracksJson,Serial);
 }
 
 // ============================================================
@@ -639,9 +654,8 @@ void TrackMap::addTagJson(JsonArray& array, const char* name, Tag& tag) {
   // Store whether the UID is valid.
   obj["valid"] = tag.uid.isValid();
 
-  obj["connectedTrack"] = (tag.connectedTag && tag.connectedTag->track)
-                              ? findTrackIndex(tag.connectedTag->track)
-                              : -1;
+  Uid emptyUid;
+  obj["connectedTagUid"] = tag.connectedTagUid.toString();
 }
 
 // ============================================================
@@ -658,6 +672,28 @@ int TrackMap::findTrackIndex(Track* track) {
   }
 
   return -1;
+}
+void TrackMap::clearMap() {
+  trackCount = 0;
+  memset(tracks, 0, sizeof(tracks));
+  trackCount = 0;
+}
+void TrackMap::JsonToMap(JsonArray doc) {
+  // todo find better way to prevent it creating multiple of same track
+  // if (trackCount ==1 ) return;
+  clearMap();
+  if (doc.isNull()) {
+    Serial.println("JsonToMap: no tracks array found");
+    return;
+  }
+  Serial.println("JsonToMap: loading in map");
+  Serial.print("JsonToMap: size ");
+  Serial.println(doc.size());
+  // serializeJsonPretty(doc, Serial);
+  for (uint8_t i = 0; i < doc.size(); i++) {
+    jsonToTrack(doc[i]);
+  }
+  trackMap.calculateMap();
 }
 
 // ============================================================
@@ -679,11 +715,13 @@ Track* TrackMap::jsonToTrack(JsonObject obj) {
 
   Serial.println("=== jsonToTrack ===");
 
-  serializeJsonPretty(obj, Serial);
+  // serializeJsonPretty(obj, Serial);
 
   Serial.println();
 
   float length = obj["length"].is<float>() ? obj["length"].as<float>() : 0;
+  // Serial.println("length");
+  // Serial.println(length);
 
   float radius = obj["radius"].is<float>() ? obj["radius"].as<float>() : 0;
 
@@ -743,6 +781,11 @@ Track* TrackMap::jsonToTrack(JsonObject obj) {
   Uid entranceBUid;
   Uid exitBUid;
 
+  Uid connectEntranceAUid;
+  Uid connectExitAUid;
+  Uid connectEntranceBUid;
+  Uid connectExitBUid;
+
   JsonArray tags = obj["tags"].as<JsonArray>();
 
   if (!tags.isNull()) {
@@ -750,6 +793,8 @@ Track* TrackMap::jsonToTrack(JsonObject obj) {
       const char* name = tagObj["name"].as<const char*>();
 
       const char* uidString = tagObj["uid"].as<const char*>();
+
+      const char* connectedTagUid = tagObj["connectedTagUid"].as<const char*>();
 
       if (name == nullptr) {
         continue;
@@ -765,14 +810,18 @@ Track* TrackMap::jsonToTrack(JsonObject obj) {
 
       if (strcmp(name, "entranceA") == 0) {
         entranceAUid.fromString(uidString);
+        connectEntranceAUid.fromString(connectedTagUid);
       } else if (strcmp(name, "entranceB") == 0) {
         entranceBUid.fromString(uidString);
+        connectEntranceBUid.fromString(connectedTagUid);
 
       } else if (strcmp(name, "exitA") == 0) {
         exitAUid.fromString(uidString);
+        connectExitAUid.fromString(connectedTagUid);
 
       } else if (strcmp(name, "exitB") == 0) {
         exitBUid.fromString(uidString);
+        connectExitBUid.fromString(connectedTagUid);
 
       } else {
         Serial.print("jsonToTrack: Unknown tag name: ");
@@ -786,8 +835,10 @@ Track* TrackMap::jsonToTrack(JsonObject obj) {
   // ============================================================
   // CREATE TRACK
   // ============================================================
-
+  // todo might need to find way to add back in pose and position marker
+  // settings?  dont want stateJson to call calculateMap?
   return createTrack(trackType, length, radius, branchAngle, branchRadius,
                      branchLength, direction, entranceAUid, exitAUid,
-                     entranceBUid, exitBUid);
+                     entranceBUid, exitBUid, false, connectEntranceAUid,
+                     connectExitAUid, connectEntranceBUid, connectExitBUid);
 }

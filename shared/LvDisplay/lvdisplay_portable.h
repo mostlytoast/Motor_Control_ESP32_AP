@@ -7,6 +7,8 @@
 #include <memory>
 #include <vector>
 
+#include "../communication/packets.h"
+#include "../utils/StateJson.h"
 #include "LvTrackMap.h"
 // ============================================================
 // Portable display dimensions
@@ -20,7 +22,7 @@ class ILvDisplayHost {
  public:
   virtual ~ILvDisplayHost() = default;
 
-  virtual void sendCommand(const char* command, int value) = 0;
+  // virtual void sendCommand(const char* command, int value) = 0;
 
   virtual void sendJson(const char* json) = 0;
 };
@@ -36,14 +38,14 @@ enum class LvDisplayAction {
   Audio
 };
 
-struct LvDisplayState {
-  int motorSpeed = 0;
-  int rampSetting = 0;
-  bool led1State = false;
-  bool led2State = false;
-  bool autoState = false;
-  bool audioState = false;
-};
+// struct LvDisplayState {
+//   int motorSpeed = 0;
+//   int rampSetting = 0;
+//   bool led1State = false;
+//   bool led2State = false;
+//   bool autoState = false;
+//   bool audioState = false;
+// };
 
 class LvDisplayController;
 
@@ -70,7 +72,7 @@ class LvDisplayController {
   void setAuto(bool enabled);
   void setAudio(bool enabled);
 
-  const LvDisplayState& state() const { return state_; }
+  // const LvDisplayState& state() const { return state_; }
   lv_obj_t* speedLabel() const { return speedLabel_; }
   lv_obj_t* rampLabel() const { return rampLabel_; }
   lv_obj_t* statusLabel() const { return statusLabel_; }
@@ -91,23 +93,23 @@ class LvDisplayController {
   // JSON state synchronization
   // --------------------------------------------------------
 
-  void getStateFromJson(const char* json);
+  void getStateFromJsonDisplay(const char* json);
 
-  void sendStateJson();
+  // void sendStateJson();
 
   // --------------------------------------------------------
   // Access current state
   // --------------------------------------------------------
 
-  const LvDisplayState& getState() const { return state_; }
+  // const LvDisplayState& getState() const { return state_; }
   void toggleTrackMap();
+  void applyStateToUi();
 
  private:
   void setButtonState(lv_obj_t* button, bool state);
   void updateSpeedLabel();
   void updateRampLabel();
   void updateStatusLabel();
-  void applyStateToUi();
 
   void buttonEventHandler(lv_event_t* event);
 
@@ -137,8 +139,7 @@ class LvDisplayController {
   LvTrackMap* trackMapDisplay_ = nullptr;
 
   bool mapVisible_ = false;
-
-  LvDisplayState state_;
+    // todo use app state instead
   std::vector<ButtonBindingPtr> bindings_;
 };
 

@@ -8,53 +8,10 @@
 
 namespace {
 
-// void LvTrackMap::createTrackMap(lv_obj_t* parent) {
-//   trackMapDisplay = new LvTrackMap(parent);
-
-//   trackMapDisplay->setTrackMap(trackMap);
-//   lv_obj_add_flag(trackMapDisplay, LV_OBJ_FLAG_HIDDEN);
-
-// }
-
-// static void LvTrackMap::mapMenuEvent(lv_event_t* event) {
-//   if (lv_event_get_code(event) != LV_EVENT_CLICKED) {
-//     return;
-//   }
-
-//   if (trackMapDisplay == NULL) {
-//     return;
-//   }
-
-//   if (lv_obj_has_flag(trackMapDisplay, LV_OBJ_FLAG_HIDDEN)) {
-//     lv_obj_clear_flag(trackMapDisplay, LV_OBJ_FLAG_HIDDEN);
-
-//     receiverListNeedsRefresh = true;
-//   }
-
-//   else {
-//     closeControllerMenu();
-//   }
-// }
 constexpr float PI_F = 3.14159265358979323846f;
 constexpr float DEG_TO_RAD_F = PI_F / 180.0f;
 
-static const char* trackTypeName(TrackType type) {
-  switch (type) {
-    case STRAIGHT:
-      return "STRAIGHT";
-    case CURVED:
-      return "CURVED";
-    case SWITCH:
-      return "SWITCH";
-    case BUMPER:
-      return "BUMPER";
-    case CROSS:
-      return "CROSS";
-    default:
-      return "UNKNOWN";
-  }
-}
-
+//
 static float normalizeAngle(float angle) {
   while (angle > PI_F) {
     angle -= 2.0f * PI_F;
@@ -73,31 +30,67 @@ static float normalizeAngle(float angle) {
 // CONSTRUCTION / CONFIGURATION
 // ============================================================
 
+// LvTrackMap::LvTrackMap(lv_obj_t* parent) {
+//   root_ = lv_obj_create(parent);
+
+//   lv_obj_remove_style_all(root_);
+//   lv_obj_set_size(root_, LV_PCT(100), LV_PCT(100));
+//   //   lv_obj_clear_flag(root_, LV_OBJ_FLAG_SCROLLABLE);
+//   lv_obj_set_scroll_dir(root_, LV_DIR_NONE);
+
+//   installCallbacks();
+// }
 LvTrackMap::LvTrackMap(lv_obj_t* parent) {
+  Serial.println("LvTrackMap constructor");
+
   root_ = lv_obj_create(parent);
 
+  if (!root_) {
+    Serial.println("FAILED creating root");
+    return;
+  }
+
+  Serial.println("root created");
+
   lv_obj_remove_style_all(root_);
+
   lv_obj_set_size(root_, LV_PCT(100), LV_PCT(100));
-  //   lv_obj_clear_flag(root_, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_scroll_dir(root_, LV_DIR_NONE);
+  lv_obj_set_pos(root_, 0, 0);
+
+  lv_obj_remove_flag(root_, LV_OBJ_FLAG_SCROLLABLE);
 
   installCallbacks();
-}
 
+  Serial.println("LvTrackMap constructor finished");
+}
 LvTrackMap::~LvTrackMap() {
   // root_ is owned by LVGL/the parent object.
   // Do not delete it here.
   root_ = nullptr;
 }
 
+// void LvTrackMap::installCallbacks() {
+//   if (!root_) {
+//     return;
+//   }
+
+//   lv_obj_add_event_cb(root_, drawEvent, LV_EVENT_DRAW_MAIN, this);
+// }
+
 void LvTrackMap::installCallbacks() {
+  Serial.println("installCallbacks()");
+
   if (!root_) {
+    Serial.println("root_ is NULL");
     return;
   }
 
-  lv_obj_add_event_cb(root_, drawEvent, LV_EVENT_DRAW_MAIN, this);
-}
+  Serial.println("adding DRAW_MAIN callback");
 
+  lv_obj_add_event_cb(root_, LvTrackMap::drawEvent, LV_EVENT_DRAW_MAIN, this);
+
+  Serial.println("DRAW_MAIN callback added");
+}
 void LvTrackMap::setConfig(const Config& config) {
   config_ = config;
   calculateTransform();
@@ -106,7 +99,10 @@ void LvTrackMap::setConfig(const Config& config) {
 
 void LvTrackMap::setTrackMap(TrackMap* map) {
   map_ = map;
-
+  Serial.println("json doc in lvtrackmap");
+  JsonDocument doc;
+  map_->mapToJson(doc);
+  serializeJsonPretty(doc, Serial);
   calculateTransform();
   refresh();
 }
@@ -134,12 +130,11 @@ size_t LvTrackMap::trackCount() const {
 // ============================================================
 // VIEW / TRANSFORM
 // ============================================================
-
 void LvTrackMap::calculateTransform() {
   transform_ = {};
   transform_.scale = 1.0f;
 
-  if (!map_) {
+  if (!map_ || !root_) {
     return;
   }
 
@@ -154,7 +149,145 @@ void LvTrackMap::calculateTransform() {
   float maxX = -INFINITY;
   float maxY = -INFINITY;
 
-  bool foundPoint = false;
+  bool foundGeometry = false;
+
+  // ----------------------------------------------------------
+  // Helpers
+  // ----------------------------------------------------------
+
+  auto includePoint = [&](float x, float y) {
+    if (!isfinite(x) || !isfinite(y)) {
+      return;
+    }
+
+    minX = fminf(minX, x);
+    minY = fminf(minY, y);
+    maxX = fmaxf(maxX, x);
+    maxY = fmaxf(maxY, y);
+
+    foundGeometry = true;
+  };
+
+  // auto includePoint = [&](const Point& p) { includePoint(p.x, p.y); };
+
+  auto includeRadius = [&](const Point& p, float radius) {
+    includePoint(p.x - radius, p.y - radius);
+    includePoint(p.x + radius, p.y + radius);
+  };
+
+  // ----------------------------------------------------------
+  // Include a straight line and its physical width
+  // ----------------------------------------------------------
+
+  auto includeLine = [&](const Point& a, const Point& b, float halfWidth) {
+    includePoint(a.x, a.y);
+    includePoint(b.x, b.y);
+
+    const float dx = b.x - a.x;
+    const float dy = b.y - a.y;
+
+    const float length = sqrtf(dx * dx + dy * dy);
+
+    if (length > 0.0001f) {
+      // Perpendicular unit vector.
+      const float nx = -dy / length;
+      const float ny = dx / length;
+
+      includePoint(a.x + nx * halfWidth, a.y + ny * halfWidth);
+
+      includePoint(a.x - nx * halfWidth, a.y - ny * halfWidth);
+
+      includePoint(b.x + nx * halfWidth, b.y + ny * halfWidth);
+
+      includePoint(b.x - nx * halfWidth, b.y - ny * halfWidth);
+    } else {
+      includeRadius(a, halfWidth);
+    }
+  };
+
+  // ----------------------------------------------------------
+  // Include a circular arc
+  //
+  // This checks the start/end angles plus every quadrant
+  // where the circle can reach its X/Y extrema.
+  // ----------------------------------------------------------
+
+  auto includeArc = [&](const Point& center, float radius, float startAngle,
+                        float delta, float halfWidth) {
+    if (!isfinite(radius) || radius <= 0.0f) {
+      return;
+    }
+
+    const float effectiveRadius = radius + halfWidth;
+
+    // Always include the endpoints.
+    includePoint(center.x + cosf(startAngle) * effectiveRadius,
+                 center.y + sinf(startAngle) * effectiveRadius);
+
+    const float endAngle = startAngle + delta;
+
+    includePoint(center.x + cosf(endAngle) * effectiveRadius,
+                 center.y + sinf(endAngle) * effectiveRadius);
+
+    // --------------------------------------------------------
+    // Test the four circle extrema:
+    //
+    // 0
+    // PI/2
+    // PI
+    // 3PI/2
+    //
+    // Only include them if they fall within the arc.
+    // --------------------------------------------------------
+
+    auto angleOnArc = [&](float angle) {
+      const float twoPi = 2.0f * PI_F;
+
+      float relative = angle - startAngle;
+
+      if (delta >= 0.0f) {
+        while (relative < 0.0f) {
+          relative += twoPi;
+        }
+
+        while (relative > twoPi) {
+          relative -= twoPi;
+        }
+
+        return relative <= delta + 0.0001f;
+      } else {
+        while (relative > 0.0f) {
+          relative -= twoPi;
+        }
+
+        while (relative < -twoPi) {
+          relative += twoPi;
+        }
+
+        return relative >= delta - 0.0001f;
+      }
+    };
+
+    const float extrema[] = {
+        0.0f,
+        PI_F * 0.5f,
+        PI_F,
+        PI_F * 1.5f,
+    };
+
+    for (float angle : extrema) {
+      if (!angleOnArc(angle)) {
+        continue;
+      }
+
+      includePoint(center.x + cosf(angle) * effectiveRadius,
+                   center.y + sinf(angle) * effectiveRadius);
+    }
+  };
+
+  // ----------------------------------------------------------
+  // Calculate geometry bounds
+  // ----------------------------------------------------------
 
   for (uint8_t i = 0; i < count; ++i) {
     const Track* track = map_->getTrack(i);
@@ -165,45 +298,207 @@ void LvTrackMap::calculateTransform() {
 
     const TrackPose& pose = track->pose;
 
-    const Point points[] = {pose.entrance, pose.exit};
+    // --------------------------------------------------------
+    // Track width in WORLD units.
+    //
+    // trackWidth is a screen-space rendering value, so we
+    // don't use it here. Instead use a conservative physical
+    // expansion based on the track geometry.
+    // --------------------------------------------------------
 
-    for (const Point& point : points) {
-      if (!isfinite(point.x) || !isfinite(point.y)) {
+    const float geometryPadding =
+        0.5f * fmaxf(track->radius > 0.0f ? track->radius * 0.02f : 1.0f, 1.0f);
+
+    switch (track->trackType) {
+        // ======================================================
+        // STRAIGHT
+        // ======================================================
+
+      case STRAIGHT: {
+        includeLine(pose.entrance, pose.exit, geometryPadding);
+
+        break;
+      }
+
+        // ======================================================
+        // CURVED
+        // ======================================================
+
+      case CURVED: {
+        if (track->radius <= 0.0f) {
+          includeLine(pose.entrance, pose.exit, geometryPadding);
+
+          break;
+        }
+
+        const float radius = track->radius;
+
+        // map.cpp uses:
+        //
+        // true  -> heading - 90
+        // false -> heading + 90
+        //
+
+        const float centerHeading = track->direction
+                                        ? pose.entranceAHeading - 90.0f
+                                        : pose.entranceAHeading + 90.0f;
+
+        const float centerHeadingRad = centerHeading * DEG_TO_RAD_F;
+
+        Point centerWorld;
+
+        centerWorld.x = pose.entrance.x + cosf(centerHeadingRad) * radius;
+
+        centerWorld.y = pose.entrance.y + sinf(centerHeadingRad) * radius;
+
+        const float startAngle = atan2f(pose.entrance.y - centerWorld.y,
+                                        pose.entrance.x - centerWorld.x);
+
+        const float endAngle =
+            atan2f(pose.exit.y - centerWorld.y, pose.exit.x - centerWorld.x);
+
+        float delta = normalizeAngle(endAngle - startAngle);
+
+        // Match drawCurve().
+        if (track->direction) {
+          if (delta > 0.0f) {
+            delta -= 2.0f * PI_F;
+          }
+        } else {
+          if (delta < 0.0f) {
+            delta += 2.0f * PI_F;
+          }
+        }
+
+        includeArc(centerWorld, radius, startAngle, delta, geometryPadding);
+
+        break;
+      }
+
+        // ======================================================
+        // SWITCH
+        // ======================================================
+
+      case SWITCH: {
+        includeLine(pose.entrance, pose.exit, geometryPadding);
+
+        includeLine(pose.entrance, pose.exitB, geometryPadding);
+
+        break;
+      }
+
+        // ======================================================
+        // CROSS
+        // ======================================================
+
+      case CROSS: {
+        // Your current drawCross() only renders entrance -> exit.
+        //
+        // If you later add the second crossing route, add it
+        // here too.
+        includeLine(pose.entrance, pose.exit, geometryPadding);
+
+        break;
+      }
+
+        // ======================================================
+        // BUMPER
+        // ======================================================
+
+      case BUMPER: {
+        includeLine(pose.entrance, pose.exit, geometryPadding);
+
+        // Include the bumper itself.
+        //
+        // drawBumper() currently uses a 15 pixel half-width,
+        // but this is screen-space. Use a conservative world
+        // expansion here.
+        const float bumperWorldRadius = fmaxf(geometryPadding, 1.0f);
+
+        includeRadius(pose.exit, bumperWorldRadius);
+
+        break;
+      }
+
+      default:
+        break;
+    }
+
+    // --------------------------------------------------------
+    // Include TAG geometry.
+    //
+    // Tags are rendered as circles and labels. Include the
+    // physical tag radius so they don't get clipped.
+    // --------------------------------------------------------
+
+    const Tag* tags[] = {
+        &track->entranceA,
+        &track->entranceB,
+        &track->exitA,
+        &track->exitB,
+    };
+
+    for (const Tag* tag : tags) {
+      if (!tag || !tag->uid.isValid()) {
         continue;
       }
 
-      minX = fminf(minX, point.x);
-      minY = fminf(minY, point.y);
-      maxX = fmaxf(maxX, point.x);
-      maxY = fmaxf(maxY, point.y);
+      const Point tagPosition = tagWorldPosition(*track, *tag);
 
-      foundPoint = true;
-    }
-
-    // Only SWITCH currently produces a meaningful exitB in map.cpp.
-    // Do not include unused zero-initialized B points from other
-    // track types because that would distort the view transform.
-    if (track->trackType == SWITCH) {
-      if (isfinite(pose.exitB.x) && isfinite(pose.exitB.y)) {
-        minX = fminf(minX, pose.exitB.x);
-        minY = fminf(minY, pose.exitB.y);
-        maxX = fmaxf(maxX, pose.exitB.x);
-        maxY = fmaxf(maxY, pose.exitB.y);
-
-        foundPoint = true;
-      }
+      // Conservative world-space tag radius.
+      //
+      // Since tagRadius is screen-space, use a small
+      // geometry expansion here. The final margin below
+      // protects the actual rendered circle.
+      includeRadius(tagPosition, geometryPadding);
     }
   }
 
-  if (!foundPoint || !isfinite(minX) || !isfinite(minY) || !isfinite(maxX) ||
+  // ----------------------------------------------------------
+  // Validate bounds
+  // ----------------------------------------------------------
+
+  if (!foundGeometry || !isfinite(minX) || !isfinite(minY) || !isfinite(maxX) ||
       !isfinite(maxY)) {
     return;
   }
 
-  const float worldWidth = fmaxf(maxX - minX, 1.0f);
-  const float worldHeight = fmaxf(maxY - minY, 1.0f);
+  // ----------------------------------------------------------
+  // Add a world-space margin.
+  //
+  // This prevents antialiased lines / labels / tags from
+  // touching the edge after scaling.
+  // ----------------------------------------------------------
+
+  float worldWidth = maxX - minX;
+
+  float worldHeight = maxY - minY;
+
+  if (worldWidth < 0.001f) {
+    worldWidth = 1.0f;
+  }
+
+  if (worldHeight < 0.001f) {
+    worldHeight = 1.0f;
+  }
+
+  const float worldMargin = fmaxf(fmaxf(worldWidth, worldHeight) * 0.05f, 1.0f);
+
+  minX -= worldMargin;
+  maxX += worldMargin;
+  minY -= worldMargin;
+  maxY += worldMargin;
+
+  worldWidth = maxX - minX;
+
+  worldHeight = maxY - minY;
+
+  // ----------------------------------------------------------
+  // Get actual LVGL object dimensions
+  // ----------------------------------------------------------
 
   lv_coord_t width = lv_obj_get_width(root_);
+
   lv_coord_t height = lv_obj_get_height(root_);
 
   if (width <= 0) {
@@ -214,6 +509,10 @@ void LvTrackMap::calculateTransform() {
     height = config_.height;
   }
 
+  if (width <= 0 || height <= 0) {
+    return;
+  }
+
   const float padding = static_cast<float>(config_.padding);
 
   const float availableWidth =
@@ -222,35 +521,86 @@ void LvTrackMap::calculateTransform() {
   const float availableHeight =
       fmaxf(static_cast<float>(height) - padding * 2.0f, 1.0f);
 
-  transform_.minX = minX;
-  transform_.minY = minY;
+  // ----------------------------------------------------------
+  // Uniform scale
+  //
+  // This makes the ENTIRE geometry fit.
+  // ----------------------------------------------------------
 
   transform_.scale =
       fminf(availableWidth / worldWidth, availableHeight / worldHeight);
 
-  // Prevent an invalid transform if the LVGL object is not fully sized yet.
   if (!isfinite(transform_.scale) || transform_.scale <= 0.0f) {
     transform_.scale = 1.0f;
   }
-}
 
+  // ----------------------------------------------------------
+  // Center the complete map inside the display.
+  // ----------------------------------------------------------
+
+  const float scaledWidth = worldWidth * transform_.scale;
+
+  const float scaledHeight = worldHeight * transform_.scale;
+
+  const float offsetX = (static_cast<float>(width) - scaledWidth) * 0.5f;
+
+  const float offsetY = (static_cast<float>(height) - scaledHeight) * 0.5f;
+
+  transform_.minX = minX;
+  transform_.minY = minY;
+
+  transform_.offsetX = offsetX;
+  transform_.offsetY = offsetY;
+
+  // ----------------------------------------------------------
+  // Debug
+  // ----------------------------------------------------------
+
+  Serial.println("=== Track Map Transform ===");
+
+  Serial.print("Bounds X: ");
+  Serial.print(minX);
+  Serial.print(" -> ");
+  Serial.println(maxX);
+
+  Serial.print("Bounds Y: ");
+  Serial.print(minY);
+  Serial.print(" -> ");
+  Serial.println(maxY);
+
+  Serial.print("Geometry size: ");
+  Serial.print(worldWidth);
+  Serial.print(" x ");
+  Serial.println(worldHeight);
+
+  Serial.print("Display size: ");
+  Serial.print(width);
+  Serial.print(" x ");
+  Serial.println(height);
+
+  Serial.print("Scale: ");
+  Serial.println(transform_.scale);
+
+  Serial.print("Offset: ");
+  Serial.print(offsetX);
+  Serial.print(", ");
+  Serial.println(offsetY);
+}
 void LvTrackMap::resetView() {
   calculateTransform();
   refresh();
 }
-
 LvTrackMap::Point LvTrackMap::worldToMap(Point point) const {
   Point result;
 
-  result.x = (point.x - transform_.minX) * transform_.scale +
-             static_cast<float>(config_.padding);
+  result.x =
+      (point.x - transform_.minX) * transform_.scale + transform_.offsetX;
 
-  result.y = (point.y - transform_.minY) * transform_.scale +
-             static_cast<float>(config_.padding);
+  result.y =
+      (point.y - transform_.minY) * transform_.scale + transform_.offsetY;
 
   return result;
 }
-
 // ============================================================
 // REFRESH
 // ============================================================
@@ -269,7 +619,7 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
   if (!e) {
     return;
   }
-
+  Serial.println("draw event ");
   LvTrackMap* self = static_cast<LvTrackMap*>(lv_event_get_user_data(e));
 
   if (!self || !self->root_) {
@@ -310,6 +660,8 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
   self->drawText(layer,
                  {static_cast<float>(lv_area_get_width(&area)) / 2.0f, 10.0f},
                  countText, self->config_.label);
+
+  // resetView();  //  TODO diff solution just temp
 }
 
 // ============================================================
@@ -383,6 +735,8 @@ void LvTrackMap::drawSegment(lv_layer_t* layer, Point a, Point b,
 
 void LvTrackMap::drawCircle(lv_layer_t* layer, Point center, int32_t radius,
                             lv_color_t color, bool filled) const {
+  Serial.println("draw circle");
+
   if (!root_) {
     return;
   }
@@ -457,6 +811,8 @@ void LvTrackMap::drawText(lv_layer_t* layer, Point center, const char* text,
 // ============================================================
 
 void LvTrackMap::drawConnections(lv_layer_t* layer) const {
+  Serial.println("draw connections");
+
   if (!map_) {
     return;
   }
@@ -474,11 +830,11 @@ void LvTrackMap::drawConnections(lv_layer_t* layer) const {
                          &track->exitB};
 
     for (const Tag* tag : tags) {
-      if (!tag || !tag->connectedTag) {
+      if (!tag || !map_->findTagByUid(tag->connectedTagUid)) {
         continue;
       }
 
-      const Tag* otherTag = tag->connectedTag;
+      const Tag* otherTag = map_->findTagByUid(tag->connectedTagUid);
 
       if (!otherTag->track) {
         continue;
@@ -563,7 +919,11 @@ LvTrackMap::Point LvTrackMap::tagWorldPosition(const Track& track,
 
 void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
                            size_t index) const {
+  Serial.println("draw track");
+
   if (!track.positioned) {
+    Serial.println("track has not been positioned");
+
     return;
   }
 
@@ -620,6 +980,7 @@ void LvTrackMap::drawStraight(lv_layer_t* layer, Point a, Point b) const {
 
 void LvTrackMap::drawCurve(lv_layer_t* layer, const Track& track) const {
   const TrackPose& pose = track.pose;
+  Serial.println("draw curve");
 
   if (track.radius <= 0.0f) {
     drawStraight(layer, worldToMap(pose.entrance), worldToMap(pose.exit));
@@ -628,6 +989,9 @@ void LvTrackMap::drawCurve(lv_layer_t* layer, const Track& track) const {
   }
 
   const float radius = track.radius;
+  Serial.println("radius");
+
+  Serial.println(radius);
 
   const float heading = pose.entranceAHeading * DEG_TO_RAD_F;
 
@@ -794,7 +1158,7 @@ void LvTrackMap::drawTags(lv_layer_t* layer, const Track& track) const {
 
     const Point point = worldToMap(world);
 
-    const bool connected = tag->connectedTag != nullptr;
+    const bool connected = map_->findTagByUid(tag->connectedTagUid) != nullptr;
 
     drawCircle(layer, point, config_.tagRadius,
                connected ? config_.tagConnected : config_.tagUnconnected, true);
@@ -833,7 +1197,7 @@ void LvTrackMap::drawLabel(lv_layer_t* layer, const Track& track,
   char text[64];
 
   snprintf(text, sizeof(text), "#%u %s", static_cast<unsigned>(index),
-           trackTypeName(track.trackType));
+           map_->trackTypeToString(track.trackType));
 
   drawText(layer, center, text, config_.label, true);
 }
