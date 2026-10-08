@@ -308,7 +308,7 @@ bool TrackMap::positionConnectedTrack(Track& source, Tag& sourceTag) {
 // ============================================================
 
 void TrackMap::calculateMap() {
-  Serial.println("calculating map");
+  // Serial.println("calculating map");
   if (trackCount == 0) return;
 
   for (uint8_t i = 0; i < trackCount; i++) {
@@ -687,8 +687,8 @@ void TrackMap::JsonToMap(JsonArray doc) {
     return;
   }
   Serial.println("JsonToMap: loading in map");
-  Serial.print("JsonToMap: size ");
-  Serial.println(doc.size());
+  // Serial.print("JsonToMap: size ");
+  // Serial.println(doc.size());
   // serializeJsonPretty(doc, Serial);
   for (uint8_t i = 0; i < doc.size(); i++) {
     jsonToTrack(doc[i]);

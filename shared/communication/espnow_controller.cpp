@@ -6,7 +6,7 @@
 #include <esp_wifi.h>
 
 #include "StateJson.h"
-
+// TODO need to ensure works with multiple controllers and receivers
 // =====================================================
 // GLOBAL STATE
 // =====================================================
@@ -93,10 +93,11 @@ bool addPeer(const uint8_t* mac, uint8_t channel) {
   esp_err_t result = esp_now_add_peer(&peerInfo);
 
   if (result == ESP_OK || result == ESP_ERR_ESPNOW_EXIST) {
+    Serial.println("ESP-NOW peer added");
     return true;
   }
 
-  Serial.print("ESP-NOW add peer failed: ");
+  Serial.print("EeSP-NOW add peer failed: ");
   Serial.print(result);
   Serial.print(" / ");
   Serial.println(esp_err_to_name(result));
@@ -618,6 +619,33 @@ bool sendCommand(uint8_t type, int16_t value) {
   return sendJsonDocument(receiver.mac, doc);
 }
 
+
+JsonDocument previousState;
+bool previousStateUpdated = false;
+
+bool hasPreviousStateChanged() {
+  JsonDocument fullState;
+
+  getJsonFromState(fullState);
+
+  // First call: establish the baseline
+  if (!previousStateUpdated) {
+    previousState = fullState;
+    previousStateUpdated = true;
+    return true;
+  }
+
+  // Nothing changed
+  if (previousState == fullState) {
+    return false;
+  }
+
+  // Something changed, update the baseline
+  previousState = fullState;
+
+  return true;
+}
+
 // =====================================================
 // SEND SERVER STATE
 //
@@ -637,7 +665,11 @@ bool sendServerState(const uint8_t* destination) {
   if (destination == nullptr) {
     return false;
   }
+  if (!hasPreviousStateChanged()){
+    Serial.println("sendServerState: state has not changed ");
 
+    return false;
+  }
   JsonDocument fullState;
 
   getJsonFromState(fullState);
@@ -770,6 +802,7 @@ void broadcastServerState() {
 // =====================================================
 
 void notifyLocalStateChanged() {
+  // TODO find simpler way of doing this, less confusing to new user
   if (applyingRemoteState) {
     Serial.println("notifyLocalStateChanged failed ");
 
@@ -794,6 +827,7 @@ void notifyLocalStateChanged() {
 // =====================================================
 
 void processStateChanges() {
+  // Serial.println("processStateChanges");
   if (!app.getServerStateChanged()) {
     return;
   }
@@ -801,15 +835,31 @@ void processStateChanges() {
   // ---------------------------------------------------
   // Only transmit LOCAL state changes.
   // ---------------------------------------------------
-
+  // todo clean up
+  const uint8_t* currentControllerMac =
+      app.getControllers()[app.getActiveController()].mac;
   if (stateChangeOrigin == STATE_CHANGE_LOCAL) {
-    if (activeReceiver >= 0 && activeReceiver < receiverCount &&
-        receivers[activeReceiver].used && receivers[activeReceiver].paired) {
+    if ((activeReceiver >= 0 && activeReceiver < receiverCount &&
+         receivers[activeReceiver].used && receivers[activeReceiver].paired) ) {
       bool sent = sendServerState(receivers[activeReceiver].mac);
 
       if (!sent) {
         Serial.println("SERVER STATE SEND FAILED");
+      } else {
+        Serial.println("SEVER STATE SEND COMPLETED");
       }
+    } else if (isActiveController(currentControllerMac)) {
+      bool sent = sendServerState(currentControllerMac);
+
+      if (!sent) {
+        Serial.println("SERVER STATE SEND FAILED");
+      } else {
+        Serial.println("SEVER STATE SEND COMPLETED");
+      }
+    } else {
+      Serial.println(
+          "ERROR: did not send state change active receiver not paired or "
+          "found");
     }
   }
 
@@ -1552,7 +1602,8 @@ void espnowUpdate() {
   // This replaces the old 200 ms state transmission.
   // ---------------------------------------------------
 
-  processStateChanges();
+    processStateChanges();
+  
 
   // ---------------------------------------------------
   // Controller-side heartbeat

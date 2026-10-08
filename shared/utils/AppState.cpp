@@ -75,7 +75,7 @@ void AppState::setAudioState(bool state) {
 // -------------------------
 // Controllers
 // -------------------------
-
+// TODO might want to seperate this logic out of app state? only relevant to espnow 
 PairedController* AppState::getControllers() { return controllers; }
 
 int AppState::getActiveController() const { return activeController; }
