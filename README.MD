@@ -1,24 +1,41 @@
-
-
 # Model Subway Train Project
 
 ### Project Summary
 
-The project is a custom-built, modern, affordable model train control system powered by ESP32 microcontroller. Its goal is to combine realistic model railway operation with embedded electronics, wireless communication, NFC-based track identification to enable automatic train control, and a modern graphical interface.
-
+This project is a custom-built, affordable model train control system powered by ESP32 microcontrollers. Its goal is to combine realistic model railway operation with embedded electronics, wireless communication, NFC-based track identification, autonomous train control, and a modern graphical interface.
+<p align="center">
+  <img src="https://github.com/mostlytoast/Motor_Control_ESP32_AP/blob/main/pictures/train_and_controller.png?raw=true" width="50%" alt="Train and controller">
+</p>
 #### Affordability
 
-This entire system can be built for under 40$ far cheaper then 300$ equivalents which lack the same advanced automatic control and customizability.
+The entire system can be built for under **$40**, making it significantly more affordable than comparable systems that cost $300 or more, while offering advanced automation and extensive customizability.
 
 #### Control
 
-Multiple trains can be controlled from an intuitive handheld controller or through a website on your phone. Both offer the same features and ease of use thanks to the use of a write once deploy anywhere framework utilizing LVGL, WebAssembly, and Emscript. Designed with easy modularity any user feature can be easily added or layout modified without needing to modify the underlying backend.
-![](https://github.com/mostlytoast/Motor_Control_ESP32_AP/blob/main/pictures/controls.png?raw=true)
+Multiple trains can be controlled using an intuitive handheld controller or a website accessible from a phone. Both interfaces offer the same features through a shared UI framework built with **LVGL, WebAssembly, and Emscripten**.
 
-#### Track Detection
+The system is designed to be modular and easy to customize. New features and interface layouts can be added or modified without needing to rewrite the underlying control logic.
 
-Using NFC tags inside track segments a train with an equipped nfc reader can identify each track it goes over and like a rat in a maze map out all routes and junctions anonymously. In future releases this will enable more complex autonomous train control allowing for collision avoidance, route planning, and realistic station to station travel.
-![](https://github.com/mostlytoast/Motor_Control_ESP32_AP/blob/main/pictures/map.png?raw=true)
+<p align="center">
+  <img src="https://github.com/mostlytoast/Motor_Control_ESP32_AP/blob/main/pictures/controls.png?raw=true" width="50%" alt="Model train control interface">
+</p>
+
+#### Track Detection and Mapping
+
+NFC tags embedded in track segments allow an equipped train to identify each segment it travels over. By scanning these tags and recording their connections, the system can build a map of the railway network, including routes, curves, and junctions.
+
+Future releases will use this map to enable more advanced autonomous operation, including collision avoidance, route planning, and realistic station-to-station travel.
+
+<p align="center">
+  <img src="https://github.com/mostlytoast/Motor_Control_ESP32_AP/blob/main/pictures/map.png?raw=true" width="50%" alt="Automatically generated railway track map">
+</p>
+
 #### Realistic Audio and Movement
 
-Any train can be realistically recreated at small scale with realistic audio sounds and queues. Steam engines chuff along matching their current speed and blow their whistles, while diesel trains can blow their horns as their engines ramp up. Trains are also able to ramp up in speed or slow down much like real trains due with their massive inertia.
+The system can recreate the sounds and movement characteristics of different types of trains. Steam locomotives produce speed-dependent chuffing sounds and whistle effects, while diesel locomotives can sound their horns as their engines accelerate.
+
+Trains can also accelerate and decelerate gradually, simulating the inertia of real locomotives rather than changing speed instantaneously. These features help create a more realistic and immersive model railway experience.
+
+#### Easy To Build
+
+Using pioArduino you can easily upload the code to your esp32 with the touch of one button. 
