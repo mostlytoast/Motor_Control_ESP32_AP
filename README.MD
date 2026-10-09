@@ -4,7 +4,7 @@
 
 This project is a custom-built, affordable model train control system powered by ESP32 microcontrollers. Its goal is to combine realistic model railway operation with embedded electronics, wireless communication, NFC-based track identification, autonomous train control, and a modern graphical interface.
 <p align="center">
-  <img src="https://github.com/mostlytoast/Motor_Control_ESP32_AP/blob/main/pictures/train_and_controller.png?raw=true" width="50%" alt="Train and controller">
+  <img src="https://github.com/mostlytoast/Motor_Control_ESP32_AP/blob/main/pictures/train_and_controller.png?raw=true" width="100%" alt="Train and controller">
 </p>
 #### Affordability
 
