@@ -6,11 +6,70 @@
 #include <esp_wifi.h>
 
 #include "StateJson.h"
-// TODO need to ensure works with multiple controllers and receivers
+
 // =====================================================
-// GLOBAL STATE
+// GENERIC JSON FRAGMENTATION
 // =====================================================
 
+constexpr uint8_t JSON_FRAGMENT_MAGIC = 0xA5;
+
+// ESP-NOW maximum payload we want to use.
+constexpr size_t JSON_FRAGMENT_PACKET_SIZE = 250;
+
+// Header:
+//   magic       = 1
+//   type        = 1
+//   messageId   = 2
+//   chunkIndex  = 1
+//   totalChunks = 1
+//
+// Total = 6 bytes
+constexpr size_t JSON_FRAGMENT_HEADER_SIZE = 6;
+
+constexpr size_t JSON_FRAGMENT_DATA_SIZE =
+    JSON_FRAGMENT_PACKET_SIZE - JSON_FRAGMENT_HEADER_SIZE;
+
+// Maximum reconstructed JSON document.
+constexpr size_t JSON_REASSEMBLY_BUFFER_SIZE = 8000;
+
+// How long we keep an incomplete message around.
+constexpr unsigned long JSON_REASSEMBLY_TIMEOUT = 2000;
+
+// Maximum simultaneous senders we keep reassembly state for.
+constexpr int MAX_JSON_REASSEMBLIES = 2;
+struct JsonFragmentHeader {
+  uint8_t magic;
+  uint8_t type;
+  uint16_t messageId;
+  uint8_t chunkIndex;
+  uint8_t totalChunks;
+} __attribute__((packed));
+
+static_assert(sizeof(JsonFragmentHeader) == 6,
+              "JsonFragmentHeader must be exactly 6 bytes");
+
+struct JsonReassembly {
+  bool active = false;
+
+  uint8_t sourceMac[6] = {};
+
+  uint8_t type = 0;
+  uint16_t messageId = 0;
+  uint8_t totalChunks = 0;
+  uint8_t receivedChunks = 0;
+
+  size_t length = 0;
+
+  bool received[255] = {};
+
+  char buffer[JSON_REASSEMBLY_BUFFER_SIZE];
+
+  unsigned long lastReceived = 0;
+};
+
+JsonReassembly jsonReassemblies[MAX_JSON_REASSEMBLIES] = {};
+
+uint16_t nextJsonMessageId = 0;
 // -----------------------------------------------------
 // Local ESP-NOW state
 // -----------------------------------------------------
@@ -547,11 +606,123 @@ void sendControllerStatus(const uint8_t* destination) {
 // =====================================================
 // JSON SEND
 // =====================================================
+// =====================================================
+// JSON REASSEMBLY HELPERS
+// =====================================================
+
+int findJsonReassembly(const uint8_t* sourceMac) {
+  if (sourceMac == nullptr) {
+    return -1;
+  }
+
+  for (int i = 0; i < MAX_JSON_REASSEMBLIES; i++) {
+    if (!jsonReassemblies[i].active) {
+      continue;
+    }
+
+    if (macEqual(jsonReassemblies[i].sourceMac, sourceMac)) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+void clearJsonReassembly(int index) {
+  if (index < 0 || index >= MAX_JSON_REASSEMBLIES) {
+    return;
+  }
+
+  memset(&jsonReassemblies[index], 0, sizeof(JsonReassembly));
+}
+
+int allocateJsonReassembly(const uint8_t* sourceMac) {
+  // ---------------------------------------------------
+  // First try to find an existing one
+  // ---------------------------------------------------
+
+  int existing = findJsonReassembly(sourceMac);
+
+  if (existing >= 0) {
+    return existing;
+  }
+
+  // ---------------------------------------------------
+  // Find free slot
+  // ---------------------------------------------------
+
+  for (int i = 0; i < MAX_JSON_REASSEMBLIES; i++) {
+    if (!jsonReassemblies[i].active) {
+      clearJsonReassembly(i);
+
+      jsonReassemblies[i].active = true;
+
+      memcpy(jsonReassemblies[i].sourceMac, sourceMac, 6);
+
+      return i;
+    }
+  }
+
+  // ---------------------------------------------------
+  // No free slot.
+  //
+  // Reuse the oldest one.
+  // ---------------------------------------------------
+
+  int oldest = 0;
+
+  for (int i = 1; i < MAX_JSON_REASSEMBLIES; i++) {
+    if (jsonReassemblies[i].lastReceived <
+        jsonReassemblies[oldest].lastReceived) {
+      oldest = i;
+    }
+  }
+
+  clearJsonReassembly(oldest);
+
+  jsonReassemblies[oldest].active = true;
+
+  memcpy(jsonReassemblies[oldest].sourceMac, sourceMac, 6);
+
+  return oldest;
+}
+
+void cleanupJsonReassemblies() {
+  const unsigned long now = millis();
+
+  for (int i = 0; i < MAX_JSON_REASSEMBLIES; i++) {
+    if (!jsonReassemblies[i].active) {
+      continue;
+    }
+
+    if (now - jsonReassemblies[i].lastReceived > JSON_REASSEMBLY_TIMEOUT) {
+      Serial.print("JSON reassembly timeout from ");
+
+      Serial.println(macToString(jsonReassemblies[i].sourceMac));
+
+      clearJsonReassembly(i);
+    }
+  }
+}
+
+// =====================================================
+// GENERIC JSON SEND
+//
+// Automatically fragments any JSON document into
+// packets <= 250 bytes.
+//
+// The receiver reconstructs the original JSON before
+// deserializing it.
+// =====================================================
 
 bool sendJsonDocument(const uint8_t* destination, JsonDocument& doc) {
   if (destination == nullptr) {
     return false;
   }
+
+  // ---------------------------------------------------
+  // Make sure peer exists
+  // ---------------------------------------------------
 
   if (!esp_now_is_peer_exist(destination)) {
     if (!addPeer(destination, WIFI_CHANNEL)) {
@@ -560,42 +731,148 @@ bool sendJsonDocument(const uint8_t* destination, JsonDocument& doc) {
   }
 
   // ---------------------------------------------------
-  // ESP-NOW payload limit
+  // Serialize entire JSON document
   // ---------------------------------------------------
 
-  size_t length = measureJson(doc);
+  String json;
 
-  if (length > ESP_NOW_MAX_DATA_LEN) {
-    Serial.print("JSON packet too large: ");
-    Serial.print(length);
-    Serial.print(" bytes. Maximum is ");
-    Serial.println(ESP_NOW_MAX_DATA_LEN);
+  serializeJson(doc, json);
+
+  if (json.length() == 0) {
+    Serial.println("sendJsonDocument: empty JSON");
 
     return false;
   }
 
-  uint8_t buffer[ESP_NOW_MAX_DATA_LEN];
+  // ---------------------------------------------------
+  // Calculate number of fragments
+  // ---------------------------------------------------
 
-  size_t written = serializeJson(doc, buffer, sizeof(buffer));
+  size_t totalChunks =
+      (json.length() + JSON_FRAGMENT_DATA_SIZE - 1) / JSON_FRAGMENT_DATA_SIZE;
 
-  if (written == 0 || written > ESP_NOW_MAX_DATA_LEN) {
+  if (totalChunks == 0) {
     return false;
   }
 
-  esp_err_t result = esp_now_send(destination, buffer, written);
+  if (totalChunks > 255) {
+    Serial.print("JSON too large: ");
 
-  if (result != ESP_OK) {
-    Serial.print("JSON ESP-NOW send failed: ");
-    Serial.print(result);
-    Serial.print(" / ");
-    Serial.println(esp_err_to_name(result));
+    Serial.print(json.length());
+
+    Serial.println(" bytes. Maximum is 255 chunks.");
 
     return false;
+  }
+
+  // ---------------------------------------------------
+  // Message ID
+  // ---------------------------------------------------
+
+  uint16_t messageId = ++nextJsonMessageId;
+
+  if (messageId == 0) {
+    messageId = ++nextJsonMessageId;
+  }
+
+  // ---------------------------------------------------
+  // Determine JSON type
+  // ---------------------------------------------------
+
+  uint8_t type = 0;
+
+  if (doc["type"].is<uint8_t>()) {
+    type = doc["type"].as<uint8_t>();
+  }
+
+  // Serial.print("Sending JSON message ");
+
+  // Serial.print(messageId);
+
+  // Serial.print(" type=");
+
+  // Serial.print(type);
+
+  // Serial.print(" size=");
+
+  // Serial.print(json.length());
+
+  // Serial.print(" bytes, ");
+
+  // Serial.print(totalChunks);
+
+  // Serial.println(" chunks");
+
+  // ---------------------------------------------------
+  // Send every fragment
+  // ---------------------------------------------------
+
+  for (size_t chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+    uint8_t packet[JSON_FRAGMENT_PACKET_SIZE];
+
+    JsonFragmentHeader header = {};
+
+    header.magic = JSON_FRAGMENT_MAGIC;
+
+    header.type = type;
+
+    header.messageId = messageId;
+
+    header.chunkIndex = static_cast<uint8_t>(chunkIndex);
+
+    header.totalChunks = static_cast<uint8_t>(totalChunks);
+
+    memcpy(packet, &header, sizeof(header));
+
+    // -------------------------------------------------
+    // Calculate chunk data
+    // -------------------------------------------------
+
+    size_t offset = chunkIndex * JSON_FRAGMENT_DATA_SIZE;
+
+    size_t remaining = json.length() - offset;
+
+    size_t chunkLength = min(remaining, JSON_FRAGMENT_DATA_SIZE);
+
+    memcpy(packet + sizeof(header), json.c_str() + offset, chunkLength);
+
+    size_t packetLength = sizeof(header) + chunkLength;
+
+    // -------------------------------------------------
+    // Send
+    // -------------------------------------------------
+
+    esp_err_t result = esp_now_send(destination, packet, packetLength);
+
+    if (result != ESP_OK) {
+      Serial.print("JSON fragment send failed: ");
+
+      Serial.print(result);
+
+      Serial.print(" / ");
+
+      Serial.println(esp_err_to_name(result));
+
+      return false;
+    }
+
+    // Serial.print("  JSON chunk ");
+
+    // Serial.print(chunkIndex + 1);
+
+    // Serial.print("/");
+
+    // Serial.print(totalChunks);
+
+    // Serial.print(" = ");
+
+    // Serial.print(packetLength);
+
+    // Serial.println(" bytes");
   }
 
   return true;
 }
-
 // =====================================================
 // JSON COMMAND
 // =====================================================
@@ -618,7 +895,6 @@ bool sendCommand(uint8_t type, int16_t value) {
 
   return sendJsonDocument(receiver.mac, doc);
 }
-
 
 JsonDocument previousState;
 bool previousStateUpdated = false;
@@ -665,112 +941,25 @@ bool sendServerState(const uint8_t* destination) {
   if (destination == nullptr) {
     return false;
   }
-  if (!hasPreviousStateChanged()){
-    // Serial.println("sendServerState: state has not changed ");
 
+  if (!hasPreviousStateChanged()) {
     return false;
   }
+
   JsonDocument fullState;
 
   getJsonFromState(fullState);
 
-  JsonObjectConst state = fullState["state"].as<JsonObjectConst>();
+  if (fullState.isNull()) {
+    Serial.println("sendServerState: empty state");
 
-  if (state.isNull()) {
-    Serial.println("sendServerState: no state object");
     return false;
   }
 
-  bool success = true;
+  fullState["type"] = CMD_SERVER_STATE;
 
-  // ---------------------------------------------------
-  // Send each state property separately
-  // ---------------------------------------------------
-  // TODO might want to make this functionality generic? 
-  for (JsonPairConst pair : state) {
-    JsonDocument packet;
-
-    packet["type"] = CMD_SERVER_STATE;
-
-    JsonObject packetState = packet["state"].to<JsonObject>();
-
-    packetState[pair.key()] = pair.value();
-
-    Serial.print("Sending state: ");
-    Serial.print(pair.key().c_str());
-    Serial.print(" -> ");
-
-    serializeJson(packet, Serial);
-
-    Serial.println();
-
-    if (!sendJsonDocument(destination, packet)) {
-      Serial.print("Failed sending state property: ");
-      Serial.println(pair.key().c_str());
-
-      success = false;
-    }
-
-    // delay(5);
-  }
-
-  // ---------------------------------------------------
-  // Send tracks separately
-  // ---------------------------------------------------
-
-  if (fullState["tracks"].is<JsonArray>()) {
-    JsonDocument packet;
-
-    packet["type"] = CMD_SERVER_STATE;
-
-    JsonArray tracks = packet["tracks"].to<JsonArray>();
-
-    for (JsonVariantConst track : fullState["tracks"].as<JsonArrayConst>()) {
-      JsonDocument testPacket;
-
-      testPacket["type"] = CMD_SERVER_STATE;
-
-      JsonArray testTracks = testPacket["tracks"].to<JsonArray>();
-
-      for (JsonVariantConst existingTrack : tracks) {
-        testTracks.add(existingTrack);
-      }
-
-      testTracks.add(track);
-
-      if (measureJson(testPacket) > ESP_NOW_MAX_DATA_LEN) {
-        if (tracks.size() > 0) {
-          if (!sendJsonDocument(destination, packet)) {
-            success = false;
-          }
-
-          // delay(5);
-        }
-
-        packet.clear();
-
-        packet["type"] = CMD_SERVER_STATE;
-
-        tracks = packet["tracks"].to<JsonArray>();
-      }
-
-      tracks.add(track);
-    }
-
-    // -------------------------------------------------
-    // Send remaining tracks
-    // -------------------------------------------------
-
-    if (tracks.size() > 0) {
-      if (!sendJsonDocument(destination, packet)) {
-        success = false;
-      }
-    }
-  }
-
-  return success;
+  return sendJsonDocument(destination, fullState);
 }
-
 // =====================================================
 // BROADCAST SERVER STATE
 // =====================================================
@@ -840,7 +1029,7 @@ void processStateChanges() {
       app.getControllers()[app.getActiveController()].mac;
   if (stateChangeOrigin == STATE_CHANGE_LOCAL) {
     if ((activeReceiver >= 0 && activeReceiver < receiverCount &&
-         receivers[activeReceiver].used && receivers[activeReceiver].paired) ) {
+         receivers[activeReceiver].used && receivers[activeReceiver].paired)) {
       bool sent = sendServerState(receivers[activeReceiver].mac);
 
       // if (!sent) {
@@ -872,7 +1061,7 @@ void processStateChanges() {
   // ---------------------------------------------------
 
   else if (stateChangeOrigin == STATE_CHANGE_REMOTE) {
-    Serial.println("Remote state applied - not echoing");
+    // Serial.println("Remote state applied - not echoing");
   }
 
   stateChangeOrigin = STATE_CHANGE_NONE;
@@ -920,13 +1109,13 @@ void processServerState(const uint8_t* data, int len) {
     for (JsonPairConst pair : incomingState) {
       storedState[pair.key()] = pair.value();
 
-      Serial.print("Received state: ");
-      Serial.print(pair.key().c_str());
-      Serial.print(" = ");
+      // Serial.print("Received state: ");
+      // Serial.print(pair.key().c_str());
+      // Serial.print(" = ");
 
-      serializeJson(pair.value(), Serial);
+      // serializeJson(pair.value(), Serial);
 
-      Serial.println();
+      // Serial.println();
     }
   }
 
@@ -1247,6 +1436,292 @@ bool processControllerBinaryPacket(const uint8_t* sourceMac,
 }
 
 // =====================================================
+// PROCESS JSON FRAGMENT
+//
+// Returns true if the packet was recognized as a JSON
+// fragment.
+//
+// When all fragments have arrived, the reconstructed
+// JSON is passed to the appropriate JSON handler.
+// =====================================================
+
+bool processJsonFragment(const uint8_t* sourceMac, const uint8_t* data,
+                         size_t len) {
+  if (sourceMac == nullptr || data == nullptr) {
+    return false;
+  }
+
+  // ---------------------------------------------------
+  // Not enough bytes for a header
+  // ---------------------------------------------------
+
+  if (len < sizeof(JsonFragmentHeader)) {
+    return false;
+  }
+
+  JsonFragmentHeader header;
+
+  memcpy(&header, data, sizeof(header));
+
+  // ---------------------------------------------------
+  // Not a JSON fragment
+  // ---------------------------------------------------
+
+  if (header.magic != JSON_FRAGMENT_MAGIC) {
+    return false;
+  }
+
+  // ---------------------------------------------------
+  // Validate header
+  // ---------------------------------------------------
+
+  if (header.totalChunks == 0) {
+    Serial.println("Invalid JSON fragment count");
+
+    return true;
+  }
+
+  if (header.chunkIndex >= header.totalChunks) {
+    Serial.println("Invalid JSON fragment index");
+
+    return true;
+  }
+
+  size_t chunkLength = len - sizeof(JsonFragmentHeader);
+
+  if (chunkLength == 0) {
+    Serial.println("Empty JSON fragment");
+
+    return true;
+  }
+
+  // ---------------------------------------------------
+  // Get reassembly slot for this sender
+  // ---------------------------------------------------
+
+  int slot = findJsonReassembly(sourceMac);
+
+  // ---------------------------------------------------
+  // New message
+  // ---------------------------------------------------
+
+  if (slot < 0) {
+    slot = allocateJsonReassembly(sourceMac);
+
+    JsonReassembly& assembly = jsonReassemblies[slot];
+
+    assembly.type = header.type;
+
+    assembly.messageId = header.messageId;
+
+    assembly.totalChunks = header.totalChunks;
+
+    assembly.receivedChunks = 0;
+
+    assembly.length = 0;
+
+    memset(assembly.received, 0, sizeof(assembly.received));
+
+    // Serial.print("Started JSON message ");
+
+    // Serial.print(header.messageId);
+
+    // Serial.print(" from ");
+
+    // Serial.println(macToString(sourceMac));
+  }
+
+  JsonReassembly& assembly = jsonReassemblies[slot];
+
+  // ---------------------------------------------------
+  // If this is a different message from the same
+  // sender, start over.
+  //
+  // This also handles a new message arriving before
+  // the previous one has completed.
+  // ---------------------------------------------------
+
+  if (assembly.messageId != header.messageId ||
+      assembly.totalChunks != header.totalChunks ||
+      assembly.type != header.type) {
+    // Serial.print(
+    //     "New JSON message replacing "
+    //     "incomplete message from ");
+
+    // Serial.println(macToString(sourceMac));
+
+    clearJsonReassembly(slot);
+
+    assembly.active = true;
+
+    memcpy(assembly.sourceMac, sourceMac, 6);
+
+    assembly.type = header.type;
+
+    assembly.messageId = header.messageId;
+
+    assembly.totalChunks = header.totalChunks;
+
+    assembly.receivedChunks = 0;
+
+    assembly.length = 0;
+
+    memset(assembly.received, 0, sizeof(assembly.received));
+  }
+
+  assembly.lastReceived = millis();
+
+  // ---------------------------------------------------
+  // Ignore duplicate fragment
+  // ---------------------------------------------------
+
+  if (assembly.received[header.chunkIndex]) {
+    Serial.print("Duplicate JSON chunk ");
+
+    Serial.println(header.chunkIndex);
+
+    return true;
+  }
+
+  // ---------------------------------------------------
+  // Calculate where this chunk belongs
+  // ---------------------------------------------------
+
+  size_t offset =
+      static_cast<size_t>(header.chunkIndex) * JSON_FRAGMENT_DATA_SIZE;
+
+  // ---------------------------------------------------
+  // Check buffer
+  // ---------------------------------------------------
+
+  if (offset + chunkLength >= JSON_REASSEMBLY_BUFFER_SIZE) {
+    Serial.println("JSON reassembly buffer overflow");
+
+    clearJsonReassembly(slot);
+
+    return true;
+  }
+
+  // ---------------------------------------------------
+  // Copy chunk
+  // ---------------------------------------------------
+
+  memcpy(assembly.buffer + offset, data + sizeof(JsonFragmentHeader),
+         chunkLength);
+
+  assembly.received[header.chunkIndex] = true;
+
+  assembly.receivedChunks++;
+
+  size_t end = offset + chunkLength;
+
+  if (end > assembly.length) {
+    assembly.length = end;
+  }
+
+  // Serial.print("Received JSON chunk ");
+
+  // Serial.print(header.chunkIndex + 1);
+
+  // Serial.print("/");
+
+  // Serial.print(header.totalChunks);
+
+  // Serial.print(" (");
+
+  // Serial.print(chunkLength);
+
+  // Serial.println(" bytes)");
+
+  // ---------------------------------------------------
+  // Still waiting for chunks
+  // ---------------------------------------------------
+
+  if (assembly.receivedChunks < assembly.totalChunks) {
+    return true;
+  }
+
+  // ---------------------------------------------------
+  // COMPLETE
+  // ---------------------------------------------------
+
+  assembly.buffer[assembly.length] = '\0';
+
+  // Serial.print("Complete JSON received: ");
+
+  // Serial.print(assembly.length);
+
+  // Serial.println(" bytes");
+
+  // ---------------------------------------------------
+  // Parse reconstructed JSON
+  // ---------------------------------------------------
+
+  JsonDocument doc;
+
+  DeserializationError error =
+      deserializeJson(doc, assembly.buffer, assembly.length);
+
+  if (error) {
+    Serial.print("Reassembled JSON parse failed: ");
+
+    Serial.println(error.c_str());
+
+    clearJsonReassembly(slot);
+
+    return true;
+  }
+
+  // ---------------------------------------------------
+  // Validate type
+  // ---------------------------------------------------
+
+  if (!doc["type"].is<uint8_t>()) {
+    Serial.println("Reassembled JSON has no type");
+
+    clearJsonReassembly(slot);
+
+    return true;
+  }
+
+  uint8_t type = doc["type"].as<uint8_t>();
+
+  // ---------------------------------------------------
+  // SERVER STATE
+  // ---------------------------------------------------
+
+  if (type == CMD_SERVER_STATE) {
+    int receiverIndex = findReceiverByMac(sourceMac);
+
+    if (receiverIndex >= 0) {
+      receivers[receiverIndex].lastSeen = millis();
+    }
+
+    processServerState(reinterpret_cast<const uint8_t*>(assembly.buffer),
+                       assembly.length);
+  }
+
+  // ---------------------------------------------------
+  // Other JSON commands
+  // ---------------------------------------------------
+
+  else {
+    processJsonCommand(sourceMac, doc);
+  }
+
+  // ---------------------------------------------------
+  // Done
+  // ---------------------------------------------------
+
+  clearJsonReassembly(slot);
+
+  return true;
+}
+// =====================================================
+// UNIFIED RECEIVE EVENT PROCESSING
+// =====================================================
+
+// =====================================================
 // UNIFIED RECEIVE EVENT PROCESSING
 // =====================================================
 
@@ -1259,12 +1734,17 @@ void processESPNowEvents() {
 
   int processed = 0;
 
+  // ---------------------------------------------------
+  // Limit work per update so ESP-NOW processing does
+  // not monopolize the main loop.
+  // ---------------------------------------------------
+
   while (processed < 8 &&
          xQueueReceive(espNowEventQueue, &event, 0) == pdTRUE) {
     processed++;
 
     // =================================================
-    // RECEIVE
+    // RECEIVE EVENT
     // =================================================
 
     if (event.type == ESP_NOW_EVENT_RECEIVE) {
@@ -1273,78 +1753,59 @@ void processESPNowEvents() {
       }
 
       // ------------------------------------------------
-      // Binary packets
+      // 1. Try receiver-side binary packets
       // ------------------------------------------------
 
       if (processReceiverBinaryPacket(event.mac, event.data, event.len)) {
         continue;
       }
 
+      // ------------------------------------------------
+      // 2. Try controller-side binary packets
+      // ------------------------------------------------
+
       if (processControllerBinaryPacket(event.mac, event.data, event.len)) {
         continue;
       }
 
       // ------------------------------------------------
-      // JSON
+      // 3. Try generic JSON fragmentation
+      //
+      // processJsonFragment() handles:
+      //
+      //   - identifying JSON fragments
+      //   - creating reassembly buffers
+      //   - out-of-order packets
+      //   - duplicate packets
+      //   - reconstructing the JSON
+      //   - deserializing the complete JSON
+      //   - dispatching CMD_SERVER_STATE
+      //   - dispatching normal JSON commands
+      //
+      // IMPORTANT:
+      //
+      // We do NOT call deserializeJson() here.
+      // Individual ESP-NOW packets are fragments and
+      // therefore are not necessarily valid JSON.
       // ------------------------------------------------
 
-      if (event.data[0] != '{') {
-        continue;
-      }
-
-      JsonDocument doc;
-
-      DeserializationError error = deserializeJson(doc, event.data, event.len);
-
-      if (error) {
-        Serial.print("JSON length received: ");
-
-        Serial.println(event.len);
-
-        Serial.print("JSON received: ");
-
-        for (int i = 0; i < event.len; i++) {
-          Serial.write(event.data[i]);
-        }
-
-        Serial.println();
-
-        Serial.print("JSON parse failed: ");
-
-        Serial.println(error.c_str());
-
-        continue;
-      }
-
-      if (!doc["type"].is<uint8_t>()) {
-        Serial.println("JSON packet has no type");
-
-        continue;
-      }
-
-      uint8_t type = doc["type"].as<uint8_t>();
-
-      // ------------------------------------------------
-      // SERVER STATE
-      // ------------------------------------------------
-
-      if (type == CMD_SERVER_STATE) {
-        int receiverIndex = findReceiverByMac(event.mac);
-
-        if (receiverIndex >= 0) {
-          receivers[receiverIndex].lastSeen = millis();
-        }
-
-        processServerState(event.data, event.len);
-
+      if (processJsonFragment(event.mac, event.data, event.len)) {
         continue;
       }
 
       // ------------------------------------------------
-      // Everything else is a controller command.
+      // 4. Unknown packet
       // ------------------------------------------------
 
-      processJsonCommand(event.mac, doc);
+      Serial.print("Unknown ESP-NOW packet from ");
+
+      Serial.print(macToString(event.mac));
+
+      Serial.print(" (");
+
+      Serial.print(event.len);
+
+      Serial.println(" bytes)");
     }
 
     // =================================================
@@ -1352,11 +1813,28 @@ void processESPNowEvents() {
     // =================================================
 
     else if (event.type == ESP_NOW_EVENT_SEND) {
+      // ------------------------------------------------
+      // SEND FAILED
+      // ------------------------------------------------
+
       if (event.sendStatus == ESP_NOW_SEND_FAIL) {
+        Serial.print("ESP-NOW send failed -> ");
+
+        Serial.println(macToString(event.mac));
+
+        // ------------------------------------------------
+        // Controller-side receiver
+        // ------------------------------------------------
+
         int index = findReceiverByMac(event.mac);
 
         if (index >= 0) {
           receivers[index].lastSeen = millis();
+
+          // ----------------------------------------------
+          // A failed send to the active receiver means
+          // the connection may no longer be valid.
+          // ----------------------------------------------
 
           if (index == activeReceiver) {
             receivers[index].paired = false;
@@ -1369,7 +1847,19 @@ void processESPNowEvents() {
           }
         }
 
-      } else if (event.sendStatus == ESP_NOW_SEND_SUCCESS) {
+        // ------------------------------------------------
+        // Receiver-side controller
+        //
+        // Nothing else is required here. The controller
+        // remains paired until explicitly removed.
+        // ------------------------------------------------
+      }
+
+      // ------------------------------------------------
+      // SEND SUCCESS
+      // ------------------------------------------------
+
+      else if (event.sendStatus == ESP_NOW_SEND_SUCCESS) {
         int index = findReceiverByMac(event.mac);
 
         if (index >= 0) {
@@ -1379,7 +1869,6 @@ void processESPNowEvents() {
     }
   }
 }
-
 // =====================================================
 // SEND PAIR REQUEST
 // =====================================================
@@ -1520,7 +2009,7 @@ void ESPNow_checkFailsafe() {
 
   if (elapsed > ESPNOW_TIMEOUT) {
     if (!app.getEspNowFailsafeActive()) {
-      Serial.println("ESP-NOW TIMEOUT - MOTOR STOP");
+      // Serial.println("ESP-NOW TIMEOUT - MOTOR STOP");
 
       app.setTargetSpeed(0);
 
@@ -1571,7 +2060,13 @@ void sendHeartbeat() {
 
 void espnowUpdate() {
   // ---------------------------------------------------
-  // Always process queued RX packets
+  // Remove incomplete JSON messages that timed out
+  // ---------------------------------------------------
+
+  cleanupJsonReassemblies();
+
+  // ---------------------------------------------------
+  // Process queued RX packets
   // ---------------------------------------------------
 
   processESPNowEvents();
@@ -1602,8 +2097,7 @@ void espnowUpdate() {
   // This replaces the old 200 ms state transmission.
   // ---------------------------------------------------
 
-    processStateChanges();
-  
+  processStateChanges();
 
   // ---------------------------------------------------
   // Controller-side heartbeat

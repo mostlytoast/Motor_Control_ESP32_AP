@@ -431,6 +431,7 @@ void LvDisplayController::getStateFromJsonDisplay(const char* json) {
     return;
   }
   getStateFromJson(doc);
+  // todo check if refeshing too much
   refresh();
   
 }

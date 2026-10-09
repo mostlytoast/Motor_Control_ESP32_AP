@@ -99,10 +99,10 @@ void LvTrackMap::setConfig(const Config& config) {
 
 void LvTrackMap::setTrackMap(TrackMap* map) {
   map_ = map;
-  Serial.println("json doc in lvtrackmap");
-  JsonDocument doc;
-  map_->mapToJson(doc);
-  serializeJsonPretty(doc, Serial);
+  // Serial.println("json doc in lvtrackmap");
+  // JsonDocument doc;
+  // map_->mapToJson(doc);
+  // serializeJsonPretty(doc, Serial);
   calculateTransform();
   refresh();
 }
@@ -549,35 +549,35 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
   // Debug
   // ----------------------------------------------------------
 
-  Serial.println("=== Track Map Transform ===");
+  // Serial.println("=== Track Map Transform ===");
 
-  Serial.print("Bounds X: ");
-  Serial.print(minX);
-  Serial.print(" -> ");
-  Serial.println(maxX);
+  // Serial.print("Bounds X: ");
+  // Serial.print(minX);
+  // Serial.print(" -> ");
+  // Serial.println(maxX);
 
-  Serial.print("Bounds Y: ");
-  Serial.print(minY);
-  Serial.print(" -> ");
-  Serial.println(maxY);
+  // Serial.print("Bounds Y: ");
+  // Serial.print(minY);
+  // Serial.print(" -> ");
+  // Serial.println(maxY);
 
-  Serial.print("Geometry size: ");
-  Serial.print(worldWidth);
-  Serial.print(" x ");
-  Serial.println(worldHeight);
+  // Serial.print("Geometry size: ");
+  // Serial.print(worldWidth);
+  // Serial.print(" x ");
+  // Serial.println(worldHeight);
 
-  Serial.print("Display size: ");
-  Serial.print(width);
-  Serial.print(" x ");
-  Serial.println(height);
+  // Serial.print("Display size: ");
+  // Serial.print(width);
+  // Serial.print(" x ");
+  // Serial.println(height);
 
-  Serial.print("Scale: ");
-  Serial.println(transform_.scale);
+  // Serial.print("Scale: ");
+  // Serial.println(transform_.scale);
 
-  Serial.print("Offset: ");
-  Serial.print(offsetX);
-  Serial.print(", ");
-  Serial.println(offsetY);
+  // Serial.print("Offset: ");
+  // Serial.print(offsetX);
+  // Serial.print(", ");
+  // Serial.println(offsetY);
 }
 void LvTrackMap::resetView() {
   calculateTransform();

@@ -686,7 +686,7 @@ void TrackMap::JsonToMap(JsonArray doc) {
     Serial.println("JsonToMap: no tracks array found");
     return;
   }
-  Serial.println("JsonToMap: loading in map");
+  // Serial.println("JsonToMap: loading in map");
   // Serial.print("JsonToMap: size ");
   // Serial.println(doc.size());
   // serializeJsonPretty(doc, Serial);

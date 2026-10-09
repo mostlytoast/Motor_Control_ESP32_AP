@@ -20,8 +20,7 @@
 // ESP-NOW TIMING
 // =====================================================
 
-#define SPEED_SEND_INTERVAL 50
-#define HEARTBEAT_INTERVAL 200
+#define HEARTBEAT_INTERVAL 350
 
 #define DISCOVERY_INTERVAL 1000
 #define DISCOVERY_TIMEOUT 5000
@@ -80,7 +79,7 @@ enum EspNowEventType : uint8_t {
   ESP_NOW_EVENT_SEND = 1
 };
 
-#define ESPNOW_EVENT_DATA_MAX 64
+#define ESPNOW_EVENT_DATA_MAX 250
 #define ESPNOW_EVENT_QUEUE_SIZE 16
 
 struct EspNowEvent {
