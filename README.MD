@@ -6,6 +6,7 @@ This project is a custom-built, affordable model train control system powered by
 <p align="center">
   <img src="https://github.com/mostlytoast/Motor_Control_ESP32_AP/blob/main/pictures/train_and_controller.png?raw=true" width="100%" alt="Train and controller">
 </p>
+
 #### Affordability
 
 The entire system can be built for under **$40**, making it significantly more affordable than comparable systems that cost $300 or more, while offering advanced automation and extensive customizability.
