@@ -1,0 +1,10 @@
+[
+    {
+        "name": "TFT_eSPI",
+        "version": "1.0.0"
+    },
+    {
+        "name": "XPT2046_Touchscreen",
+        "version": "1.0.0"
+    }
+]
