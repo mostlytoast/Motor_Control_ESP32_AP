@@ -40,3 +40,6 @@ Trains can also accelerate and decelerate gradually, simulating the inertia of r
 #### Easy To Build
 
 Using pioArduino you can easily upload the code to your esp32 with the touch of one button. 
+
+#### AI disclaimer 
+Some AI was used for debugging and some boilerplate code creation, overall app design and decisions were human made.
