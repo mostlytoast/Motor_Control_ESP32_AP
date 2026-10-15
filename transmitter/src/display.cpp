@@ -150,9 +150,7 @@ void setupDisplay() {
   // ===================================================
 
   if (!setupESPNow(true)) {
-    // if (statusLabel != NULL) {
-    //   lv_label_set_text(statusLabel, "ESP-NOW ERROR");
-    // }
+    app.setStatusLabelText("ESP-NOW ERROR");
 
     return;
   }
@@ -161,84 +159,21 @@ void setupDisplay() {
   // DISCOVERY
   // ===================================================
   // todo add to appstate?
-  // discoveryActive = true;
 
-  // discoveryStarted = millis();
+  // lastSpeedSend = millis();
 
-  // lastDiscoverySend = 0;
-
-  // // lastSpeedSend = millis();
-  // lastHeartbeatSend = millis();
-
-  Serial.println("Receiver discovery started...");
-}
-
-// =====================================================
-// DISPLAY FLUSH
-// =====================================================
-
-void displayFlush(lv_display_t* display, const lv_area_t* area,
-                  uint8_t* px_map) {
-  uint32_t width = area->x2 - area->x1 + 1;
-
-  uint32_t height = area->y2 - area->y1 + 1;
-
-  if (width == 0 || height == 0) {
-    lv_display_flush_ready(display);
-
-    return;
-  }
-
-  tft.startWrite();
-
-  tft.setAddrWindow(area->x1, area->y1, width, height);
-
-  tft.pushColors(reinterpret_cast<uint16_t*>(px_map), width * height, true);
-
-  tft.endWrite();
-
-  lv_display_flush_ready(display);
-}
-
-// =====================================================
-// TOUCH READ
-// =====================================================
-
-void touchRead(lv_indev_t* indev, lv_indev_data_t* data) {
-  if (!touch.touched()) {
-    data->state = LV_INDEV_STATE_RELEASED;
-
-    return;
-  }
-
-  TS_Point p = touch.getPoint();
-
-  int16_t x = map(p.x, TOUCH_MIN_X, TOUCH_MAX_X, 0, SCREEN_WIDTH - 1);
-
-  int16_t y = map(p.y, TOUCH_MIN_Y, TOUCH_MAX_Y, 0, SCREEN_HEIGHT - 1);
-
-  x = constrain(x, 0, SCREEN_WIDTH - 1);
-
-  y = constrain(y, 0, SCREEN_HEIGHT - 1);
-
-  data->point.x = x;
-
-  data->point.y = y;
-
-  data->state = LV_INDEV_STATE_PRESSED;
 }
 
 // =====================================================
 // UPDATE CONTROLLER STATUS
 // =====================================================
-
+// TODO split into espnow
 void updateControllerStatus() {
   if (controllerStatus == NULL) {
     return;
   }
 
-  if (activeReceiver < 0 || activeReceiver >= receiverCount ||
-      !receivers[activeReceiver].used) {
+  if (hasActiveReceiver()) {
     lv_label_set_text(controllerStatus, "No Receiver");
 
     return;
@@ -280,11 +215,15 @@ static void receiverSelectEvent(lv_event_t* event) {
 // =====================================================
 // SCAN EVENT lv
 // =====================================================
-
+// TODO move to espnow
 static void scanEvent(lv_event_t* event) {
   if (lv_event_get_code(event) != LV_EVENT_CLICKED) {
     return;
   }
+
+  // Reset local UI
+
+  // resetControllerState();
 
   // Stop current receiver
 
@@ -301,43 +240,12 @@ static void scanEvent(lv_event_t* event) {
     }
   }
 
-  // Reset receiver list
-
-  receiverCount = 0;
-
-  activeReceiver = -1;
-
-  for (int i = 0; i < MAX_RECEIVERS; i++) {
-    receivers[i] = {};
-  }
-
-  // Reset server state
-
-  app.setServerStateReceived(false);
-
-  app.setServerStateChanged(false);
-
-  // Reset local UI
-
-  // resetControllerState();
-
-  // Start discovery
-
-  // discoveryActive = true;
-
-  // discoveryStarted = millis();
-
-  lastDiscoverySend = 0;
-
+  resetDiscover();
   if (controllerStatus != NULL) {
     lv_label_set_text(controllerStatus, "Scanning...");
   }
 
-  // if (statusLabel != NULL) {
-  //   lv_label_set_text(statusLabel, "STOPPED");
-  // }
-
-  receiverListNeedsRefresh = true;
+  app.setStatusLabelText("STOPPED");
 
   Serial.println("Starting receiver discovery...");
 }
@@ -369,7 +277,7 @@ static void controllerMenuEvent(lv_event_t* event) {
 // =====================================================
 // REFRESH CONTROLLER LIST lv
 // =====================================================
-
+// TODO split so some functionality is in espnow
 void refreshControllerList() {
   if (controllerList == NULL) {
     return;
@@ -404,7 +312,7 @@ void refreshControllerList() {
 
     lv_obj_set_size(button, 280, 40);
 
-    bool selected = i == activeReceiver;
+    bool selected = isActiveReceiver(i);
 
     lv_obj_set_style_bg_color(button,
                               selected ? lv_color_hex(COLOR_SELECTED)
@@ -604,91 +512,92 @@ void UIRefresh() {
 // =====================================================
 
 void selectReceiver(int index) {
-  if (index < 0 || index >= receiverCount) {
-    return;
+  switch (validateSelectedPeer(index)) {
+    case INVALID_INDEX:
+      return;
+    case ALREADY_SELECTED:
+      closeControllerMenu();
+      return;
+    case PEER_ERROR:
+      app.setStatusLabelText("PEER ERROR");
+      return;
+    case PASS_CHECK:
+      break; 
+    default:
+      break;
   }
-
-  if (!receivers[index].used) {
-    return;
-  }
-
-  // Don't do anything if already selected
-
-  if (index == activeReceiver && receivers[index].paired) {
-    closeControllerMenu();
-
-    return;
-  }
-
-  // Stop previous receiver
-
-  // if (activeReceiver >= 0 && activeReceiver != index) {
-  //   stopActiveReceiver();
-  // }
-
-  // Make sure peer exists
-
-  if (!addPeer(receivers[index].mac, receivers[index].channel)) {
-    // if (statusLabel != NULL) {
-    //   lv_label_set_text(statusLabel, "PEER ERROR");
-    // }
-
-    return;
-  }
-
-  // Select receiver
-
-  activeReceiver = index;
-
-  receivers[index].paired = false;
-
-  // Clear old server state
-
-  app.setServerStateReceived(false);
-
-  app.setServerStateChanged(false);
-
   // Reset local controls
 
   // resetControllerState();
 
   updateControllerStatus();
 
-  // if (statusLabel != NULL) {
-  //   lv_label_set_text(statusLabel, "PAIRING...");
-  // }
+  app.setStatusLabelText("PAIRING...");
 
   // Send pairing request
+  switch (sendPairRequest(index)) {
+    case PAIR_ERROR:
+      app.setStatusLabelText("PAIR FAILED");
+      return;
+    case PAIR_SUCCESS:
+      app.setStatusLabelText("PAIR SUCCESS");
+      break;
+    default:
+      break;
+  }
+}
 
-  PairPacket pairPacket = {};
+// =====================================================
+// DISPLAY FLUSH
+// =====================================================
 
-  pairPacket.type = CMD_PAIR_REQUEST;
+void displayFlush(lv_display_t* display, const lv_area_t* area,
+                  uint8_t* px_map) {
+  uint32_t width = area->x2 - area->x1 + 1;
 
-  memcpy(pairPacket.receiverMac, localMac, 6);
+  uint32_t height = area->y2 - area->y1 + 1;
 
-  esp_err_t result =
-      esp_now_send(receivers[index].mac,
-                   reinterpret_cast<uint8_t*>(&pairPacket), sizeof(pairPacket));
-
-  if (result != ESP_OK) {
-    Serial.print("PAIR send failed: ");
-
-    Serial.print(result);
-
-    Serial.print(" / ");
-
-    Serial.println(esp_err_to_name(result));
-
-    // if (statusLabel != NULL) {
-    //   lv_label_set_text(statusLabel, "PAIR FAILED");
-    // }
-
-    receivers[index].paired = false;
+  if (width == 0 || height == 0) {
+    lv_display_flush_ready(display);
 
     return;
   }
 
-  Serial.print("PAIR request sent to: ");
+  tft.startWrite();
 
-  Serial.println(receivers[index].name);
+  tft.setAddrWindow(area->x1, area->y1, width, height);
+
+  tft.pushColors(reinterpret_cast<uint16_t*>(px_map), width * height, true);
+
+  tft.endWrite();
+
+  lv_display_flush_ready(display);
+}
+
+// =====================================================
+// TOUCH READ
+// =====================================================
+
+void touchRead(lv_indev_t* indev, lv_indev_data_t* data) {
+  if (!touch.touched()) {
+    data->state = LV_INDEV_STATE_RELEASED;
+
+    return;
+  }
+
+  TS_Point p = touch.getPoint();
+
+  int16_t x = map(p.x, TOUCH_MIN_X, TOUCH_MAX_X, 0, SCREEN_WIDTH - 1);
+
+  int16_t y = map(p.y, TOUCH_MIN_Y, TOUCH_MAX_Y, 0, SCREEN_HEIGHT - 1);
+
+  x = constrain(x, 0, SCREEN_WIDTH - 1);
+
+  y = constrain(y, 0, SCREEN_HEIGHT - 1);
+
+  data->point.x = x;
+
+  data->point.y = y;
+
+  data->state = LV_INDEV_STATE_PRESSED;
 }

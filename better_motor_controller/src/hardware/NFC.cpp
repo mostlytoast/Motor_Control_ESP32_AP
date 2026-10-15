@@ -984,7 +984,7 @@ NFCWriteResult NFC::writeNFC(JsonObject& json, const Uid& uid) {
 // ============================================================================
 NFCReadResult NFC::readNFC(Uid& uid, JsonObject& tagJson) {
   if (!nfcInitialized) {
-    Serial.println("NFC not initialized");
+    // Serial.println("NFC not initialized");
 
     lastReadTagSucceeded = false;
 

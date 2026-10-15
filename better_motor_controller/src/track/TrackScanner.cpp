@@ -165,12 +165,6 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
       return;
     }
 
-    //   Serial.printf(
-    //       "Track : positioned=%d "
-    //       "entrance=(%.2f, %.2f) "
-    //       "exit=(%.2f, %.2f)\n",
-    //       track->positioned, track->pose.entrance.x, track->pose.entrance.y,
-    //       track->pose.exit.x, track->pose.exit.y);
   }
 
   // ============================================================
@@ -284,6 +278,7 @@ void TrackScanner::registerScannedTracks(const Uid& uid, Track* templateTrack) {
 
       emptyUid, emptyUid);
   // todo have tracks cleared after registering
+
   if (!track) {
     Serial.println("ERROR: Failed to create track.");
 
@@ -323,14 +318,6 @@ bool TrackScanner::writeTrackForTag(const Uid& uid, JsonObject& jsonTag) {
   }
 
   trackMap.trackToJson(*track, jsonTag);
-
-  // Serial.println("========================================");
-
-  // Serial.println("TRACK FOUND");
-
-  // Serial.println("========================================");
-
-  // Serial.println();
 
   return true;
 }

@@ -60,33 +60,25 @@ volatile bool stopRequested = false;
 // ============================================================
 
 struct AudioStream {
-  // ----------------------------------------------------------
   // State
-  // ----------------------------------------------------------
 
   volatile bool active;
 
   volatile bool stopRequested;
 
-  // ----------------------------------------------------------
   // PCM source
-  // ----------------------------------------------------------
 
   const int16_t* samples;
 
   size_t sampleCount;
 
-  // ----------------------------------------------------------
   // Playback
-  // ----------------------------------------------------------
 
   float sourcePosition;
 
   bool loop;
 
-  // ----------------------------------------------------------
   // Real-time controls
-  // ----------------------------------------------------------
 
   volatile float speed;
 
@@ -292,9 +284,7 @@ bool processStream(size_t streamIndex) {
     return false;
   }
 
-  // ----------------------------------------------------------
   // Snapshot real-time controls
-  // ----------------------------------------------------------
 
   float speed = stream.speed;
 
@@ -310,9 +300,7 @@ bool processStream(size_t streamIndex) {
 
   float pitchRatio = pitchToRatio(pitch);
 
-  // ----------------------------------------------------------
   // Check stream stop request
-  // ----------------------------------------------------------
 
   if (stream.stopRequested) {
     stream.active = false;
@@ -320,9 +308,7 @@ bool processStream(size_t streamIndex) {
     return false;
   }
 
-  // ----------------------------------------------------------
   // Check end of source
-  // ----------------------------------------------------------
 
   if (stream.sourcePosition >= (float)(stream.sampleCount - 1)) {
     if (stream.loop) {
@@ -424,17 +410,13 @@ bool processStream(size_t streamIndex) {
 // ============================================================
 
 void mixStreams() {
-  // ----------------------------------------------------------
   // Clear output
-  // ----------------------------------------------------------
 
   for (size_t i = 0; i < AUDIO_CHUNK_SIZE; i++) {
     outputBuffer[i] = 0;
   }
 
-  // ----------------------------------------------------------
   // Mix each active stream
-  // ----------------------------------------------------------
 
   for (size_t streamIndex = 0; streamIndex < MAX_AUDIO_STREAMS; streamIndex++) {
     if (!streams[streamIndex].active) {
@@ -596,23 +578,17 @@ void audioTask(void* parameter) {
 bool AudioPlayer_begin() {
   CLOGI << "Initializing AudioPlayer";
 
-  // ----------------------------------------------------------
   // Reset stream state
-  // ----------------------------------------------------------
 
   for (size_t i = 0; i < MAX_AUDIO_STREAMS; i++) {
     resetStream(i);
   }
 
-  // ----------------------------------------------------------
   // Configure I2S
-  // ----------------------------------------------------------
 
   i2s.setPins(I2S_BCLK, I2S_WS, I2S_DOUT, -1, -1);
 
-  // ----------------------------------------------------------
   // Initialize I2S
-  // ----------------------------------------------------------
 
   if (!i2s.begin(I2S_MODE_STD, SAMPLE_RATE, I2S_DATA_BIT_WIDTH_16BIT,
                  I2S_SLOT_MODE_MONO)) {
@@ -623,9 +599,7 @@ bool AudioPlayer_begin() {
 
   CLOGI << "I2S initialized";
 
-  // ----------------------------------------------------------
   // Create audio task
-  // ----------------------------------------------------------
 
   BaseType_t result =
       xTaskCreate(audioTask, "AudioTask", AUDIO_TASK_STACK, nullptr,
@@ -680,9 +654,7 @@ int AudioPlayer_play(const unsigned char* _samples, size_t sampleCount,
     return -1;
   }
 
-  // ----------------------------------------------------------
   // Find free stream
-  // ----------------------------------------------------------
 
   for (size_t i = 0; i < MAX_AUDIO_STREAMS; i++) {
     if (!streams[i].active) {

@@ -6,10 +6,6 @@
 #include "../communication/packets.h"
 #include "../track/map.h"
 
-// extern bool serverStateReceived;
-
-// extern bool serverStateChanged;
-
 enum AutoMode { AUTO_IDLE, AUTO_MOVING, AUTO_WAITING, AUTO_DEPARTING };
 
 struct PairedController {
@@ -30,9 +26,8 @@ class AppState {
 
   bool getServerStateReceived();
   void setServerStateReceived(bool state);
-  // -------------------------
+
   // LEDs
-  // -------------------------
 
   bool getLed1State() const;
   void setLed1State(bool state);
@@ -40,9 +35,7 @@ class AppState {
   bool getLed2State() const;
   void setLed2State(bool state);
 
-  // -------------------------
   // Automatic mode
-  // -------------------------
 
   bool getAutoState() const;
   void setAutoState(bool state);
@@ -50,18 +43,14 @@ class AppState {
   AutoMode getAutoMode() const;
   void setAutoMode(AutoMode mode);
 
-  // -------------------------
   // Scanner mode
-  // -------------------------
 
   ScannerMode getScannerMode();
   void setScannerMode(ScannerMode mode);
 
   ScannerMode getPreviousScannerMode();
 
-  // -------------------------
   // Audio mode
-  // -------------------------
 
   bool getAmbianceAudioMode() const;
   void setAmbianceAudioMode(bool state);
@@ -72,9 +61,7 @@ class AppState {
   bool getAudioState() const;
   void setAudioState(bool state);
 
-  // -------------------------
   // Controllers
-  // -------------------------
 
   PairedController* getControllers();
 
@@ -84,9 +71,7 @@ class AppState {
   unsigned long getLastActiveControllerPacket() const;
   void setLastActiveControllerPacket(unsigned long time);
 
-  // -------------------------
   // ESP-NOW
-  // -------------------------
 
   bool getEspNowCommandPending() const;
   void setEspNowCommandPending(bool pending);
@@ -103,9 +88,7 @@ class AppState {
   bool getEspNowFailsafeActive() const;
   void setEspNowFailsafeActive(bool active);
 
-  // -------------------------
   // Pairing
-  // -------------------------
 
   bool getPairingMode() const;
   void setPairingMode(bool enabled);
@@ -113,9 +96,7 @@ class AppState {
   unsigned long getPairingModeStarted() const;
   void setPairingModeStarted(unsigned long time);
 
-  // -------------------------
   // NFC
-  // -------------------------
 
   void setUid(const uint8_t* uid, uint8_t length);
 
@@ -125,9 +106,7 @@ class AppState {
 
   uint8_t getUidLength() const;
 
-  // -------------------------
   // Speed
-  // -------------------------
 
   int getTargetSpeed() const;
   void setTargetSpeed(int speed);
@@ -138,9 +117,7 @@ class AppState {
   float getCurrentSpeed() const;
   void setCurrentSpeed(float speed);
 
-  // -------------------------
   // Ramp
-  // -------------------------
 
   unsigned long getRampTime() const;
   void setRampTime(unsigned long time);
@@ -154,9 +131,7 @@ class AppState {
   int getLastTargetSpeed() const;
   void setLastTargetSpeed(int speed);
 
-  // -------------------------
   // Sensors
-  // -------------------------
 
   unsigned long getLastSensorDetect() const;
   void setLastSensorDetect(unsigned long time);
@@ -166,6 +141,11 @@ class AppState {
 
   Track* getTemplateTrack();
   void setTemplateTrack(Track* templateTrack_);
+
+  // display
+  String getStatusLabelText();
+
+  void setStatusLabelText(String statusLabelText_);
 
  private:
   bool serverStateChanged = false;
@@ -221,6 +201,9 @@ class AppState {
   unsigned long lastSensorDetect = 0;
   int speedBeforeDetect = 200;
   Track* templateTrack = nullptr;
+
+  // display status label
+  String statusLabelText;
 };
 
 extern AppState app;

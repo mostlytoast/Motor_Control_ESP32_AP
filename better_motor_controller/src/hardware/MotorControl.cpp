@@ -97,15 +97,6 @@ void setMotor(int speed) {
     digitalWrite(ENA, HIGH);
   }
 
-  // Apply PWM
-
-  // Serial output
-
-  // Serial.print("Command: ");
-  // Serial.print(speed);
-
-  // Serial.print("  PWM: ");
-  // Serial.println(pwm);
 }
 
 // =====================================================
@@ -296,7 +287,6 @@ void changeSpeedCommand(int speed) {
   Serial.print("Target speed: ");
   Serial.println(app.getTargetSpeed());
 
-  // broadcastServerState();
 }
 
 void changeRampCommand(unsigned long ramp) {
@@ -308,7 +298,6 @@ void changeRampCommand(unsigned long ramp) {
   Serial.print(app.getRampTime() / 1000.0, 1);
   Serial.println(" seconds");
 
-  // broadcastServerState();
 }
 
 // ===================================================
@@ -334,8 +323,6 @@ bool setAutoStateCommand(bool state) {
 
     Serial.println("AUTO STOPPED");
   }
-
-  // broadcastServerState();
 
   return app.getAutoState();
 }
@@ -423,5 +410,4 @@ void motorStopCommand() {
 
   Serial.println("EMERGENCY STOP");
 
-  // broadcastServerState();
 }

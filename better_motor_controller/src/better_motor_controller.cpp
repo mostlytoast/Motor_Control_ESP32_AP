@@ -69,18 +69,9 @@ WebSerial WebSerialPort(Serial);
 // =====================================================
 
 void setup() {
-  // float diameter = 36.0;
-  // float length = (diameter * M_PI) / 8;
-  // Uid emptyUid;
-
-  // trackMap.createTrack(CURVED, length, diameter / 2, 0, 0, 0, false,
-  // emptyUid,
-  //                      emptyUid, emptyUid, emptyUid);
-  // trackMap.calculateMap();
-  // app.setScannerMode(REGISTER_TRACKS);
   Serial.begin(115200);
 
-  CLOGI << "Main setup";
+  Serial.println("Main setup");
 
   loadControllers();
 

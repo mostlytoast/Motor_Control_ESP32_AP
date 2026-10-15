@@ -235,3 +235,8 @@ Track* AppState::getTemplateTrack() { return templateTrack; }
 void AppState::setTemplateTrack(Track* templateTrack_) {
   templateTrack = templateTrack_;
 }
+
+String AppState::getStatusLabelText() { return statusLabelText; }
+void AppState::setStatusLabelText(String statusLabelText_) {
+  statusLabelText = statusLabelText_;
+}

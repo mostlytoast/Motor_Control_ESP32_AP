@@ -1,129 +1,5 @@
 #include "espnow_controller.h"
 
-#include <ArduinoJson.h>
-#include <WiFi.h>
-#include <esp_now.h>
-#include <esp_wifi.h>
-
-#include "StateJson.h"
-
-// =====================================================
-// GENERIC JSON FRAGMENTATION
-// =====================================================
-
-constexpr uint8_t JSON_FRAGMENT_MAGIC = 0xA5;
-
-// ESP-NOW maximum payload we want to use.
-constexpr size_t JSON_FRAGMENT_PACKET_SIZE = 250;
-
-// Header:
-//   magic       = 1
-//   type        = 1
-//   messageId   = 2
-//   chunkIndex  = 1
-//   totalChunks = 1
-//
-// Total = 6 bytes
-constexpr size_t JSON_FRAGMENT_HEADER_SIZE = 6;
-
-constexpr size_t JSON_FRAGMENT_DATA_SIZE =
-    JSON_FRAGMENT_PACKET_SIZE - JSON_FRAGMENT_HEADER_SIZE;
-
-// Maximum reconstructed JSON document.
-constexpr size_t JSON_REASSEMBLY_BUFFER_SIZE = 8000;
-
-// How long we keep an incomplete message around.
-constexpr unsigned long JSON_REASSEMBLY_TIMEOUT = 2000;
-
-// Maximum simultaneous senders we keep reassembly state for.
-constexpr int MAX_JSON_REASSEMBLIES = 2;
-struct JsonFragmentHeader {
-  uint8_t magic;
-  uint8_t type;
-  uint16_t messageId;
-  uint8_t chunkIndex;
-  uint8_t totalChunks;
-} __attribute__((packed));
-
-static_assert(sizeof(JsonFragmentHeader) == 6,
-              "JsonFragmentHeader must be exactly 6 bytes");
-
-struct JsonReassembly {
-  bool active = false;
-
-  uint8_t sourceMac[6] = {};
-
-  uint8_t type = 0;
-  uint16_t messageId = 0;
-  uint8_t totalChunks = 0;
-  uint8_t receivedChunks = 0;
-
-  size_t length = 0;
-
-  bool received[255] = {};
-
-  char buffer[JSON_REASSEMBLY_BUFFER_SIZE];
-
-  unsigned long lastReceived = 0;
-};
-
-JsonReassembly jsonReassemblies[MAX_JSON_REASSEMBLIES] = {};
-
-uint16_t nextJsonMessageId = 0;
-// -----------------------------------------------------
-// Local ESP-NOW state
-// -----------------------------------------------------
-
-uint8_t broadcastMac[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-
-uint8_t localMac[6] = {};
-
-QueueHandle_t espNowEventQueue = nullptr;
-
-// -----------------------------------------------------
-// Controller-side receiver list
-// -----------------------------------------------------
-
-ReceiverInfo receivers[MAX_RECEIVERS] = {};
-
-int receiverCount = 0;
-int activeReceiver = -1;
-
-volatile bool receiverListNeedsRefresh = false;
-// -----------------------------------------------------
-// Discovery
-// -----------------------------------------------------
-
-bool discoveryActive = false;
-
-unsigned long discoveryStarted = 0;
-unsigned long lastDiscoverySend = 0;
-
-// -----------------------------------------------------
-// Controller-side server state
-// -----------------------------------------------------
-
-JsonDocument serverState;
-
-// -----------------------------------------------------
-// Periodic communication
-// -----------------------------------------------------
-
-unsigned long lastHeartbeatSend = 0;
-
-// -----------------------------------------------------
-// State synchronization
-// -----------------------------------------------------
-
-enum StateChangeOrigin {
-  STATE_CHANGE_NONE,
-  STATE_CHANGE_LOCAL,
-  STATE_CHANGE_REMOTE
-};
-
-volatile StateChangeOrigin stateChangeOrigin = STATE_CHANGE_NONE;
-
-volatile bool applyingRemoteState = false;
 // =====================================================
 // MAC UTILITIES
 // =====================================================
@@ -785,24 +661,6 @@ bool sendJsonDocument(const uint8_t* destination, JsonDocument& doc) {
     type = doc["type"].as<uint8_t>();
   }
 
-  // Serial.print("Sending JSON message ");
-
-  // Serial.print(messageId);
-
-  // Serial.print(" type=");
-
-  // Serial.print(type);
-
-  // Serial.print(" size=");
-
-  // Serial.print(json.length());
-
-  // Serial.print(" bytes, ");
-
-  // Serial.print(totalChunks);
-
-  // Serial.println(" chunks");
-
   // ---------------------------------------------------
   // Send every fragment
   // ---------------------------------------------------
@@ -855,20 +713,6 @@ bool sendJsonDocument(const uint8_t* destination, JsonDocument& doc) {
 
       return false;
     }
-
-    // Serial.print("  JSON chunk ");
-
-    // Serial.print(chunkIndex + 1);
-
-    // Serial.print("/");
-
-    // Serial.print(totalChunks);
-
-    // Serial.print(" = ");
-
-    // Serial.print(packetLength);
-
-    // Serial.println(" bytes");
   }
 
   return true;
@@ -1031,24 +875,8 @@ void processStateChanges() {
     if ((activeReceiver >= 0 && activeReceiver < receiverCount &&
          receivers[activeReceiver].used && receivers[activeReceiver].paired)) {
       bool sent = sendServerState(receivers[activeReceiver].mac);
-
-      // if (!sent) {
-      //   Serial.println("SERVER STATE SEND FAILED");
-      // } else {
-      //   Serial.println("SEVER STATE SEND COMPLETED");
-      // }
     } else if (isActiveController(currentControllerMac)) {
       bool sent = sendServerState(currentControllerMac);
-
-      // if (!sent) {
-      //   Serial.println("SERVER STATE SEND FAILED");
-      // } else {
-      //   Serial.println("SEVER STATE SEND COMPLETED");
-      // }
-    } else {
-      // Serial.println(
-      //     "ERROR: did not send state change active receiver not paired or "
-      //     "found");
     }
   }
 
@@ -1108,14 +936,6 @@ void processServerState(const uint8_t* data, int len) {
 
     for (JsonPairConst pair : incomingState) {
       storedState[pair.key()] = pair.value();
-
-      // Serial.print("Received state: ");
-      // Serial.print(pair.key().c_str());
-      // Serial.print(" = ");
-
-      // serializeJson(pair.value(), Serial);
-
-      // Serial.println();
     }
   }
 
@@ -1147,6 +967,7 @@ void processServerState(const uint8_t* data, int len) {
   applyingRemoteState = true;
 
   // Apply only the packet we actually received.
+  // todo have this be separate want espnow to be on its own
   getStateFromJson(doc);
 
   applyingRemoteState = false;
@@ -2305,6 +2126,14 @@ bool setupESPNow(bool wifi) {
 
   applyingRemoteState = false;
 
+  discoveryActive = true;
+
+  discoveryStarted = millis();
+
+  lastDiscoverySend = 0;
+
+  lastHeartbeatSend = millis();
+
   Serial.println();
   Serial.println("ESP-NOW READY");
 
@@ -2313,4 +2142,119 @@ bool setupESPNow(bool wifi) {
   Serial.println();
 
   return true;
+}
+sendPairRequestState sendPairRequest(int index) {
+  PairPacket pairPacket = {};
+
+  pairPacket.type = CMD_PAIR_REQUEST;
+
+  memcpy(pairPacket.receiverMac, localMac, 6);
+
+  esp_err_t result =
+      esp_now_send(receivers[index].mac,
+                   reinterpret_cast<uint8_t*>(&pairPacket), sizeof(pairPacket));
+
+  if (result != ESP_OK) {
+    Serial.print("PAIR send failed: ");
+
+    Serial.print(result);
+
+    Serial.print(" / ");
+
+    Serial.println(esp_err_to_name(result));
+
+    //
+    receivers[index].paired = false;
+
+    return PAIR_ERROR;
+  }
+
+  Serial.print("PAIR request sent to: ");
+
+  Serial.println(receivers[index].name);
+
+  return PAIR_SUCCESS;
+}
+
+validateSelectedPeerState validateSelectedPeer(int index) {
+  if (index < 0 || index >= receiverCount) {
+    return INVALID_INDEX;
+  }
+
+  if (!receivers[index].used) {
+    return INVALID_INDEX;
+  }
+
+  // Don't do anything if already selected
+
+  if (index == activeReceiver && receivers[index].paired) {
+    //
+
+    return ALREADY_SELECTED;
+  }
+
+  // Stop previous receiver
+
+  // if (activeReceiver >= 0 && activeReceiver != index) {
+  // todo maybe add this back?
+  //   stopActiveReceiver();
+  // }
+
+  // Make sure peer exists
+
+  if (!addPeer(receivers[index].mac, receivers[index].channel)) {
+    //
+
+    return PEER_ERROR;
+  }
+
+  // Select receiver
+
+  activeReceiver = index;
+
+  receivers[index].paired = false;
+
+  // Clear old server state
+
+  app.setServerStateReceived(false);
+
+  app.setServerStateChanged(false);
+  return PASS_CHECK;
+}
+// todo should this be in app state?
+bool hasActiveReceiver() {
+  return !(activeReceiver < 0 || activeReceiver >= receiverCount ||
+           !receivers[activeReceiver].used);
+}
+
+void resetDiscover() {
+  // Reset receiver list
+
+  receiverCount = 0;
+
+  activeReceiver = -1;
+
+  for (int i = 0; i < MAX_RECEIVERS; i++) {
+    receivers[i] = {};
+  }
+
+  // Reset server state
+
+  app.setServerStateReceived(false);
+
+  app.setServerStateChanged(false);
+
+  // Start discovery
+
+  discoveryActive = true;
+
+  discoveryStarted = millis();
+
+  lastDiscoverySend = 0;
+
+  receiverListNeedsRefresh = true;
+}
+
+bool isActiveReceiver(int i){
+  return i == activeReceiver;
 }

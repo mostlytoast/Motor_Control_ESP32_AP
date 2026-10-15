@@ -15,15 +15,10 @@
 #include "hardware/NFC.h"
 #include "../../shared/track/map.h"
 #include "../../shared/utils/AppState.h"
-#include "utils/clog.hpp"
-#include "website/WebPage.h"
 #include "website/WebServer.h"
-// TODO use web assembly to have same ui for controller and website
-// TODO find way to have shared files for esp communication (share as many files
-// as possible)
+#include "track/TrackScanner.h"
 
-// NFC nfc;
-// AppState app;
+
 // todo include link sources of audio files?
 extern char serialBuffer[SERIAL_BUFFER_SIZE];
 
