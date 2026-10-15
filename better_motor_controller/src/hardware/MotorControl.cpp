@@ -1,15 +1,7 @@
 
 #include "MotorControl.h"
-
+// TODO remove hall sensor implementation
 // Global variable definitions
-int movementSound = 0;
-int ambianceSound = 0;
-int sensorValue = 0;
-
-template <typename T>
-T mapValue(T value, T fromLow, T fromHigh, T toLow, T toHigh) {
-  return toLow + ((value - fromLow) * (toHigh - toLow) / (fromHigh - fromLow));
-}
 
 void setupMotor() {
   ledcAttachChannel(IN1, freq, resolution, ledChannel);
@@ -17,21 +9,11 @@ void setupMotor() {
   ledcAttachChannel(IN2, freq, resolution, ledChannel);
 
   // todo maybe move hall to auto.h ?
-  pinMode(HALL_PIN, INPUT);
+  // pinMode(HALL_PIN, INPUT);
 
   pinMode(ENA, OUTPUT);
 
   ledcWrite(ENA, 0);
-
-  movementSound =
-      AudioPlayer_play(__MOVEMENT_AUDIO_PCM, __MOVEMENT_AUDIO_PCM_LEN,
-                       __MOVEMENT_AUDIO_PCM_LOOP, false);
-  ambianceSound =
-      AudioPlayer_play(__AMBIANCE_AUDIO_PCM, __AMBIANCE_AUDIO_PCM_LEN,
-                       __AMBIANCE_AUDIO_PCM_LOOP, false);
-  AudioPlayer_stopAll();
-  AudioPlayer_setVolume(ambianceSound, ambianceSoundVolume);
-  AudioPlayer_setVolume(movementSound, movementSoundVolume);
 }
 
 void setMotor(int speed) {
@@ -47,20 +29,10 @@ void setMotor(int speed) {
     ledcWrite(IN2, 0);
 
     digitalWrite(ENA, LOW);
-
-    setAudioMovementStateCommand(false);
+    app.setMovementAudioMode(false);
     return;
   }
-
-  setAudioMovementStateCommand(true);
-
-  AudioPlayer_setSpeed(movementSound,
-                       mapValue(abs(float(speed)), 0.0f, 255.0f, lowAudioOffset,
-                                highAudioOffset));
-  AudioPlayer_setPitch(
-      movementSound, mapValue(abs(float(speed)), 0.0f, 255.0f, highAudioOffset,
-                              lowAudioOffset) /
-                         12);
+  app.setMovementAudioMode(true);
 
   // ===================================================
   // Get magnitude
@@ -96,98 +68,95 @@ void setMotor(int speed) {
     ledcWrite(IN2, pwm);
     digitalWrite(ENA, HIGH);
   }
-
 }
 
-// =====================================================
 // Automatic stopping / Hall sensor
-// =====================================================
+
 static unsigned long lastSensorPrint = 0;
 void autoStop() {
-  sensorValue = analogRead(HALL_PIN);
+  // // sensorValue = analogRead(HALL_PIN);
 
-  if (millis() - lastSensorPrint >= 100) {
-    lastSensorPrint = millis();
-  }
+  // if (millis() - lastSensorPrint >= 100) {
+  //   lastSensorPrint = millis();
+  // }
 
-  if (!app.getAutoState()) {
-    return;
-  }
+  // if (!app.getAutoState()) {
+  //   return;
+  // }
 
-  unsigned long now = millis();
+  // unsigned long now = millis();
 
-  // ===================================================
-  // MOVING
-  // ===================================================
+  // // ===================================================
+  // // MOVING
+  // // ===================================================
 
-  if (app.getAutoMode() == AUTO_MOVING) {
-    // Hall sensor detected
+  // if (app.getAutoMode() == AUTO_MOVING) {
+  //   // Hall sensor detected
 
-    if (sensorValue > 2000) {
-      app.setTargetSpeed(0);
+  //   if (sensorValue > 2000) {
+  //     app.setTargetSpeed(0);
 
-      app.setLastSensorDetect(now);
+  //     // app.setLastSensorDetect(now);
 
-      app.setAutoMode(AUTO_WAITING);
+  //     app.setAutoMode(AUTO_WAITING);
 
-      Serial.println("HALL DETECTED");
+  //     Serial.println("HALL DETECTED");
 
-      Serial.println("STOPPING");
-    }
+  //     Serial.println("STOPPING");
+  //   }
 
-    // Hall sensor detected
-    // from the opposite direction
+  //   // Hall sensor detected
+  //   // from the opposite direction
 
-    if (sensorValue < 1650) {
-      app.setSpeedBeforeDetect(-app.getSpeedBeforeDetect());
+  //   if (sensorValue < 1650) {
+  //     // app.setSpeedBeforeDetect(-app.getSpeedBeforeDetect());
 
-      app.setTargetSpeed(0);
+  //     app.setTargetSpeed(0);
 
-      app.setLastSensorDetect(now);
+  //     // app.setLastSensorDetect(now);
 
-      app.setAutoMode(AUTO_WAITING);
+  //     app.setAutoMode(AUTO_WAITING);
 
-      Serial.println("HALL DETECTED");
+  //     Serial.println("HALL DETECTED");
 
-      Serial.println("STOPPING");
-    }
-  }
+  //     Serial.println("STOPPING");
+  //   }
+  // }
 
-  // ===================================================
-  // WAITING
-  // ===================================================
+  // // ===================================================
+  // // WAITING
+  // // ===================================================
 
-  else if (app.getAutoMode() == AUTO_WAITING) {
-    if (now - app.getLastSensorDetect() >= 6000) {
-      app.setTargetSpeed(app.getSpeedBeforeDetect());
+  // else if (app.getAutoMode() == AUTO_WAITING) {
+  //   // if (now - app.getLastSensorDetect() >= 6000) {
+  //   //   // app.setTargetSpeed(app.getSpeedBeforeDetect());
 
-      app.setAutoMode(AUTO_DEPARTING);
+  //   //   app.setAutoMode(AUTO_DEPARTING);
 
-      Serial.println("Departing");
+  //   //   Serial.println("Departing");
 
-      Serial.println(app.getTargetSpeed());
-    }
-  }
+  //   //   Serial.println(app.getTargetSpeed());
+  //   // }
+  // }
 
-  // ===================================================
-  // DEPARTING
-  // ===================================================
+  // // ===================================================
+  // // DEPARTING
+  // // ===================================================
 
-  else if (app.getAutoMode() == AUTO_DEPARTING) {
-    // Ignore Hall sensor while departing.
-    // Move away for 8 seconds.
+  // else if (app.getAutoMode() == AUTO_DEPARTING) {
+  //   // Ignore Hall sensor while departing.
+  //   // Move away for 8 seconds.
 
-    if (now - app.getLastSensorDetect() >= 8000) {
-      app.setAutoMode(AUTO_MOVING);
+  //   // if (now - app.getLastSensorDetect() >= 8000) {
+  //   //   app.setAutoMode(AUTO_MOVING);
 
-      Serial.println("SENSOR DETECTION ENABLED");
-    }
-  }
+  //   //   Serial.println("SENSOR DETECTION ENABLED");
+  //   // }
+  // }
 }
 
-// =====================================================
 // Motor ramping
-// =====================================================
+
 void updateMotorRamp() {
   unsigned long now = millis();
 
@@ -286,7 +255,6 @@ void changeSpeedCommand(int speed) {
 
   Serial.print("Target speed: ");
   Serial.println(app.getTargetSpeed());
-
 }
 
 void changeRampCommand(unsigned long ramp) {
@@ -297,7 +265,6 @@ void changeRampCommand(unsigned long ramp) {
   Serial.print("Ramp time: ");
   Serial.print(app.getRampTime() / 1000.0, 1);
   Serial.println(" seconds");
-
 }
 
 // ===================================================
@@ -310,9 +277,9 @@ bool setAutoStateCommand(bool state) {
   if (app.getAutoState()) {
     app.setAutoMode(AUTO_MOVING);
 
-    app.setLastSensorDetect(millis());
+    // app.setLastSensorDetect(millis());
 
-    app.setTargetSpeed(app.getSpeedBeforeDetect());
+    // app.setTargetSpeed(app.getSpeedBeforeDetect());
 
     Serial.println("AUTO STARTED");
 
@@ -325,74 +292,6 @@ bool setAutoStateCommand(bool state) {
   }
 
   return app.getAutoState();
-}
-
-// ===================================================
-// Ambiance audio
-// ===================================================
-
-int toggleAudioAmbianceStateCommand() {
-  app.setAmbianceAudioMode(!app.getAmbianceAudioMode());
-
-  return setAudioAmbianceStateCommand(app.getAmbianceAudioMode());
-}
-
-int setAudioAmbianceStateCommand(bool state) {
-  app.setAmbianceAudioMode(state);
-
-  if (app.getAmbianceAudioMode()) {
-    if (!AudioPlayer_isPlaying(ambianceSound)) {
-      if (AudioPlayer_resume(ambianceSound)) {
-        Serial.println("AUDIO ON");
-        return 1;
-
-      } else {
-        Serial.println("AUDIO FAILED");
-        return -1;
-      }
-    }
-
-  } else {
-    if (AudioPlayer_isPlaying(ambianceSound)) {
-      AudioPlayer_stop(ambianceSound);
-
-      Serial.println("AUDIO OFF");
-      return 0;
-    }
-  }
-
-  return app.getAmbianceAudioMode() ? 1 : 0;
-}
-
-// ===================================================
-// Movement audio
-// ===================================================
-
-int setAudioMovementStateCommand(bool state) {
-  app.setMovementAudioMode(state);
-
-  if (app.getMovementAudioMode()) {
-    if (!AudioPlayer_isPlaying(movementSound)) {
-      if (AudioPlayer_resume(movementSound)) {
-        Serial.println("AUDIO ON");
-        return 1;
-
-      } else {
-        Serial.println("AUDIO FAILED");
-        return -1;
-      }
-    }
-
-  } else {
-    if (AudioPlayer_isPlaying(movementSound)) {
-      AudioPlayer_stop(movementSound);
-
-      Serial.println("AUDIO OFF");
-      return 0;
-    }
-  }
-
-  return app.getMovementAudioMode() ? 1 : 0;
 }
 
 // ===================================================
@@ -409,5 +308,4 @@ void motorStopCommand() {
   app.setAutoMode(AUTO_IDLE);
 
   Serial.println("EMERGENCY STOP");
-
 }

@@ -2,8 +2,8 @@
 
 #include <Arduino.h>
 
-#include "../SharedConfig.h"
-#include "../communication/packets.h"
+// #include "../SharedConfig.h"
+// #include "../communication/packets.h"
 #include "../track/map.h"
 
 enum AutoMode { AUTO_IDLE, AUTO_MOVING, AUTO_WAITING, AUTO_DEPARTING };
@@ -20,12 +20,6 @@ enum ScannerMode { REGISTER_TRACKS, WRITING_TRACKS, SCANNING_TRACKS };
 class AppState {
  public:
   AppState();
-  // TODO figure out when to call these
-  bool getServerStateChanged();
-  void setServerStateChanged(bool state);
-
-  bool getServerStateReceived();
-  void setServerStateReceived(bool state);
 
   // LEDs
 
@@ -61,51 +55,15 @@ class AppState {
   bool getAudioState() const;
   void setAudioState(bool state);
 
-  // Controllers
+  void setMovementAudioPitch(float pitch);
+  void setMovementAudioSpeed(float speed);
+  void setAmbianceAudioPitch(float pitch);
+  void setAmbianceAudioSpeed(float speed);
 
-  PairedController* getControllers();
-
-  int getActiveController() const;
-  void setActiveController(int controller);
-
-  unsigned long getLastActiveControllerPacket() const;
-  void setLastActiveControllerPacket(unsigned long time);
-
-  // ESP-NOW
-
-  bool getEspNowCommandPending() const;
-  void setEspNowCommandPending(bool pending);
-
-  void setEspNowPendingCommand(ESPNowCommand&);
-  ESPNowCommand& getEspNowPendingCommand();
-
-  uint8_t* getPendingSourceMac();
-  void setPendingSourceMac(const uint8_t* mac);
-
-  unsigned long getLastESPNowPacket() const;
-  void setLastESPNowPacket(unsigned long time);
-
-  bool getEspNowFailsafeActive() const;
-  void setEspNowFailsafeActive(bool active);
-
-  // Pairing
-
-  bool getPairingMode() const;
-  void setPairingMode(bool enabled);
-
-  unsigned long getPairingModeStarted() const;
-  void setPairingModeStarted(unsigned long time);
-
-  // NFC
-
-  void setUid(const uint8_t* uid, uint8_t length);
-
-  const uint8_t* getUid() const;
-
-  void setUidLength(uint8_t length);
-
-  uint8_t getUidLength() const;
-
+  float getMovementAudioPitch();
+  float getMovementAudioSpeed();
+  float getAmbianceAudioPitch();
+  float getAmbianceAudioSpeed();
   // Speed
 
   int getTargetSpeed() const;
@@ -116,6 +74,9 @@ class AppState {
 
   float getCurrentSpeed() const;
   void setCurrentSpeed(float speed);
+
+  int getLastTargetSpeed() const;
+  void setLastTargetSpeed(int speed);
 
   // Ramp
 
@@ -128,28 +89,15 @@ class AppState {
   int getRampStartSpeed() const;
   void setRampStartSpeed(int speed);
 
-  int getLastTargetSpeed() const;
-  void setLastTargetSpeed(int speed);
-
-  // Sensors
-
-  unsigned long getLastSensorDetect() const;
-  void setLastSensorDetect(unsigned long time);
-
-  int getSpeedBeforeDetect() const;
-  void setSpeedBeforeDetect(int speed);
-
+  // template track
   Track* getTemplateTrack();
   void setTemplateTrack(Track* templateTrack_);
 
   // display
   String getStatusLabelText();
-
   void setStatusLabelText(String statusLabelText_);
 
  private:
-  bool serverStateChanged = false;
-  bool serverStateReceived = false;
   // LEDs
   bool led1State = false;
   bool led2State = false;
@@ -166,25 +114,11 @@ class AppState {
   bool ambianceAudioMode = false;
   bool movementAudioMode = false;
 
-  // Controllers
-  PairedController controllers[MAX_CONTROLLERS];
-  int activeController = -1;
-  unsigned long lastActiveControllerPacket = 0;
+  float  movementAudioPitch = 0;
+  float  movementAudioSpeed = 0;
 
-  // ESP-NOW
-  volatile bool espNowCommandPending = false;
-  ESPNowCommand espNowPendingCommand;
-  uint8_t pendingSourceMac[6] = {};
-  volatile unsigned long lastESPNowPacket = 0;
-  bool espNowFailsafeActive = false;
-
-  // Pairing
-  bool pairingMode = true;
-  unsigned long pairingModeStarted = 0;
-
-  // NFC
-  uint8_t uidLength = 0;
-  uint8_t uid[7] = {};
+  float  ambianceAudioPitch = 0;
+  float  ambianceAudioSpeed = 0;
 
   // Speed
   volatile int targetSpeed = 0;
@@ -197,9 +131,7 @@ class AppState {
   int rampStartSpeed = 0;
   int lastTargetSpeed = 0;
 
-  // Sensors
-  unsigned long lastSensorDetect = 0;
-  int speedBeforeDetect = 200;
+  // template track
   Track* templateTrack = nullptr;
 
   // display status label

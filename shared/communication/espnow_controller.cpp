@@ -1,13 +1,11 @@
 #include "espnow_controller.h"
 
-// =====================================================
-// MAC UTILITIES
-// =====================================================
 
 // =====================================================
 // PEER MANAGEMENT
 // =====================================================
 
+// TODO unify names of peer receiver and controller to be peer
 bool addPeer(const uint8_t* mac, uint8_t channel) {
   if (mac == nullptr) {
     return false;
@@ -41,6 +39,7 @@ bool addPeer(const uint8_t* mac, uint8_t channel) {
 }
 
 bool addControllerPeer(const uint8_t* mac) {
+  // TODO look into combine controller and peer
   return addPeer(mac, WIFI_CHANNEL);
 }
 
@@ -192,11 +191,11 @@ int findController(const uint8_t* mac) {
   }
 
   for (int i = 0; i < MAX_CONTROLLERS; i++) {
-    if (!app.getControllers()[i].valid) {
+    if (!controllers[i].valid) {
       continue;
     }
 
-    if (macEqual(app.getControllers()[i].mac, mac)) {
+    if (macEqual(controllers[i].mac, mac)) {
       return i;
     }
   }
@@ -208,7 +207,7 @@ bool isPairedController(const uint8_t* mac) { return findController(mac) >= 0; }
 
 int findFreeControllerSlot() {
   for (int i = 0; i < MAX_CONTROLLERS; i++) {
-    if (!app.getControllers()[i].valid) {
+    if (!controllers[i].valid) {
       return i;
     }
   }
@@ -232,19 +231,18 @@ int pairController(const uint8_t* mac, const char* controllerName) {
   // ---------------------------------------------------
 
   if (existing >= 0) {
-    app.getControllers()[existing].lastSeen = millis();
+    controllers[existing].lastSeen = millis();
 
     if (controllerName != nullptr && controllerName[0] != '\0') {
-      strncpy(app.getControllers()[existing].name, controllerName,
-              sizeof(app.getControllers()[existing].name) - 1);
+      strncpy(controllers[existing].name, controllerName,
+              sizeof(controllers[existing].name) - 1);
 
-      app.getControllers()[existing]
-          .name[sizeof(app.getControllers()[existing].name) - 1] = '\0';
+      controllers[existing].name[sizeof(controllers[existing].name) - 1] = '\0';
     }
 
-    addControllerPeer(mac);
+    addPeer(mac, WIFI_CHANNEL);
 
-    saveControllers();
+    // saveControllers();
 
     return existing;
   }
@@ -259,31 +257,30 @@ int pairController(const uint8_t* mac, const char* controllerName) {
     return -1;
   }
 
-  memset(&app.getControllers()[slot], 0, sizeof(app.getControllers()[slot]));
+  memset(&controllers[slot], 0, sizeof(controllers[slot]));
 
-  app.getControllers()[slot].valid = true;
+  controllers[slot].valid = true;
 
-  memcpy(app.getControllers()[slot].mac, mac, 6);
+  memcpy(controllers[slot].mac, mac, 6);
 
   if (controllerName != nullptr && controllerName[0] != '\0') {
-    strncpy(app.getControllers()[slot].name, controllerName,
-            sizeof(app.getControllers()[slot].name) - 1);
+    strncpy(controllers[slot].name, controllerName,
+            sizeof(controllers[slot].name) - 1);
 
   } else {
-    snprintf(app.getControllers()[slot].name,
-             sizeof(app.getControllers()[slot].name), "Controller %d",
-             slot + 1);
+    snprintf(controllers[slot].name, sizeof(controllers[slot].name),
+             "Controller %d", slot + 1);
   }
 
-  app.getControllers()[slot].lastSeen = millis();
+  controllers[slot].lastSeen = millis();
 
-  if (!addControllerPeer(mac)) {
-    app.getControllers()[slot].valid = false;
+  if (!addPeer(mac, WIFI_CHANNEL)) {
+    controllers[slot].valid = false;
 
     return -1;
   }
 
-  saveControllers();
+  // saveControllers();
 
   Serial.print("Controller paired: ");
 
@@ -305,21 +302,21 @@ bool removeController(int slot) {
     return false;
   }
 
-  if (!app.getControllers()[slot].valid) {
+  if (!controllers[slot].valid) {
     return false;
   }
 
   uint8_t mac[6];
 
-  memcpy(mac, app.getControllers()[slot].mac, 6);
+  memcpy(mac, controllers[slot].mac, 6);
 
   removePeer(mac);
 
-  if (app.getActiveController() == slot) {
-    app.setActiveController(-1);
+  if (activeController == slot) {
+    activeController = -1;
 
-    app.setLastActiveControllerPacket(0);
-
+    lastActiveControllerPacket = 0;
+    // TODO want to remove app. refs
     app.setTargetSpeed(0);
 
     app.setUserSpeed(0);
@@ -329,9 +326,9 @@ bool removeController(int slot) {
     app.setAutoMode(AUTO_IDLE);
   }
 
-  memset(&app.getControllers()[slot], 0, sizeof(app.getControllers()[slot]));
+  memset(&controllers[slot], 0, sizeof(controllers[slot]));
 
-  saveControllers();
+  // saveControllers();
 
   Serial.print("Controller removed: ");
 
@@ -355,15 +352,15 @@ bool claimController(const uint8_t* mac) {
     return false;
   }
 
-  app.setActiveController(slot);
+  activeController = slot;
 
-  app.setLastActiveControllerPacket(millis());
+  lastActiveControllerPacket = millis();
 
-  app.getControllers()[slot].lastSeen = millis();
+  controllers[slot].lastSeen = millis();
 
   Serial.print("ACTIVE CONTROLLER -> ");
 
-  Serial.println(app.getControllers()[slot].name);
+  Serial.println(controllers[slot].name);
 
   return true;
 }
@@ -375,7 +372,7 @@ bool isActiveController(const uint8_t* mac) {
     return false;
   }
 
-  return slot == app.getActiveController();
+  return slot == activeController;
 }
 
 // =====================================================
@@ -398,14 +395,14 @@ void sendDiscoveryPacket(const uint8_t* destination) {
   uint8_t count = 0;
 
   for (int i = 0; i < MAX_CONTROLLERS; i++) {
-    if (app.getControllers()[i].valid) {
+    if (controllers[i].valid) {
       count++;
     }
   }
 
   response.pairedCount = count;
 
-  response.pairingMode = app.getPairingMode() ? 1 : 0;
+  response.pairingMode = pairingMode ? 1 : 0;
 
   strncpy(response.receiverName, RECEIVER_NAME,
           sizeof(response.receiverName) - 1);
@@ -464,13 +461,11 @@ void sendControllerStatus(const uint8_t* destination) {
 
   response.type = CMD_CONTROLLER_STATUS;
 
-  response.value = app.getActiveController();
+  response.value = activeController;
 
-  if (app.getActiveController() >= 0 &&
-      app.getActiveController() < MAX_CONTROLLERS &&
-      app.getControllers()[app.getActiveController()].valid) {
-    memcpy(response.data, app.getControllers()[app.getActiveController()].mac,
-           6);
+  if (activeController >= 0 && activeController < MAX_CONTROLLERS &&
+      controllers[activeController].valid) {
+    memcpy(response.data, controllers[activeController].mac, 6);
   }
 
   addControllerPeer(destination);
@@ -479,9 +474,6 @@ void sendControllerStatus(const uint8_t* destination) {
                sizeof(response));
 }
 
-// =====================================================
-// JSON SEND
-// =====================================================
 // =====================================================
 // JSON REASSEMBLY HELPERS
 // =====================================================
@@ -810,41 +802,12 @@ bool sendServerState(const uint8_t* destination) {
 
 void broadcastServerState() {
   for (int i = 0; i < MAX_CONTROLLERS; i++) {
-    if (!app.getControllers()[i].valid) {
+    if (!controllers[i].valid) {
       continue;
     }
 
-    sendServerState(app.getControllers()[i].mac);
+    sendServerState(controllers[i].mac);
   }
-}
-
-// =====================================================
-// LOCAL STATE CHANGE
-//
-// CALL THIS whenever the LOCAL ESP changes state.
-//
-// Example:
-//
-//     app.setTargetSpeed(100);
-//     notifyLocalStateChanged();
-//
-// The state will be transmitted during espnowUpdate().
-//
-// If this function is accidentally called while applying
-// a remote packet, it is ignored.
-// =====================================================
-
-void notifyLocalStateChanged() {
-  // TODO find simpler way of doing this, less confusing to new user
-  // if (applyingRemoteState) {
-  //   Serial.println("notifyLocalStateChanged failed ");
-
-  //   return;
-  // }
-
-  // stateChangeOrigin = STATE_CHANGE_LOCAL;
-
-  // app.setServerStateChanged(true);
 }
 
 // =====================================================
@@ -860,39 +823,13 @@ void notifyLocalStateChanged() {
 // =====================================================
 
 void processStateChanges() {
-  // Serial.println("processStateChanges");
-  // if (!app.getServerStateChanged()) {
-  //   return;
-  // }
-
-  // ---------------------------------------------------
-  // Only transmit LOCAL state changes.
-  // ---------------------------------------------------
-  // todo clean up
-  const uint8_t* currentControllerMac =
-      app.getControllers()[app.getActiveController()].mac;
-    if ((activeReceiver >= 0 && activeReceiver < receiverCount &&
-         receivers[activeReceiver].used && receivers[activeReceiver].paired)) {
-      bool sent = sendServerState(receivers[activeReceiver].mac);
-    } else if (isActiveController(currentControllerMac)) {
-      bool sent = sendServerState(currentControllerMac);
-    }
-
-  // ---------------------------------------------------
-  // REMOTE state changes are deliberately ignored here.
-  //
-  // This is what prevents:
-  //
-  // A -> B -> A -> B -> A...
-  // ---------------------------------------------------
-
-  else if (stateChangeOrigin == STATE_CHANGE_REMOTE) {
-    // Serial.println("Remote state applied - not echoing");
+  const uint8_t* currentControllerMac = controllers[activeController].mac;
+  if ((activeReceiver >= 0 && activeReceiver < receiverCount &&
+       receivers[activeReceiver].used && receivers[activeReceiver].paired)) {
+    bool sent = sendServerState(receivers[activeReceiver].mac);
+  } else if (isActiveController(currentControllerMac)) {
+    bool sent = sendServerState(currentControllerMac);
   }
-
-  stateChangeOrigin = STATE_CHANGE_NONE;
-
-  app.setServerStateChanged(false);
 }
 
 // =====================================================
@@ -949,28 +886,8 @@ void processServerState(const uint8_t* data, int len) {
 
   serverState["type"] = CMD_SERVER_STATE;
 
-  app.setServerStateReceived(true);
-
-  // ---------------------------------------------------
-  // IMPORTANT:
-  //
-  // Mark this state as REMOTE before applying it.
-  //
-  // Anything triggered by getStateFromJson() will
-  // therefore not cause the state to be sent back.
-  // ---------------------------------------------------
-
-  stateChangeOrigin = STATE_CHANGE_REMOTE;
-
-  applyingRemoteState = true;
-
-  // Apply only the packet we actually received.
   // todo have this be separate want espnow to be on its own
   getStateFromJson(doc);
-
-  applyingRemoteState = false;
-
-  app.setServerStateChanged(true);
 }
 
 // =====================================================
@@ -1012,15 +929,15 @@ void processJsonCommand(const uint8_t* sourceMac, JsonDocument& doc) {
   // Initial active controller
   // ---------------------------------------------------
 
-  if (app.getActiveController() < 0) {
-    app.setActiveController(controllerSlot);
+  if (activeController < 0) {
+    activeController = controllerSlot;
   }
 
   // ---------------------------------------------------
   // Only active controller controls
   // ---------------------------------------------------
 
-  if (controllerSlot != app.getActiveController()) {
+  if (controllerSlot != activeController) {
     return;
   }
 
@@ -1030,11 +947,11 @@ void processJsonCommand(const uint8_t* sourceMac, JsonDocument& doc) {
 
   unsigned long now = millis();
 
-  app.setLastESPNowPacket(now);
+  lastESPNowPacket = now;
 
-  app.setLastActiveControllerPacket(now);
+  lastActiveControllerPacket = now;
 
-  app.getControllers()[controllerSlot].lastSeen = now;
+  controllers[controllerSlot].lastSeen = now;
 
   // ---------------------------------------------------
   // Convert JSON command to pending command
@@ -1045,24 +962,22 @@ void processJsonCommand(const uint8_t* sourceMac, JsonDocument& doc) {
   command.type = type;
   command.value = value;
 
-  app.setEspNowPendingCommand(command);
+  espNowPendingCommand = command;
 
-  memcpy(app.getPendingSourceMac(), sourceMac, 6);
+  memcpy(pendingSourceMac, sourceMac, 6);
 
-  app.setEspNowCommandPending(true);
+  espNowCommandPending = true;
 
   // ---------------------------------------------------
   // Clear failsafe
   // ---------------------------------------------------
 
-  bool wasFailsafe = app.getEspNowFailsafeActive();
+  bool wasFailsafe = espNowFailsafeActive;
 
-  app.setEspNowFailsafeActive(false);
+  espNowFailsafeActive = false;
 }
 
-// =====================================================
 // PROCESS BINARY RECEIVER-SIDE PACKETS
-// =====================================================
 
 bool processReceiverBinaryPacket(const uint8_t* sourceMac, const uint8_t* data,
                                  int len) {
@@ -1101,7 +1016,7 @@ bool processReceiverBinaryPacket(const uint8_t* sourceMac, const uint8_t* data,
   if (command.type == CMD_PAIR_REQUEST) {
     Serial.println("PAIR REQUEST RECEIVED");
 
-    if (!app.getPairingMode()) {
+    if (!pairingMode) {
       sendPairResponse(sourceMac, -1, false);
 
       return true;
@@ -1335,14 +1250,6 @@ bool processJsonFragment(const uint8_t* sourceMac, const uint8_t* data,
     assembly.length = 0;
 
     memset(assembly.received, 0, sizeof(assembly.received));
-
-    // Serial.print("Started JSON message ");
-
-    // Serial.print(header.messageId);
-
-    // Serial.print(" from ");
-
-    // Serial.println(macToString(sourceMac));
   }
 
   JsonReassembly& assembly = jsonReassemblies[slot];
@@ -1358,11 +1265,7 @@ bool processJsonFragment(const uint8_t* sourceMac, const uint8_t* data,
   if (assembly.messageId != header.messageId ||
       assembly.totalChunks != header.totalChunks ||
       assembly.type != header.type) {
-    // Serial.print(
-    //     "New JSON message replacing "
-    //     "incomplete message from ");
 
-    // Serial.println(macToString(sourceMac));
 
     clearJsonReassembly(slot);
 
@@ -1432,21 +1335,6 @@ bool processJsonFragment(const uint8_t* sourceMac, const uint8_t* data,
   if (end > assembly.length) {
     assembly.length = end;
   }
-
-  // Serial.print("Received JSON chunk ");
-
-  // Serial.print(header.chunkIndex + 1);
-
-  // Serial.print("/");
-
-  // Serial.print(header.totalChunks);
-
-  // Serial.print(" (");
-
-  // Serial.print(chunkLength);
-
-  // Serial.println(" bytes)");
-
   // ---------------------------------------------------
   // Still waiting for chunks
   // ---------------------------------------------------
@@ -1461,11 +1349,6 @@ bool processJsonFragment(const uint8_t* sourceMac, const uint8_t* data,
 
   assembly.buffer[assembly.length] = '\0';
 
-  // Serial.print("Complete JSON received: ");
-
-  // Serial.print(assembly.length);
-
-  // Serial.println(" bytes");
 
   // ---------------------------------------------------
   // Parse reconstructed JSON
@@ -1652,12 +1535,6 @@ void processESPNowEvents() {
 
           if (index == activeReceiver) {
             receivers[index].paired = false;
-
-            app.setServerStateReceived(false);
-
-            app.setServerStateChanged(false);
-
-            stateChangeOrigin = STATE_CHANGE_NONE;
           }
         }
 
@@ -1713,12 +1590,6 @@ bool pairWithReceiver(int index) {
   receivers[index].paired = false;
 
   serverState.clear();
-
-  app.setServerStateReceived(false);
-
-  app.setServerStateChanged(false);
-
-  stateChangeOrigin = STATE_CHANGE_NONE;
 
   // ---------------------------------------------------
   // Binary pairing packet
@@ -1815,23 +1686,23 @@ void processDiscovery() {
 // =====================================================
 
 void ESPNow_checkFailsafe() {
-  if (app.getLastESPNowPacket() == 0) {
+  if (lastESPNowPacket == 0) {
     return;
   }
 
-  unsigned long elapsed = millis() - app.getLastESPNowPacket();
+  unsigned long elapsed = millis() - lastESPNowPacket;
 
   if (elapsed > ESPNOW_TIMEOUT) {
-    if (!app.getEspNowFailsafeActive()) {
+    if (!espNowFailsafeActive) {
       // Serial.println("ESP-NOW TIMEOUT - MOTOR STOP");
-
+      // TODO remove this app. refs
       app.setTargetSpeed(0);
 
       app.setAutoState(false);
 
       app.setAutoMode(AUTO_IDLE);
 
-      app.setEspNowFailsafeActive(true);
+      espNowFailsafeActive = true;
     }
   }
 }
@@ -1841,9 +1712,9 @@ void ESPNow_checkFailsafe() {
 // =====================================================
 
 void ESPNow_updatePairingMode() {
-  if (app.getPairingMode() && app.getPairingModeStarted() != 0 &&
-      millis() - app.getPairingModeStarted() > DEFAULT_PAIRING_WINDOW_MS) {
-    app.setPairingMode(false);
+  if (pairingMode && pairingModeStarted != 0 &&
+      millis() - pairingModeStarted > DEFAULT_PAIRING_WINDOW_MS) {
+    pairingMode = false;
 
     Serial.println("Pairing window expired");
   }
@@ -2108,14 +1979,6 @@ bool setupESPNow(bool wifi) {
     }
   }
 
-  // ---------------------------------------------------
-  // Initial synchronization state
-  // ---------------------------------------------------
-
-  stateChangeOrigin = STATE_CHANGE_NONE;
-
-  applyingRemoteState = false;
-
   discoveryActive = true;
 
   discoveryStarted = millis();
@@ -2123,6 +1986,8 @@ bool setupESPNow(bool wifi) {
   lastDiscoverySend = 0;
 
   lastHeartbeatSend = millis();
+
+  pairingModeStarted = millis();
 
   Serial.println();
   Serial.println("ESP-NOW READY");
@@ -2178,17 +2043,18 @@ validateSelectedPeerState validateSelectedPeer(int index) {
   // Don't do anything if already selected
 
   if (index == activeReceiver && receivers[index].paired) {
-    //
-
     return ALREADY_SELECTED;
   }
 
   // Stop previous receiver
 
-  // if (activeReceiver >= 0 && activeReceiver != index) {
-  // todo maybe add this back?
-  //   stopActiveReceiver();
-  // }
+  if (activeReceiver >= 0 && activeReceiver != index) {
+    // todo maybe add this back?
+    //   stopActiveReceiver();
+
+    // TODO check
+    removeController(index);
+  }
 
   // Make sure peer exists
 
@@ -2204,11 +2070,6 @@ validateSelectedPeerState validateSelectedPeer(int index) {
 
   receivers[index].paired = false;
 
-  // Clear old server state
-
-  app.setServerStateReceived(false);
-
-  app.setServerStateChanged(false);
   return PASS_CHECK;
 }
 // todo should this be in app state?
@@ -2228,12 +2089,6 @@ void resetDiscover() {
     receivers[i] = {};
   }
 
-  // Reset server state
-
-  app.setServerStateReceived(false);
-
-  app.setServerStateChanged(false);
-
   // Start discovery
 
   discoveryActive = true;
@@ -2245,6 +2100,4 @@ void resetDiscover() {
   receiverListNeedsRefresh = true;
 }
 
-bool isActiveReceiver(int i){
-  return i == activeReceiver;
-}
+bool isActiveReceiver(int i) { return i == activeReceiver; }

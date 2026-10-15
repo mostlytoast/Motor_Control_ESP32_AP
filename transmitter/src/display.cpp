@@ -21,9 +21,7 @@ void Esp32DisplayHost::sendJson(const char* json) {
   // Serial.println(json);
 }
 
-// =====================================================
 // DISPLAY
-// =====================================================
 
 TFT_eSPI tft = TFT_eSPI();
 
@@ -33,15 +31,11 @@ XPT2046_Touchscreen touch(XPT2046_CS);
 
 static uint16_t drawBuffer[SCREEN_WIDTH * DRAW_BUFFER_LINES];
 
-// =====================================================
 // LVGL TICK
-// =====================================================
 
 static uint32_t lvglTick() { return millis(); }
 
-// =====================================================
 // LVGL OBJECTS
-// =====================================================
 
 lv_obj_t* controllerButton = NULL;
 lv_obj_t* controllerMenu = NULL;
@@ -50,17 +44,14 @@ lv_obj_t* controllerStatus = NULL;
 
 lv_indev_t* touchIndev = NULL;
 
-// =====================================================
 // SETUP DISPLAY
-// =====================================================
 
 void setupDisplay() {
   setupEncoder();
 
   app.setTargetSpeed(0);
-  // =====================================================
+
   // SERVER STATE
-  // =====================================================
 
   app.setRampTime(0);
 
@@ -161,12 +152,10 @@ void setupDisplay() {
   // todo add to appstate?
 
   // lastSpeedSend = millis();
-
 }
 
-// =====================================================
 // UPDATE CONTROLLER STATUS
-// =====================================================
+
 // TODO split into espnow
 void updateControllerStatus() {
   if (controllerStatus == NULL) {
@@ -186,9 +175,7 @@ void updateControllerStatus() {
   lv_label_set_text(controllerStatus, text);
 }
 
-// =====================================================
 // CLOSE CONTROLLER MENU
-// =====================================================
 
 void closeControllerMenu() {
   if (controllerMenu != NULL) {
@@ -196,9 +183,7 @@ void closeControllerMenu() {
   }
 }
 
-// =====================================================
 // RECEIVER SELECT EVENT
-// =====================================================
 
 static void receiverSelectEvent(lv_event_t* event) {
   if (lv_event_get_code(event) != LV_EVENT_CLICKED) {
@@ -212,9 +197,8 @@ static void receiverSelectEvent(lv_event_t* event) {
   closeControllerMenu();
 }
 
-// =====================================================
 // SCAN EVENT lv
-// =====================================================
+
 // TODO move to espnow
 static void scanEvent(lv_event_t* event) {
   if (lv_event_get_code(event) != LV_EVENT_CLICKED) {
@@ -250,9 +234,7 @@ static void scanEvent(lv_event_t* event) {
   Serial.println("Starting receiver discovery...");
 }
 
-// =====================================================
 // CONTROLLER MENU EVENT
-// =====================================================
 
 static void controllerMenuEvent(lv_event_t* event) {
   if (lv_event_get_code(event) != LV_EVENT_CLICKED) {
@@ -274,9 +256,8 @@ static void controllerMenuEvent(lv_event_t* event) {
   }
 }
 
-// =====================================================
 // REFRESH CONTROLLER LIST lv
-// =====================================================
+
 // TODO split so some functionality is in espnow
 void refreshControllerList() {
   if (controllerList == NULL) {
@@ -347,9 +328,7 @@ void refreshControllerList() {
   }
 }
 
-// =====================================================
 // CREATE BUTTON
-// =====================================================
 
 lv_obj_t* createButton(lv_obj_t* parent, const char* text, int x, int y,
                        int width, int height, lv_event_cb_t callback,
@@ -386,9 +365,7 @@ lv_obj_t* createButton(lv_obj_t* parent, const char* text, int x, int y,
   return button;
 }
 
-// =====================================================
 // CREATE CONTROLLER MENU
-// =====================================================
 
 void createControllerMenu(lv_obj_t* screen) {
   controllerMenu = lv_obj_create(screen);
@@ -436,9 +413,7 @@ void createControllerMenu(lv_obj_t* screen) {
   lv_obj_set_hidden(controllerMenu, true);
 }
 
-// =====================================================
 // CREATE UI
-// =====================================================
 
 void createUI() {
   lv_obj_t* screen = lv_screen_active();
@@ -507,9 +482,7 @@ void UIRefresh() {
   delay(sleepTime);
 }
 
-// =====================================================
 // SELECT RECEIVER
-// =====================================================
 
 void selectReceiver(int index) {
   switch (validateSelectedPeer(index)) {
@@ -522,7 +495,7 @@ void selectReceiver(int index) {
       app.setStatusLabelText("PEER ERROR");
       return;
     case PASS_CHECK:
-      break; 
+      break;
     default:
       break;
   }
@@ -547,9 +520,7 @@ void selectReceiver(int index) {
   }
 }
 
-// =====================================================
 // DISPLAY FLUSH
-// =====================================================
 
 void displayFlush(lv_display_t* display, const lv_area_t* area,
                   uint8_t* px_map) {
@@ -574,9 +545,7 @@ void displayFlush(lv_display_t* display, const lv_area_t* area,
   lv_display_flush_ready(display);
 }
 
-// =====================================================
 // TOUCH READ
-// =====================================================
 
 void touchRead(lv_indev_t* indev, lv_indev_data_t* data) {
   if (!touch.touched()) {

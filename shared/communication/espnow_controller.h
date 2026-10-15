@@ -1,6 +1,7 @@
 #ifndef ESPNOW_CONTROLLER_H
 #define ESPNOW_CONTROLLER_H
-
+// TODO fix issue where it does not always pair (like when turning controller
+// off and on after paired)
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <WiFi.h>
@@ -13,21 +14,16 @@
 #include "../SharedConfig.h"
 #include "../utils/AppState.h"
 #include "../utils/MacUtils.h"
-#include "ControllerStorage.h"
 #include "StateJson.h"
 #include "packets.h"
 
-// =====================================================
 // ESP-NOW TIMING
-// =====================================================
 
 #define HEARTBEAT_INTERVAL 350
 #define DISCOVERY_INTERVAL 1000
 #define DISCOVERY_TIMEOUT 5000
 
-// =====================================================
 // GENERIC JSON FRAGMENTATION
-// =====================================================
 
 constexpr uint8_t JSON_FRAGMENT_MAGIC = 0xA5;
 
@@ -100,16 +96,6 @@ enum validateSelectedPeerState {
 enum sendPairRequestState { PAIR_ERROR, PAIR_SUCCESS };
 
 // =====================================================
-// STATE SYNCHRONIZATION
-// =====================================================
-
-enum StateChangeOrigin {
-  STATE_CHANGE_NONE,
-  STATE_CHANGE_LOCAL,
-  STATE_CHANGE_REMOTE
-};
-
-// =====================================================
 // ESP-NOW EVENT QUEUE
 // =====================================================
 
@@ -179,17 +165,28 @@ inline JsonDocument serverState;
 
 inline unsigned long lastHeartbeatSend = 0;
 
+// Controllers
+inline PairedController controllers[MAX_CONTROLLERS];
+inline int activeController = -1;
+inline unsigned long lastActiveControllerPacket = 0;
+
+// ESP-NOW
+inline volatile bool espNowCommandPending = false;
+inline ESPNowCommand espNowPendingCommand;
+inline uint8_t pendingSourceMac[6] = {};
+inline volatile unsigned long lastESPNowPacket = 0;
+inline bool espNowFailsafeActive = false;
+
+// Pairing
+inline bool pairingMode = true;
+inline unsigned long pairingModeStarted = 0;
+
 // =====================================================
 // STATE SYNCHRONIZATION STATE
 // =====================================================
 
-inline volatile StateChangeOrigin stateChangeOrigin = STATE_CHANGE_NONE;
 
-inline volatile bool applyingRemoteState = false;
-
-// =====================================================
 // FUNCTION DECLARATIONS
-// =====================================================
 
 // Event queue
 void notifyLocalStateChanged();

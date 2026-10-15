@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "../Config.h"
-#include "../../shared/utils/uidLogic.h"
+#include "../../../shared/utils/uidLogic.h"
 enum NFCReadResult {
   NFC_READ_FAILED,
   NFC_READ_DUPLICATE,

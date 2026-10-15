@@ -8,4 +8,5 @@ void WebServer_begin() {
   registerStaticWebApp();
   registerStateRoutes();
   server.begin();
+  Serial.println("Webserver started!");
 }

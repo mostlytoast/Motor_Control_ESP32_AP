@@ -19,21 +19,15 @@
 
 extern TFT_eSPI tft;
 
-// =====================================================
 // XPT2046 TOUCHSCREEN
 // ESP32-2432S028 / CYD
-// =====================================================
 
 extern SPIClass touchscreenSPI;
 extern XPT2046_Touchscreen touch;
 
-// =====================================================
 // LVGL DISPLAY BUFFER
-// =====================================================
 
-// =====================================================
 // LVGL OBJECTS
-// =====================================================
 
 extern lv_obj_t* controllerButton;
 extern lv_obj_t* controllerMenu;
@@ -42,9 +36,8 @@ extern lv_obj_t* controllerStatus;
 
 extern lv_indev_t* touchIndev;
 
-// =====================================================
 // DISPLAY / TOUCH
-// =====================================================
+
 void updateUIFromServerState();
 void setupDisplay();
 void UIRefresh();
@@ -53,26 +46,20 @@ void displayFlush(lv_display_t* display, const lv_area_t* area,
 
 void touchRead(lv_indev_t* indev, lv_indev_data_t* data);
 
-// =====================================================
 // DISPLAY UPDATE FUNCTIONS
-// =====================================================
 
 // void updateSpeedDisplay();
 // void updateRampDisplay();
 // void updateMotorStatus();
 // void updateControllerStatus();
 
-// =====================================================
 // CONTROLLER STATE
-// =====================================================
 
 // void resetControllerState();
 void closeControllerMenu();
 void refreshControllerList();
 
-// =====================================================
 // UI
-// =====================================================
 
 lv_obj_t* createButton(lv_obj_t* parent, const char* text, int x, int y,
                        int width, int height, lv_event_cb_t callback,
@@ -88,15 +75,11 @@ void selectReceiver(int index);
 
 void processDiscovery();
 
-// =====================================================
 // ESP-NOW EVENT PROCESSING
-// =====================================================
 
 void processESPNowEvents();
 
-// =====================================================
 // HOST WRAPPER
-// =====================================================
 
 #include "lvdisplay_portable.h"
 

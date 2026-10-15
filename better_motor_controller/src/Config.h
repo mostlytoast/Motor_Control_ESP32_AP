@@ -3,16 +3,13 @@
 #include <Arduino.h>
 // change import for audio files here:
 #include "audioFiles/SteamEnginePCM.h"
-// constexpr char RECEIVER_NAME[] = "steam train";
 
-// // =====================================================
-// // WIFI
-// // =====================================================
+// =====================================================
+// WIFI
+// =====================================================
 
 constexpr char AP_SSID[] = "ESP32-Access-Point";
 constexpr char AP_PASSWORD[] = "12345678";
-
-// constexpr uint8_t WIFI_CHANNEL = 6;
 
 // =====================================================
 // Motor control variables
@@ -39,7 +36,6 @@ constexpr int MAX_PWM = 255;
 
 constexpr int LED1_PIN = 27;
 constexpr int LED2_PIN = 26;
-constexpr int HALL_PIN = 35;
 
 // MOTOR
 constexpr int ENA = 13;
