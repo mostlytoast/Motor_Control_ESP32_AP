@@ -97,7 +97,7 @@ EM_JS(void, browserRequestState, (), {
       })
 
       .then(function(json) {
-        console.log("[LVGL ESP32 STATE]", json);
+        // console.log("[LVGL ESP32 STATE]", json);
 
         if (typeof Module !== "undefined" && typeof Module.ccall === "function") {
           Module.ccall("emscriptenReceiveJson", null, ["string"], [json]);
@@ -400,13 +400,13 @@ static void browserPointerReadCallback(lv_indev_t* indev,
 
   callbackCount++;
 
-  if ((callbackCount % 60) == 0) {
-    std::printf(
-        "[LVGL INPUT CALLBACK] "
-        "alive x=%d y=%d pressed=%d\n",
+  // if ((callbackCount % 60) == 0) {
+  //   std::printf(
+  //       "[LVGL INPUT CALLBACK] "
+  //       "alive x=%d y=%d pressed=%d\n",
 
-        getBrowserPointerX(), getBrowserPointerY(), getBrowserPointerPressed());
-  }
+  //       getBrowserPointerX(), getBrowserPointerY(), getBrowserPointerPressed());
+  // }
 
   data->point.x = (lv_coord_t)getBrowserPointerX();
 
@@ -485,22 +485,22 @@ static void flushDisplay(lv_display_t* display, const lv_area_t* area,
   static int flushCount = 0;
 
   if (flushCount < 10) {
-    std::printf(
-        "[LVGL] flush #%d "
-        "area=(%d,%d)-(%d,%d) "
-        "pixels=%p\n",
+    // std::printf(
+    //     "[LVGL] flush #%d "
+    //     "area=(%d,%d)-(%d,%d) "
+    //     "pixels=%p\n",
 
-        flushCount,
+    //     flushCount,
 
-        area != nullptr ? area->x1 : -1,
+    //     area != nullptr ? area->x1 : -1,
 
-        area != nullptr ? area->y1 : -1,
+    //     area != nullptr ? area->y1 : -1,
 
-        area != nullptr ? area->x2 : -1,
+    //     area != nullptr ? area->x2 : -1,
 
-        area != nullptr ? area->y2 : -1,
+    //     area != nullptr ? area->y2 : -1,
 
-        px_map);
+    //     px_map);
 
     flushCount++;
   }

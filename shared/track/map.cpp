@@ -330,11 +330,11 @@ void TrackMap::calculateMap() {
     for (uint8_t i = 0; i < trackCount; i++) {
       Track& track = tracks[i];
 
-      Serial.printf("Track %d: entranceA=%p entranceB=%p exitA=%p exitB=%p\n",
-                    i, findTagByUid(track.entranceA.connectedTagUid),
-                    findTagByUid(track.entranceB.connectedTagUid),
-                    findTagByUid(track.exitA.connectedTagUid),
-                    findTagByUid(track.exitB.connectedTagUid));
+      // Serial.printf("Track %d: entranceA=%p entranceB=%p exitA=%p exitB=%p\n",
+      //               i, findTagByUid(track.entranceA.connectedTagUid),
+      //               findTagByUid(track.entranceB.connectedTagUid),
+      //               findTagByUid(track.exitA.connectedTagUid),
+      //               findTagByUid(track.exitB.connectedTagUid));
 
       if (!track.positioned) continue;
 
@@ -713,11 +713,11 @@ Track* TrackMap::jsonToTrack(JsonObject obj) {
     return nullptr;
   }
 
-  Serial.println("=== jsonToTrack ===");
+  // Serial.println("=== jsonToTrack ===");
 
   // serializeJsonPretty(obj, Serial);
 
-  Serial.println();
+  // Serial.println();
 
   float length = obj["length"].is<float>() ? obj["length"].as<float>() : 0;
   // Serial.println("length");

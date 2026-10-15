@@ -118,7 +118,7 @@ void registerStateRoutes() {
         }
         Serial.println("state change pls work");
         getStateFromJson(doc);
-        notifyLocalStateChanged();
+        // notifyLocalStateChanged();
      
         // ----------------------------------------------------
         // Return the actual state after applying the request.
@@ -133,7 +133,7 @@ void registerStateRoutes() {
 // ============================================================
 
 String getStateJSON() {
-  notifyLocalStateChanged();
+  // notifyLocalStateChanged();
   JsonDocument outputDoc;
   getJsonFromState(outputDoc);
   String outputString;

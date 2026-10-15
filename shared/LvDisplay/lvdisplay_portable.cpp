@@ -339,8 +339,8 @@ void LvDisplayController::handleAction(LvDisplayAction action) {
   getJsonFromState(outputDoc);
   String outputString;
   serializeJson(outputDoc, outputString);
-  Serial.println("outputString");
-  Serial.println(outputString);
+  // Serial.println("outputString");
+  // Serial.println(outputString);
   host_->sendJson(outputString.c_str());
 
   // Update LVGL immediately.

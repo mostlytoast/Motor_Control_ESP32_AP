@@ -836,15 +836,15 @@ void broadcastServerState() {
 
 void notifyLocalStateChanged() {
   // TODO find simpler way of doing this, less confusing to new user
-  if (applyingRemoteState) {
-    Serial.println("notifyLocalStateChanged failed ");
+  // if (applyingRemoteState) {
+  //   Serial.println("notifyLocalStateChanged failed ");
 
-    return;
-  }
+  //   return;
+  // }
 
-  stateChangeOrigin = STATE_CHANGE_LOCAL;
+  // stateChangeOrigin = STATE_CHANGE_LOCAL;
 
-  app.setServerStateChanged(true);
+  // app.setServerStateChanged(true);
 }
 
 // =====================================================
@@ -861,9 +861,9 @@ void notifyLocalStateChanged() {
 
 void processStateChanges() {
   // Serial.println("processStateChanges");
-  if (!app.getServerStateChanged()) {
-    return;
-  }
+  // if (!app.getServerStateChanged()) {
+  //   return;
+  // }
 
   // ---------------------------------------------------
   // Only transmit LOCAL state changes.
@@ -871,14 +871,12 @@ void processStateChanges() {
   // todo clean up
   const uint8_t* currentControllerMac =
       app.getControllers()[app.getActiveController()].mac;
-  if (stateChangeOrigin == STATE_CHANGE_LOCAL) {
     if ((activeReceiver >= 0 && activeReceiver < receiverCount &&
          receivers[activeReceiver].used && receivers[activeReceiver].paired)) {
       bool sent = sendServerState(receivers[activeReceiver].mac);
     } else if (isActiveController(currentControllerMac)) {
       bool sent = sendServerState(currentControllerMac);
     }
-  }
 
   // ---------------------------------------------------
   // REMOTE state changes are deliberately ignored here.
@@ -1060,11 +1058,6 @@ void processJsonCommand(const uint8_t* sourceMac, JsonDocument& doc) {
   bool wasFailsafe = app.getEspNowFailsafeActive();
 
   app.setEspNowFailsafeActive(false);
-
-  if (wasFailsafe) {
-    // This is a LOCAL state change.
-    notifyLocalStateChanged();
-  }
 }
 
 // =====================================================
@@ -1839,9 +1832,6 @@ void ESPNow_checkFailsafe() {
       app.setAutoMode(AUTO_IDLE);
 
       app.setEspNowFailsafeActive(true);
-
-      // This is a LOCAL state change.
-      notifyLocalStateChanged();
     }
   }
 }
