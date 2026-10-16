@@ -157,7 +157,7 @@ em++ $CPPFLAGS \
   --shell-file web/shell.html \
   web/emscripten_ui.cpp \
   web/Arduino.cpp \
-  $(find "$SHARED_DIR" -type f -name '*.cpp' ! -name 'espnow_controller.cpp' ! -name 'ControllerStorage.cpp' -print) \
+  $(find "$SHARED_DIR" -type f -name '*.cpp' ! -name 'EspnowController.cpp' ! -name 'ControllerStorage.cpp' -print) \
   $(find "$OBJ_DIR" -name '*.o' -print) \
   -o "$DIST_DIR/index.html"
   

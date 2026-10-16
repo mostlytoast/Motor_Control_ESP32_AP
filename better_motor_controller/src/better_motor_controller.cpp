@@ -1,5 +1,5 @@
 #include "better_motor_controller.h"
-// TODO convert everything into classes at least what makes sense 
+// TODO convert everything into classes at least what makes sense
 // ==============================================
 // GLOBAL VARIABLE DEFINITIONS
 // ==============================================
@@ -87,16 +87,15 @@ void setup() {
 
   setupWifi();
 
-  setupESPNow();
+  espnowController.setupESPNow();
 
   WebServer_begin();
 
   trackScanner.begin();
 
-  audio.setupAudio(); 
+  audio.setupAudio();
 
   Serial.println("ESP-NOW multi-controller receiver ready");
-
 }
 
 // =====================================================
@@ -106,12 +105,11 @@ void setup() {
 void loop() {
   // Process ESP-NOW commands
 
-  espnowUpdate();
+  espnowController.espnowUpdate();
 
   // Automatic mode
 
   autoStop();
-
 
   // track scanner
   // TODO find faster way to read maybe do shorter tag data? likely want to do

@@ -218,11 +218,7 @@ static void scanEvent(lv_event_t* event) {
 
   // Remove receiver peers
 
-  for (int i = 0; i < receiverCount; i++) {
-    if (receivers[i].used) {
-      removePeer(receivers[i].mac);
-    }
-  }
+    removePeers();
 
   resetDiscover();
   if (controllerStatus != NULL) {
@@ -443,14 +439,6 @@ void createUI() {
 }
 
 void UIRefresh() {
-  // Process queued ESP-NOW events first
-
-  processESPNowEvents();
-
-  // Discovery
-
-  processDiscovery();
-
   // Apply receiver state to UI
   // todo improve this
   gDisplayController->refresh();

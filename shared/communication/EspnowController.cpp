@@ -1,12 +1,17 @@
-#include "espnow_controller.h"
+#include "EspnowController.h"
 
-
+EspnowController espnowController;
+EspnowController* EspnowController::callbackInstance = nullptr;
+namespace {
+    JsonDocument previousState;
+    bool previousStateUpdated = false;
+}
 // =====================================================
 // PEER MANAGEMENT
 // =====================================================
 
 // TODO unify names of peer receiver and controller to be peer
-bool addPeer(const uint8_t* mac, uint8_t channel) {
+bool EspnowController::addPeer(const uint8_t* mac, uint8_t channel) {
   if (mac == nullptr) {
     return false;
   }
@@ -38,12 +43,7 @@ bool addPeer(const uint8_t* mac, uint8_t channel) {
   return false;
 }
 
-bool addControllerPeer(const uint8_t* mac) {
-  // TODO look into combine controller and peer
-  return addPeer(mac, WIFI_CHANNEL);
-}
-
-void removePeer(const uint8_t* mac) {
+void EspnowController::removePeer(const uint8_t* mac) {
   if (mac == nullptr) {
     return;
   }
@@ -53,12 +53,20 @@ void removePeer(const uint8_t* mac) {
   }
 }
 
+void EspnowController::removePeers() {
+  for (int i = 0; i < receiverCount; i++) {
+    if (receivers[i].used) {
+      removePeer(receivers[i].mac);
+    }
+  }
+}
 // =====================================================
 // EVENT QUEUE
 // =====================================================
 
-void queueEspNowEvent(EspNowEventType type, const uint8_t* mac,
-                      const uint8_t* data, int len) {
+void EspnowController::queueEspNowEvent(EspNowEventType type,
+                                        const uint8_t* mac, const uint8_t* data,
+                                        int len) {
   if (espNowEventQueue == nullptr) {
     return;
   }
@@ -84,34 +92,12 @@ void queueEspNowEvent(EspNowEventType type, const uint8_t* mac,
   xQueueSend(espNowEventQueue, &event, 0);
 }
 
-// =====================================================
-// CONTROLLER LIST
-// =====================================================
-
-int findReceiverByMac(const uint8_t* mac) {
-  if (mac == nullptr) {
-    return -1;
-  }
-
-  for (int i = 0; i < receiverCount; i++) {
-    if (!receivers[i].used) {
-      continue;
-    }
-
-    if (macEqual(receivers[i].mac, mac)) {
-      return i;
-    }
-  }
-
-  return -1;
-}
-
-int addOrUpdateReceiver(const DiscoveryPacket* packet) {
+int EspnowController::addOrUpdateReceiver(const DiscoveryPacket* packet) {
   if (packet == nullptr) {
     return -1;
   }
 
-  int existing = findReceiverByMac(packet->receiverMac);
+  int existing = findController(packet->receiverMac);
 
   // ---------------------------------------------------
   // Existing receiver
@@ -185,17 +171,17 @@ int addOrUpdateReceiver(const DiscoveryPacket* packet) {
 // RECEIVER-SIDE CONTROLLER MANAGEMENT
 // =====================================================
 
-int findController(const uint8_t* mac) {
+int EspnowController::findController(const uint8_t* mac) {
   if (mac == nullptr) {
     return -1;
   }
 
-  for (int i = 0; i < MAX_CONTROLLERS; i++) {
-    if (!controllers[i].valid) {
+  for (int i = 0; i < receiverCount; i++) {
+    if (!receivers[i].used) {
       continue;
     }
 
-    if (macEqual(controllers[i].mac, mac)) {
+    if (macEqual(receivers[i].mac, mac)) {
       return i;
     }
   }
@@ -203,9 +189,11 @@ int findController(const uint8_t* mac) {
   return -1;
 }
 
-bool isPairedController(const uint8_t* mac) { return findController(mac) >= 0; }
+bool EspnowController::isPairedController(const uint8_t* mac) {
+  return findController(mac) >= 0;
+}
 
-int findFreeControllerSlot() {
+int EspnowController::findFreeControllerSlot() {
   for (int i = 0; i < MAX_CONTROLLERS; i++) {
     if (!controllers[i].valid) {
       return i;
@@ -219,7 +207,8 @@ int findFreeControllerSlot() {
 // PAIR CONTROLLER
 // =====================================================
 
-int pairController(const uint8_t* mac, const char* controllerName) {
+int EspnowController::pairController(const uint8_t* mac,
+                                     const char* controllerName) {
   if (mac == nullptr) {
     return -1;
   }
@@ -297,7 +286,7 @@ int pairController(const uint8_t* mac, const char* controllerName) {
 // REMOVE CONTROLLER
 // =====================================================
 
-bool removeController(int slot) {
+bool EspnowController::removeController(int slot) {
   if (slot < 0 || slot >= MAX_CONTROLLERS) {
     return false;
   }
@@ -345,7 +334,7 @@ bool removeController(int slot) {
 // CLAIM ACTIVE CONTROLLER
 // =====================================================
 
-bool claimController(const uint8_t* mac) {
+bool EspnowController::claimController(const uint8_t* mac) {
   int slot = findController(mac);
 
   if (slot < 0) {
@@ -365,7 +354,7 @@ bool claimController(const uint8_t* mac) {
   return true;
 }
 
-bool isActiveController(const uint8_t* mac) {
+bool EspnowController::isActiveController(const uint8_t* mac) {
   int slot = findController(mac);
 
   if (slot < 0) {
@@ -379,7 +368,7 @@ bool isActiveController(const uint8_t* mac) {
 // BINARY DISCOVERY RESPONSE
 // =====================================================
 
-void sendDiscoveryPacket(const uint8_t* destination) {
+void EspnowController::sendDiscoveryPacket(const uint8_t* destination) {
   DiscoveryPacket response = {};
 
   response.type = CMD_DISCOVERY_RESPONSE;
@@ -410,7 +399,7 @@ void sendDiscoveryPacket(const uint8_t* destination) {
   response.channel = WIFI_CHANNEL;
 
   if (!isBroadcastMac(destination)) {
-    addControllerPeer(destination);
+    addPeer(destination, WIFI_CHANNEL);
   }
 
   esp_err_t result = esp_now_send(
@@ -426,7 +415,8 @@ void sendDiscoveryPacket(const uint8_t* destination) {
 // BINARY PAIR RESPONSE
 // =====================================================
 
-void sendPairResponse(const uint8_t* destination, int slot, bool paired) {
+void EspnowController::sendPairResponse(const uint8_t* destination, int slot,
+                                        bool paired) {
   PairResponse response = {};
 
   response.type = CMD_PAIR_RESPONSE;
@@ -446,7 +436,7 @@ void sendPairResponse(const uint8_t* destination, int slot, bool paired) {
   strncpy(response.receiverName, RECEIVER_NAME,
           sizeof(response.receiverName) - 1);
 
-  addControllerPeer(destination);
+  addPeer(destination, WIFI_CHANNEL);
 
   esp_now_send(destination, reinterpret_cast<uint8_t*>(&response),
                sizeof(response));
@@ -456,7 +446,7 @@ void sendPairResponse(const uint8_t* destination, int slot, bool paired) {
 // BINARY CONTROLLER STATUS
 // =====================================================
 
-void sendControllerStatus(const uint8_t* destination) {
+void EspnowController::sendControllerStatus(const uint8_t* destination) {
   ESPNowCommand response = {};
 
   response.type = CMD_CONTROLLER_STATUS;
@@ -468,110 +458,12 @@ void sendControllerStatus(const uint8_t* destination) {
     memcpy(response.data, controllers[activeController].mac, 6);
   }
 
-  addControllerPeer(destination);
+  addPeer(destination, WIFI_CHANNEL);
 
   esp_now_send(destination, reinterpret_cast<uint8_t*>(&response),
                sizeof(response));
 }
 
-// =====================================================
-// JSON REASSEMBLY HELPERS
-// =====================================================
-
-int findJsonReassembly(const uint8_t* sourceMac) {
-  if (sourceMac == nullptr) {
-    return -1;
-  }
-
-  for (int i = 0; i < MAX_JSON_REASSEMBLIES; i++) {
-    if (!jsonReassemblies[i].active) {
-      continue;
-    }
-
-    if (macEqual(jsonReassemblies[i].sourceMac, sourceMac)) {
-      return i;
-    }
-  }
-
-  return -1;
-}
-
-void clearJsonReassembly(int index) {
-  if (index < 0 || index >= MAX_JSON_REASSEMBLIES) {
-    return;
-  }
-
-  memset(&jsonReassemblies[index], 0, sizeof(JsonReassembly));
-}
-
-int allocateJsonReassembly(const uint8_t* sourceMac) {
-  // ---------------------------------------------------
-  // First try to find an existing one
-  // ---------------------------------------------------
-
-  int existing = findJsonReassembly(sourceMac);
-
-  if (existing >= 0) {
-    return existing;
-  }
-
-  // ---------------------------------------------------
-  // Find free slot
-  // ---------------------------------------------------
-
-  for (int i = 0; i < MAX_JSON_REASSEMBLIES; i++) {
-    if (!jsonReassemblies[i].active) {
-      clearJsonReassembly(i);
-
-      jsonReassemblies[i].active = true;
-
-      memcpy(jsonReassemblies[i].sourceMac, sourceMac, 6);
-
-      return i;
-    }
-  }
-
-  // ---------------------------------------------------
-  // No free slot.
-  //
-  // Reuse the oldest one.
-  // ---------------------------------------------------
-
-  int oldest = 0;
-
-  for (int i = 1; i < MAX_JSON_REASSEMBLIES; i++) {
-    if (jsonReassemblies[i].lastReceived <
-        jsonReassemblies[oldest].lastReceived) {
-      oldest = i;
-    }
-  }
-
-  clearJsonReassembly(oldest);
-
-  jsonReassemblies[oldest].active = true;
-
-  memcpy(jsonReassemblies[oldest].sourceMac, sourceMac, 6);
-
-  return oldest;
-}
-
-void cleanupJsonReassemblies() {
-  const unsigned long now = millis();
-
-  for (int i = 0; i < MAX_JSON_REASSEMBLIES; i++) {
-    if (!jsonReassemblies[i].active) {
-      continue;
-    }
-
-    if (now - jsonReassemblies[i].lastReceived > JSON_REASSEMBLY_TIMEOUT) {
-      Serial.print("JSON reassembly timeout from ");
-
-      Serial.println(macToString(jsonReassemblies[i].sourceMac));
-
-      clearJsonReassembly(i);
-    }
-  }
-}
 
 // =====================================================
 // GENERIC JSON SEND
@@ -583,7 +475,8 @@ void cleanupJsonReassemblies() {
 // deserializing it.
 // =====================================================
 
-bool sendJsonDocument(const uint8_t* destination, JsonDocument& doc) {
+bool EspnowController::sendJsonDocument(const uint8_t* destination,
+                                        JsonDocument& doc) {
   if (destination == nullptr) {
     return false;
   }
@@ -602,95 +495,95 @@ bool sendJsonDocument(const uint8_t* destination, JsonDocument& doc) {
   // Serialize entire JSON document
   // ---------------------------------------------------
 
-  String json;
+  // String json;
 
-  serializeJson(doc, json);
+  // serializeJson(doc, json);
 
-  if (json.length() == 0) {
-    Serial.println("sendJsonDocument: empty JSON");
+  // if (json.length() == 0) {
+  //   Serial.println("sendJsonDocument: empty JSON");
 
-    return false;
-  }
+  //   return false;
+  // }
 
-  // ---------------------------------------------------
-  // Calculate number of fragments
-  // ---------------------------------------------------
+  // // ---------------------------------------------------
+  // // Calculate number of fragments
+  // // ---------------------------------------------------
 
-  size_t totalChunks =
-      (json.length() + JSON_FRAGMENT_DATA_SIZE - 1) / JSON_FRAGMENT_DATA_SIZE;
+  // size_t totalChunks =
+  //     (json.length() + JSON_FRAGMENT_DATA_SIZE - 1) / JSON_FRAGMENT_DATA_SIZE;
 
-  if (totalChunks == 0) {
-    return false;
-  }
+  // if (totalChunks == 0) {
+  //   return false;
+  // }
 
-  if (totalChunks > 255) {
-    Serial.print("JSON too large: ");
+  // if (totalChunks > 255) {
+  //   Serial.print("JSON too large: ");
 
-    Serial.print(json.length());
+  //   Serial.print(json.length());
 
-    Serial.println(" bytes. Maximum is 255 chunks.");
+  //   Serial.println(" bytes. Maximum is 255 chunks.");
 
-    return false;
-  }
+  //   return false;
+  // }
 
-  // ---------------------------------------------------
-  // Message ID
-  // ---------------------------------------------------
+  // // ---------------------------------------------------
+  // // Message ID
+  // // ---------------------------------------------------
 
-  uint16_t messageId = ++nextJsonMessageId;
+  // uint16_t messageId = ++nextJsonMessageId;
 
-  if (messageId == 0) {
-    messageId = ++nextJsonMessageId;
-  }
+  // if (messageId == 0) {
+  //   messageId = ++nextJsonMessageId;
+  // }
 
-  // ---------------------------------------------------
-  // Determine JSON type
-  // ---------------------------------------------------
+  // // ---------------------------------------------------
+  // // Determine JSON type
+  // // ---------------------------------------------------
 
-  uint8_t type = 0;
+  // uint8_t type = 0;
 
-  if (doc["type"].is<uint8_t>()) {
-    type = doc["type"].as<uint8_t>();
-  }
+  // if (doc["type"].is<uint8_t>()) {
+  //   type = doc["type"].as<uint8_t>();
+  // }
 
-  // ---------------------------------------------------
-  // Send every fragment
-  // ---------------------------------------------------
+  // // ---------------------------------------------------
+  // // Send every fragment
+  // // ---------------------------------------------------
 
-  for (size_t chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-    uint8_t packet[JSON_FRAGMENT_PACKET_SIZE];
+  // for (size_t chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+  //   uint8_t packet[JSON_FRAGMENT_PACKET_SIZE];
 
-    JsonFragmentHeader header = {};
+  //   JsonFragmentHeader header = {};
 
-    header.magic = JSON_FRAGMENT_MAGIC;
+  //   header.magic = JSON_FRAGMENT_MAGIC;
 
-    header.type = type;
+  //   header.type = type;
 
-    header.messageId = messageId;
+  //   header.messageId = messageId;
 
-    header.chunkIndex = static_cast<uint8_t>(chunkIndex);
+  //   header.chunkIndex = static_cast<uint8_t>(chunkIndex);
 
-    header.totalChunks = static_cast<uint8_t>(totalChunks);
+  //   header.totalChunks = static_cast<uint8_t>(totalChunks);
 
-    memcpy(packet, &header, sizeof(header));
+  //   memcpy(packet, &header, sizeof(header));
 
-    // -------------------------------------------------
-    // Calculate chunk data
-    // -------------------------------------------------
+  //   // -------------------------------------------------
+  //   // Calculate chunk data
+  //   // -------------------------------------------------
 
-    size_t offset = chunkIndex * JSON_FRAGMENT_DATA_SIZE;
+  //   size_t offset = chunkIndex * JSON_FRAGMENT_DATA_SIZE;
 
-    size_t remaining = json.length() - offset;
+  //   size_t remaining = json.length() - offset;
 
-    size_t chunkLength = min(remaining, JSON_FRAGMENT_DATA_SIZE);
+  //   size_t chunkLength = min(remaining, JSON_FRAGMENT_DATA_SIZE);
 
-    memcpy(packet + sizeof(header), json.c_str() + offset, chunkLength);
+  //   memcpy(packet + sizeof(header), json.c_str() + offset, chunkLength);
 
-    size_t packetLength = sizeof(header) + chunkLength;
+  //   size_t packetLength = sizeof(header) + chunkLength;
 
-    // -------------------------------------------------
-    // Send
-    // -------------------------------------------------
+  //   // -------------------------------------------------
+  //   // Send
+  //   // -------------------------------------------------
 
     esp_err_t result = esp_now_send(destination, packet, packetLength);
 
@@ -705,7 +598,7 @@ bool sendJsonDocument(const uint8_t* destination, JsonDocument& doc) {
 
       return false;
     }
-  }
+  // }
 
   return true;
 }
@@ -713,7 +606,7 @@ bool sendJsonDocument(const uint8_t* destination, JsonDocument& doc) {
 // JSON COMMAND
 // =====================================================
 
-bool sendCommand(uint8_t type, int16_t value) {
+bool EspnowController::sendCommand(uint8_t type, int16_t value) {
   if (activeReceiver < 0 || activeReceiver >= receiverCount) {
     return false;
   }
@@ -732,10 +625,7 @@ bool sendCommand(uint8_t type, int16_t value) {
   return sendJsonDocument(receiver.mac, doc);
 }
 
-JsonDocument previousState;
-bool previousStateUpdated = false;
-
-bool hasPreviousStateChanged() {
+bool EspnowController::hasPreviousStateChanged() {
   JsonDocument fullState;
 
   getJsonFromState(fullState);
@@ -773,7 +663,7 @@ bool hasPreviousStateChanged() {
 // and are therefore not sent again.
 // =====================================================
 
-bool sendServerState(const uint8_t* destination) {
+bool EspnowController::sendServerState(const uint8_t* destination) {
   if (destination == nullptr) {
     return false;
   }
@@ -796,19 +686,6 @@ bool sendServerState(const uint8_t* destination) {
 
   return sendJsonDocument(destination, fullState);
 }
-// =====================================================
-// BROADCAST SERVER STATE
-// =====================================================
-
-void broadcastServerState() {
-  for (int i = 0; i < MAX_CONTROLLERS; i++) {
-    if (!controllers[i].valid) {
-      continue;
-    }
-
-    sendServerState(controllers[i].mac);
-  }
-}
 
 // =====================================================
 // PROCESS STATE CHANGES
@@ -822,7 +699,7 @@ void broadcastServerState() {
 //     do not send state
 // =====================================================
 
-void processStateChanges() {
+void EspnowController::processStateChanges() {
   const uint8_t* currentControllerMac = controllers[activeController].mac;
   if ((activeReceiver >= 0 && activeReceiver < receiverCount &&
        receivers[activeReceiver].used && receivers[activeReceiver].paired)) {
@@ -836,7 +713,7 @@ void processStateChanges() {
 // PROCESS JSON SERVER STATE
 // =====================================================
 
-void processServerState(const uint8_t* data, int len) {
+void EspnowController::processServerState(const uint8_t* data, int len) {
   if (data == nullptr || len <= 0) {
     return;
   }
@@ -894,7 +771,8 @@ void processServerState(const uint8_t* data, int len) {
 // PROCESS JSON COMMAND ON RECEIVER
 // =====================================================
 
-void processJsonCommand(const uint8_t* sourceMac, JsonDocument& doc) {
+void EspnowController::processJsonCommand(const uint8_t* sourceMac,
+                                          JsonDocument& doc) {
   if (sourceMac == nullptr) {
     return;
   }
@@ -979,8 +857,9 @@ void processJsonCommand(const uint8_t* sourceMac, JsonDocument& doc) {
 
 // PROCESS BINARY RECEIVER-SIDE PACKETS
 
-bool processReceiverBinaryPacket(const uint8_t* sourceMac, const uint8_t* data,
-                                 int len) {
+bool EspnowController::processReceiverBinaryPacket(const uint8_t* sourceMac,
+                                                   const uint8_t* data,
+                                                   int len) {
   if (sourceMac == nullptr || data == nullptr || len <= 0) {
     return false;
   }
@@ -1085,8 +964,9 @@ bool processReceiverBinaryPacket(const uint8_t* sourceMac, const uint8_t* data,
 // PROCESS CONTROLLER-SIDE BINARY PACKETS
 // =====================================================
 
-bool processControllerBinaryPacket(const uint8_t* sourceMac,
-                                   const uint8_t* data, int len) {
+bool EspnowController::processControllerBinaryPacket(const uint8_t* sourceMac,
+                                                     const uint8_t* data,
+                                                     int len) {
   if (sourceMac == nullptr || data == nullptr || len <= 0) {
     return false;
   }
@@ -1127,7 +1007,7 @@ bool processControllerBinaryPacket(const uint8_t* sourceMac,
     memcpy(&response, data, sizeof(response));
 
     if (response.type == CMD_PAIR_RESPONSE) {
-      int index = findReceiverByMac(sourceMac);
+      int index = findController(sourceMac);
 
       if (index >= 0) {
         receivers[index].paired = response.paired != 0;
@@ -1163,257 +1043,6 @@ bool processControllerBinaryPacket(const uint8_t* sourceMac,
 
   return false;
 }
-
-// =====================================================
-// PROCESS JSON FRAGMENT
-//
-// Returns true if the packet was recognized as a JSON
-// fragment.
-//
-// When all fragments have arrived, the reconstructed
-// JSON is passed to the appropriate JSON handler.
-// =====================================================
-
-bool processJsonFragment(const uint8_t* sourceMac, const uint8_t* data,
-                         size_t len) {
-  if (sourceMac == nullptr || data == nullptr) {
-    return false;
-  }
-
-  // ---------------------------------------------------
-  // Not enough bytes for a header
-  // ---------------------------------------------------
-
-  if (len < sizeof(JsonFragmentHeader)) {
-    return false;
-  }
-
-  JsonFragmentHeader header;
-
-  memcpy(&header, data, sizeof(header));
-
-  // ---------------------------------------------------
-  // Not a JSON fragment
-  // ---------------------------------------------------
-
-  if (header.magic != JSON_FRAGMENT_MAGIC) {
-    return false;
-  }
-
-  // ---------------------------------------------------
-  // Validate header
-  // ---------------------------------------------------
-
-  if (header.totalChunks == 0) {
-    Serial.println("Invalid JSON fragment count");
-
-    return true;
-  }
-
-  if (header.chunkIndex >= header.totalChunks) {
-    Serial.println("Invalid JSON fragment index");
-
-    return true;
-  }
-
-  size_t chunkLength = len - sizeof(JsonFragmentHeader);
-
-  if (chunkLength == 0) {
-    Serial.println("Empty JSON fragment");
-
-    return true;
-  }
-
-  // ---------------------------------------------------
-  // Get reassembly slot for this sender
-  // ---------------------------------------------------
-
-  int slot = findJsonReassembly(sourceMac);
-
-  // ---------------------------------------------------
-  // New message
-  // ---------------------------------------------------
-
-  if (slot < 0) {
-    slot = allocateJsonReassembly(sourceMac);
-
-    JsonReassembly& assembly = jsonReassemblies[slot];
-
-    assembly.type = header.type;
-
-    assembly.messageId = header.messageId;
-
-    assembly.totalChunks = header.totalChunks;
-
-    assembly.receivedChunks = 0;
-
-    assembly.length = 0;
-
-    memset(assembly.received, 0, sizeof(assembly.received));
-  }
-
-  JsonReassembly& assembly = jsonReassemblies[slot];
-
-  // ---------------------------------------------------
-  // If this is a different message from the same
-  // sender, start over.
-  //
-  // This also handles a new message arriving before
-  // the previous one has completed.
-  // ---------------------------------------------------
-
-  if (assembly.messageId != header.messageId ||
-      assembly.totalChunks != header.totalChunks ||
-      assembly.type != header.type) {
-
-
-    clearJsonReassembly(slot);
-
-    assembly.active = true;
-
-    memcpy(assembly.sourceMac, sourceMac, 6);
-
-    assembly.type = header.type;
-
-    assembly.messageId = header.messageId;
-
-    assembly.totalChunks = header.totalChunks;
-
-    assembly.receivedChunks = 0;
-
-    assembly.length = 0;
-
-    memset(assembly.received, 0, sizeof(assembly.received));
-  }
-
-  assembly.lastReceived = millis();
-
-  // ---------------------------------------------------
-  // Ignore duplicate fragment
-  // ---------------------------------------------------
-
-  if (assembly.received[header.chunkIndex]) {
-    Serial.print("Duplicate JSON chunk ");
-
-    Serial.println(header.chunkIndex);
-
-    return true;
-  }
-
-  // ---------------------------------------------------
-  // Calculate where this chunk belongs
-  // ---------------------------------------------------
-
-  size_t offset =
-      static_cast<size_t>(header.chunkIndex) * JSON_FRAGMENT_DATA_SIZE;
-
-  // ---------------------------------------------------
-  // Check buffer
-  // ---------------------------------------------------
-
-  if (offset + chunkLength >= JSON_REASSEMBLY_BUFFER_SIZE) {
-    Serial.println("JSON reassembly buffer overflow");
-
-    clearJsonReassembly(slot);
-
-    return true;
-  }
-
-  // ---------------------------------------------------
-  // Copy chunk
-  // ---------------------------------------------------
-
-  memcpy(assembly.buffer + offset, data + sizeof(JsonFragmentHeader),
-         chunkLength);
-
-  assembly.received[header.chunkIndex] = true;
-
-  assembly.receivedChunks++;
-
-  size_t end = offset + chunkLength;
-
-  if (end > assembly.length) {
-    assembly.length = end;
-  }
-  // ---------------------------------------------------
-  // Still waiting for chunks
-  // ---------------------------------------------------
-
-  if (assembly.receivedChunks < assembly.totalChunks) {
-    return true;
-  }
-
-  // ---------------------------------------------------
-  // COMPLETE
-  // ---------------------------------------------------
-
-  assembly.buffer[assembly.length] = '\0';
-
-
-  // ---------------------------------------------------
-  // Parse reconstructed JSON
-  // ---------------------------------------------------
-
-  JsonDocument doc;
-
-  DeserializationError error =
-      deserializeJson(doc, assembly.buffer, assembly.length);
-
-  if (error) {
-    Serial.print("Reassembled JSON parse failed: ");
-
-    Serial.println(error.c_str());
-
-    clearJsonReassembly(slot);
-
-    return true;
-  }
-
-  // ---------------------------------------------------
-  // Validate type
-  // ---------------------------------------------------
-
-  if (!doc["type"].is<uint8_t>()) {
-    Serial.println("Reassembled JSON has no type");
-
-    clearJsonReassembly(slot);
-
-    return true;
-  }
-
-  uint8_t type = doc["type"].as<uint8_t>();
-
-  // ---------------------------------------------------
-  // SERVER STATE
-  // ---------------------------------------------------
-
-  if (type == CMD_SERVER_STATE) {
-    int receiverIndex = findReceiverByMac(sourceMac);
-
-    if (receiverIndex >= 0) {
-      receivers[receiverIndex].lastSeen = millis();
-    }
-
-    processServerState(reinterpret_cast<const uint8_t*>(assembly.buffer),
-                       assembly.length);
-  }
-
-  // ---------------------------------------------------
-  // Other JSON commands
-  // ---------------------------------------------------
-
-  else {
-    processJsonCommand(sourceMac, doc);
-  }
-
-  // ---------------------------------------------------
-  // Done
-  // ---------------------------------------------------
-
-  clearJsonReassembly(slot);
-
-  return true;
-}
 // =====================================================
 // UNIFIED RECEIVE EVENT PROCESSING
 // =====================================================
@@ -1422,7 +1051,7 @@ bool processJsonFragment(const uint8_t* sourceMac, const uint8_t* data,
 // UNIFIED RECEIVE EVENT PROCESSING
 // =====================================================
 
-void processESPNowEvents() {
+void EspnowController::processESPNowEvents() {
   if (espNowEventQueue == nullptr) {
     return;
   }
@@ -1523,7 +1152,7 @@ void processESPNowEvents() {
         // Controller-side receiver
         // ------------------------------------------------
 
-        int index = findReceiverByMac(event.mac);
+        int index = findController(event.mac);
 
         if (index >= 0) {
           receivers[index].lastSeen = millis();
@@ -1551,7 +1180,7 @@ void processESPNowEvents() {
       // ------------------------------------------------
 
       else if (event.sendStatus == ESP_NOW_SEND_SUCCESS) {
-        int index = findReceiverByMac(event.mac);
+        int index = findController(event.mac);
 
         if (index >= 0) {
           receivers[index].lastSeen = millis();
@@ -1564,7 +1193,7 @@ void processESPNowEvents() {
 // SEND PAIR REQUEST
 // =====================================================
 
-bool pairWithReceiver(int index) {
+bool EspnowController::pairWithReceiver(int index) {
   if (index < 0 || index >= receiverCount || !receivers[index].used) {
     return false;
   }
@@ -1630,7 +1259,7 @@ bool pairWithReceiver(int index) {
 // SEND DISCOVERY
 // =====================================================
 
-void sendDiscovery() {
+void EspnowController::sendDiscovery() {
   ESPNowCommand command = {};
 
   command.type = CMD_DISCOVER;
@@ -1655,7 +1284,7 @@ void sendDiscovery() {
 // DISCOVERY UPDATE
 // =====================================================
 
-void processDiscovery() {
+void EspnowController::processDiscovery() {
   if (!discoveryActive) {
     return;
   }
@@ -1685,7 +1314,7 @@ void processDiscovery() {
 // FAILSAFE
 // =====================================================
 
-void ESPNow_checkFailsafe() {
+void EspnowController::ESPNow_checkFailsafe() {
   if (lastESPNowPacket == 0) {
     return;
   }
@@ -1711,7 +1340,7 @@ void ESPNow_checkFailsafe() {
 // PAIRING MODE TIMEOUT
 // =====================================================
 
-void ESPNow_updatePairingMode() {
+void EspnowController::ESPNow_updatePairingMode() {
   if (pairingMode && pairingModeStarted != 0 &&
       millis() - pairingModeStarted > DEFAULT_PAIRING_WINDOW_MS) {
     pairingMode = false;
@@ -1724,7 +1353,7 @@ void ESPNow_updatePairingMode() {
 // HEARTBEAT
 // =====================================================
 
-void sendHeartbeat() {
+void EspnowController::sendHeartbeat() {
   unsigned long now = millis();
 
   if (now - lastHeartbeatSend < HEARTBEAT_INTERVAL) {
@@ -1740,7 +1369,7 @@ void sendHeartbeat() {
 // MAIN UPDATE
 // =====================================================
 
-void espnowUpdate() {
+void EspnowController::espnowUpdate() {
   // ---------------------------------------------------
   // Remove incomplete JSON messages that timed out
   // ---------------------------------------------------
@@ -1797,22 +1426,25 @@ void espnowUpdate() {
 // KEEP THIS EXTREMELY LIGHTWEIGHT.
 // =====================================================
 
-void onESPNowReceive(const esp_now_recv_info_t* info, const uint8_t* data,
-                     int len) {
-  if (info == nullptr || data == nullptr || len <= 0) {
+void EspnowController::onESPNowReceive(const esp_now_recv_info_t* info,
+                                       const uint8_t* data, int len) {
+  if (info == nullptr || data == nullptr || len <= 0 ||
+      callbackInstance == nullptr) {
     return;
   }
 
-  queueEspNowEvent(ESP_NOW_EVENT_RECEIVE, info->src_addr, data, len);
+  callbackInstance->queueEspNowEvent(ESP_NOW_EVENT_RECEIVE, info->src_addr,
+                                     data, len);
 }
 
 // =====================================================
 // SEND CALLBACK
 // =====================================================
 
-void onESPNowSendActual(const wifi_tx_info_t* tx_info,
-                        esp_now_send_status_t status) {
-  if (tx_info == nullptr || espNowEventQueue == nullptr) {
+void EspnowController::onESPNowSendActual(const wifi_tx_info_t* tx_info,
+                                          esp_now_send_status_t status) {
+
+  if (tx_info == nullptr || callbackInstance == nullptr || callbackInstance->espNowEventQueue == nullptr) {
     return;
   }
 
@@ -1824,14 +1456,15 @@ void onESPNowSendActual(const wifi_tx_info_t* tx_info,
 
   event.sendStatus = status;
 
-  xQueueSend(espNowEventQueue, &event, 0);
+  xQueueSend(callbackInstance->espNowEventQueue, &event, 0);
 }
 
 // =====================================================
 // SETUP
 // =====================================================
 
-bool setupESPNow(bool wifi) {
+bool EspnowController::setupESPNow(bool wifi) {
+  callbackInstance = this;
   Serial.println();
   Serial.println("================================");
 
@@ -1998,7 +1631,7 @@ bool setupESPNow(bool wifi) {
 
   return true;
 }
-sendPairRequestState sendPairRequest(int index) {
+sendPairRequestState EspnowController::sendPairRequest(int index) {
   PairPacket pairPacket = {};
 
   pairPacket.type = CMD_PAIR_REQUEST;
@@ -2031,7 +1664,7 @@ sendPairRequestState sendPairRequest(int index) {
   return PAIR_SUCCESS;
 }
 
-validateSelectedPeerState validateSelectedPeer(int index) {
+validateSelectedPeerState EspnowController::validateSelectedPeer(int index) {
   if (index < 0 || index >= receiverCount) {
     return INVALID_INDEX;
   }
@@ -2073,12 +1706,12 @@ validateSelectedPeerState validateSelectedPeer(int index) {
   return PASS_CHECK;
 }
 // todo should this be in app state?
-bool hasActiveReceiver() {
+bool EspnowController::hasActiveReceiver() {
   return !(activeReceiver < 0 || activeReceiver >= receiverCount ||
            !receivers[activeReceiver].used);
 }
 
-void resetDiscover() {
+void EspnowController::resetDiscover() {
   // Reset receiver list
 
   receiverCount = 0;
@@ -2100,4 +1733,4 @@ void resetDiscover() {
   receiverListNeedsRefresh = true;
 }
 
-bool isActiveReceiver(int i) { return i == activeReceiver; }
+bool EspnowController::isActiveReceiver(int i) { return i == activeReceiver; }

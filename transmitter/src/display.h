@@ -10,7 +10,7 @@
 #include "../../../shared/LvDisplay/lvdisplay_portable.h"
 #include "../../../shared/utils/MacUtils.h"
 #include "../../shared/SharedConfig.h"
-#include "../../shared/communication/espnow_controller.h"
+#include "../../shared/communication/EspnowController.h"
 #include "../../shared/communication/packets.h"
 #include "../../shared/utils/AppState.h"
 #include "../../shared/utils/StateJson.h"
@@ -72,12 +72,6 @@ void createUI();
 void UIRefresh();
 
 void selectReceiver(int index);
-
-void processDiscovery();
-
-// ESP-NOW EVENT PROCESSING
-
-void processESPNowEvents();
 
 // HOST WRAPPER
 
