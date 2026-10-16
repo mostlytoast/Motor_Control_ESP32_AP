@@ -3,14 +3,14 @@
 EspnowController espnowController;
 EspnowController* EspnowController::callbackInstance = nullptr;
 namespace {
-    JsonDocument previousState;
-    bool previousStateUpdated = false;
-}
+JsonDocument previousState;
+bool previousStateUpdated = false;
+}  // namespace
 // =====================================================
 // PEER MANAGEMENT
 // =====================================================
 
-// TODO unify names of peer receiver and controller to be peer
+// TODO unify names of peer receiver and controller to be peer?? maybe not
 bool EspnowController::addPeer(const uint8_t* mac, uint8_t channel) {
   if (mac == nullptr) {
     return false;
@@ -335,11 +335,13 @@ bool EspnowController::removeController(int slot) {
 // =====================================================
 
 bool EspnowController::claimController(const uint8_t* mac) {
+  Serial.println("controller claimed1");
   int slot = findController(mac);
 
   if (slot < 0) {
     return false;
   }
+  Serial.println("controller claimed2");
 
   activeController = slot;
 
@@ -428,7 +430,7 @@ void EspnowController::sendPairResponse(const uint8_t* destination, int slot,
   WiFi.macAddress(receiverMac);
 
   memcpy(response.receiverMac, receiverMac, 6);
-
+  // todo should 255 be max_controllers?
   response.controllerSlot = slot >= 0 ? slot : 255;
 
   response.paired = paired ? 1 : 0;
@@ -464,7 +466,6 @@ void EspnowController::sendControllerStatus(const uint8_t* destination) {
                sizeof(response));
 }
 
-
 // =====================================================
 // GENERIC JSON SEND
 //
@@ -491,115 +492,57 @@ bool EspnowController::sendJsonDocument(const uint8_t* destination,
     }
   }
 
-  // ---------------------------------------------------
-  // Serialize entire JSON document
-  // ---------------------------------------------------
+  // Calculate the serialized JSON size
+  const size_t jsonLength = measureJson(doc);
 
-  // String json;
+  const size_t requiredChunks =
+      (jsonLength + JSON_FRAGMENT_DATA_SIZE - 1) / JSON_FRAGMENT_DATA_SIZE;
 
-  // serializeJson(doc, json);
+  const size_t packetBufferSize = requiredChunks * JSON_FRAGMENT_PACKET_SIZE;
 
-  // if (json.length() == 0) {
-  //   Serial.println("sendJsonDocument: empty JSON");
+  uint8_t* packets = static_cast<uint8_t*>(malloc(packetBufferSize));
 
-  //   return false;
-  // }
+  if (packets == nullptr) {
+    Serial.println("Failed to allocate JSON packet buffer");
+    free(packets);
+    return false;
+  }
 
-  // // ---------------------------------------------------
-  // // Calculate number of fragments
-  // // ---------------------------------------------------
+  size_t totalChunks = 0;
+  // Generate packets
+  if (jsonAssembler.disassembleJson(destination, doc, packets, totalChunks)) {
+    // TODO use object thats an array of packets
+    // Read each packet
+    for (size_t i = 0; i < totalChunks; i++) {
+      // Get the current packet
+      uint8_t* packet = packets + (i * JSON_FRAGMENT_PACKET_SIZE);
+      // Serial.println("disassembled Json");
 
-  // size_t totalChunks =
-  //     (json.length() + JSON_FRAGMENT_DATA_SIZE - 1) / JSON_FRAGMENT_DATA_SIZE;
+      // for (size_t j = 0; j < JSON_FRAGMENT_PACKET_SIZE; j++) {
+      //   Serial.printf("%02X ", packet[j]);
+      // }
 
-  // if (totalChunks == 0) {
-  //   return false;
-  // }
+      // Read its header
+      JsonFragmentHeader header;
+      memcpy(&header, packet, sizeof(header));
 
-  // if (totalChunks > 255) {
-  //   Serial.print("JSON too large: ");
+      // Send or process the packet here
+      esp_err_t result =
+          esp_now_send(destination, packet, JSON_FRAGMENT_PACKET_SIZE);
+      if (result != ESP_OK) {
+        Serial.print("JSON fragment send failed: ");
 
-  //   Serial.print(json.length());
+        Serial.print(result);
 
-  //   Serial.println(" bytes. Maximum is 255 chunks.");
+        Serial.print(" / ");
 
-  //   return false;
-  // }
-
-  // // ---------------------------------------------------
-  // // Message ID
-  // // ---------------------------------------------------
-
-  // uint16_t messageId = ++nextJsonMessageId;
-
-  // if (messageId == 0) {
-  //   messageId = ++nextJsonMessageId;
-  // }
-
-  // // ---------------------------------------------------
-  // // Determine JSON type
-  // // ---------------------------------------------------
-
-  // uint8_t type = 0;
-
-  // if (doc["type"].is<uint8_t>()) {
-  //   type = doc["type"].as<uint8_t>();
-  // }
-
-  // // ---------------------------------------------------
-  // // Send every fragment
-  // // ---------------------------------------------------
-
-  // for (size_t chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-  //   uint8_t packet[JSON_FRAGMENT_PACKET_SIZE];
-
-  //   JsonFragmentHeader header = {};
-
-  //   header.magic = JSON_FRAGMENT_MAGIC;
-
-  //   header.type = type;
-
-  //   header.messageId = messageId;
-
-  //   header.chunkIndex = static_cast<uint8_t>(chunkIndex);
-
-  //   header.totalChunks = static_cast<uint8_t>(totalChunks);
-
-  //   memcpy(packet, &header, sizeof(header));
-
-  //   // -------------------------------------------------
-  //   // Calculate chunk data
-  //   // -------------------------------------------------
-
-  //   size_t offset = chunkIndex * JSON_FRAGMENT_DATA_SIZE;
-
-  //   size_t remaining = json.length() - offset;
-
-  //   size_t chunkLength = min(remaining, JSON_FRAGMENT_DATA_SIZE);
-
-  //   memcpy(packet + sizeof(header), json.c_str() + offset, chunkLength);
-
-  //   size_t packetLength = sizeof(header) + chunkLength;
-
-  //   // -------------------------------------------------
-  //   // Send
-  //   // -------------------------------------------------
-
-    esp_err_t result = esp_now_send(destination, packet, packetLength);
-
-    if (result != ESP_OK) {
-      Serial.print("JSON fragment send failed: ");
-
-      Serial.print(result);
-
-      Serial.print(" / ");
-
-      Serial.println(esp_err_to_name(result));
-
-      return false;
+        Serial.println(esp_err_to_name(result));
+        free(packets);
+        return false;
+      }
     }
-  // }
-
+  }
+  free(packets);
   return true;
 }
 // =====================================================
@@ -700,12 +643,17 @@ bool EspnowController::sendServerState(const uint8_t* destination) {
 // =====================================================
 
 void EspnowController::processStateChanges() {
-  const uint8_t* currentControllerMac = controllers[activeController].mac;
-  if ((activeReceiver >= 0 && activeReceiver < receiverCount &&
-       receivers[activeReceiver].used && receivers[activeReceiver].paired)) {
-    bool sent = sendServerState(receivers[activeReceiver].mac);
-  } else if (isActiveController(currentControllerMac)) {
-    bool sent = sendServerState(currentControllerMac);
+  // Controller-side: send to the selected receiver.
+  if (activeReceiver >= 0 && activeReceiver < receiverCount &&
+      receivers[activeReceiver].used && receivers[activeReceiver].paired) {
+    sendServerState(receivers[activeReceiver].mac);
+    return;
+  }
+
+  // Receiver-side: send to the active controller.
+  if (activeController >= 0 && activeController < MAX_CONTROLLERS &&
+      controllers[activeController].valid) {
+    sendServerState(controllers[activeController].mac);
   }
 }
 
@@ -713,23 +661,7 @@ void EspnowController::processStateChanges() {
 // PROCESS JSON SERVER STATE
 // =====================================================
 
-void EspnowController::processServerState(const uint8_t* data, int len) {
-  if (data == nullptr || len <= 0) {
-    return;
-  }
-
-  JsonDocument doc;
-
-  DeserializationError error = deserializeJson(doc, data, len);
-
-  if (error) {
-    Serial.print("JSON server state parse failed: ");
-
-    Serial.println(error.c_str());
-
-    return;
-  }
-
+void EspnowController::processServerState(JsonDocument& doc) {
   if (!doc["type"].is<uint8_t>() ||
       doc["type"].as<uint8_t>() != CMD_SERVER_STATE) {
     Serial.println("Invalid JSON server state type");
@@ -808,7 +740,10 @@ void EspnowController::processJsonCommand(const uint8_t* sourceMac,
   // ---------------------------------------------------
 
   if (activeController < 0) {
+    Serial.println("set controller");
+
     activeController = controllerSlot;
+    Serial.println(activeController);
   }
 
   // ---------------------------------------------------
@@ -933,13 +868,17 @@ bool EspnowController::processReceiverBinaryPacket(const uint8_t* sourceMac,
   // ---------------------------------------------------
 
   if (command.type == CMD_CONTROLLER_CLAIM) {
+    Serial.println("CMD_CONTROLLER_CLAIM RECEIVED");
+    Serial.println(macToString(sourceMac));
+
     if (isPairedController(sourceMac)) {
+      Serial.println("Claim accepted");
+
       claimController(sourceMac);
-
       sendControllerStatus(sourceMac);
-
-      // Initial state synchronization is intentional.
       sendServerState(sourceMac);
+    } else {
+      Serial.println("Claim rejected: controller not paired");
     }
 
     return true;
@@ -958,6 +897,42 @@ bool EspnowController::processReceiverBinaryPacket(const uint8_t* sourceMac,
   }
 
   return false;
+}
+
+bool EspnowController::sendControllerClaim(int receiverIndex) {
+  if (receiverIndex < 0 || receiverIndex >= receiverCount) {
+    Serial.println("CLAIM: Invalid receiver index");
+    return false;
+  }
+
+  ReceiverInfo& receiver = receivers[receiverIndex];
+
+  if (!receiver.used || !receiver.paired) {
+    Serial.println("CLAIM: Receiver is not paired");
+    return false;
+  }
+
+  if (!esp_now_is_peer_exist(receiver.mac)) {
+    if (!addPeer(receiver.mac, receiver.channel)) {
+      Serial.println("CLAIM: Failed to add receiver peer");
+      return false;
+    }
+  }
+
+  ESPNowCommand command = {};
+  command.type = CMD_CONTROLLER_CLAIM;
+  command.value = 0;
+
+  esp_err_t result =
+      esp_now_send(receiver.mac, reinterpret_cast<const uint8_t*>(&command),
+                   sizeof(command));
+
+  Serial.print("Sending CMD_CONTROLLER_CLAIM to ");
+  Serial.print(receiver.name);
+  Serial.print(": ");
+  Serial.println(esp_err_to_name(result));
+
+  return result == ESP_OK;
 }
 
 // =====================================================
@@ -1003,26 +978,50 @@ bool EspnowController::processControllerBinaryPacket(const uint8_t* sourceMac,
 
   if (len == sizeof(PairResponse)) {
     PairResponse response = {};
-
     memcpy(&response, data, sizeof(response));
 
-    if (response.type == CMD_PAIR_RESPONSE) {
-      int index = findController(sourceMac);
+    if (response.type != CMD_PAIR_RESPONSE) {
+      return false;
+    }
 
-      if (index >= 0) {
-        receivers[index].paired = response.paired != 0;
+    // Find the receiver by MAC.
+    // Do NOT use findController(), which searches
+    // the receiver-side controllers[] array.
+    int index = -1;
 
-        receivers[index].lastSeen = millis();
-
-        receiverListNeedsRefresh = true;
-
-        Serial.print("Receiver pairing: ");
-
-        Serial.println(receivers[index].paired ? "SUCCESS" : "FAILED");
+    for (int i = 0; i < receiverCount; i++) {
+      if (receivers[i].used && macEqual(receivers[i].mac, sourceMac)) {
+        index = i;
+        break;
       }
+    }
 
+    if (index < 0) {
+      Serial.println("PAIR RESPONSE: Unknown receiver");
       return true;
     }
+
+    receivers[index].paired = response.paired != 0;
+    receivers[index].lastSeen = millis();
+    receiverListNeedsRefresh = true;
+
+    if (!receivers[index].paired) {
+      Serial.println("Pairing failed");
+      return true;
+    }
+
+    Serial.print("Pairing successful with ");
+    Serial.println(receivers[index].name);
+
+    // Make this the active receiver.
+    activeReceiver = index;
+
+    // Send the claim immediately after pairing.
+    if (!sendControllerClaim(index)) {
+      Serial.println("Failed to send controller claim");
+    }
+
+    return true;
   }
 
   // ---------------------------------------------------
@@ -1047,6 +1046,45 @@ bool EspnowController::processControllerBinaryPacket(const uint8_t* sourceMac,
 // UNIFIED RECEIVE EVENT PROCESSING
 // =====================================================
 
+bool EspnowController::processJsonFragment(const uint8_t* sourceMac,
+                                           const uint8_t* data, size_t len) {
+  JsonDocument doc;
+  JsonReassembly assembly;
+  if (!jsonAssembler.jsonFragmentToJson(sourceMac, data, len, doc)) {
+    return false;
+  }
+  // uint8_t buffer;
+  // size_t length;
+  // jsonAssembler.jsonFragmentToJson(sourceMac, data, len, doc, buffer,
+  // length);
+
+  uint8_t type = doc["type"].as<uint8_t>();
+  // Serial.println("reassembled json");
+  // serializeJsonPretty(doc, Serial);
+  // ---------------------------------------------------
+  // SERVER STATE
+  // ---------------------------------------------------
+
+  if (type == CMD_SERVER_STATE) {
+    int receiverIndex = findController(sourceMac);
+
+    if (receiverIndex >= 0) {
+      receivers[receiverIndex].lastSeen = millis();
+    }
+    // TODO get rid of assembly have jsonFragmentToJson directly return uint8_t
+    // processServerState(data, len);
+    processServerState(doc);
+  }
+
+  // ---------------------------------------------------
+  // Other JSON commands
+  // ---------------------------------------------------
+
+  else {
+    processJsonCommand(sourceMac, doc);
+  }
+  return true;
+}
 // =====================================================
 // UNIFIED RECEIVE EVENT PROCESSING
 // =====================================================
@@ -1374,7 +1412,7 @@ void EspnowController::espnowUpdate() {
   // Remove incomplete JSON messages that timed out
   // ---------------------------------------------------
 
-  cleanupJsonReassemblies();
+  jsonAssembler.cleanupJsonReassemblies();
 
   // ---------------------------------------------------
   // Process queued RX packets
@@ -1443,8 +1481,8 @@ void EspnowController::onESPNowReceive(const esp_now_recv_info_t* info,
 
 void EspnowController::onESPNowSendActual(const wifi_tx_info_t* tx_info,
                                           esp_now_send_status_t status) {
-
-  if (tx_info == nullptr || callbackInstance == nullptr || callbackInstance->espNowEventQueue == nullptr) {
+  if (tx_info == nullptr || callbackInstance == nullptr ||
+      callbackInstance->espNowEventQueue == nullptr) {
     return;
   }
 
@@ -1734,3 +1772,13 @@ void EspnowController::resetDiscover() {
 }
 
 bool EspnowController::isActiveReceiver(int i) { return i == activeReceiver; }
+
+ReceiverInfo* EspnowController::getReceivers() { return receivers; }
+int EspnowController::getActiveReceiver() { return activeReceiver; }
+int EspnowController::getNumberOfReceivers() { return receiverCount; }
+void EspnowController::setReceiverListNeedsRefresh(bool enable) {
+  receiverListNeedsRefresh = enable;
+}
+bool EspnowController::getReceiverListNeedsRefresh() {
+  return receiverListNeedsRefresh;
+}

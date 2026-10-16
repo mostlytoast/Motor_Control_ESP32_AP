@@ -15,6 +15,7 @@
 #include "../SharedConfig.h"
 #include "../utils/AppState.h"
 #include "../utils/MacUtils.h"
+#include "JsonAssembler.h"
 #include "StateJson.h"
 #include "packets.h"
 
@@ -23,7 +24,6 @@
 #define DISCOVERY_INTERVAL 1000
 #define DISCOVERY_TIMEOUT 5000
 #define MAX_RECEIVERS 8
-
 
 // =====================================================
 // RECEIVER STATE
@@ -98,11 +98,18 @@ class EspnowController {
   bool hasActiveReceiver();
   bool isActiveReceiver(int i);
 
+  ReceiverInfo* getReceivers();
+  int getActiveReceiver();
+  int getNumberOfReceivers();
+  void setReceiverListNeedsRefresh(bool enable);
+  bool getReceiverListNeedsRefresh();
+
  private:
- 
-
+  bool sendControllerClaim(int receiverIndex);
   bool sendJsonDocument(const uint8_t* destination, JsonDocument& doc);
-
+  bool processJsonFragment(const uint8_t* sourceMac, const uint8_t* data,
+                           size_t len);
+  void processJsonCommand(const uint8_t* sourceMac, JsonDocument& doc);
   // Receiver management
   int findController(const uint8_t* mac);
 
@@ -135,8 +142,7 @@ class EspnowController {
   void sendHeartbeat();
 
   // Incoming state
-  void processServerState(const uint8_t* data, int len);
-
+  void processServerState(JsonDocument& doc);
   void processESPNowEvents();
 
   static void onESPNowReceive(const esp_now_recv_info_t* info,

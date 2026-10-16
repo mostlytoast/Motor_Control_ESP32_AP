@@ -140,7 +140,7 @@ void setupDisplay() {
   // ESP-NOW
   // ===================================================
 
-  if (!setupESPNow(true)) {
+  if (!espnowController.setupESPNow(true)) {
     app.setStatusLabelText("ESP-NOW ERROR");
 
     return;
@@ -162,7 +162,7 @@ void updateControllerStatus() {
     return;
   }
 
-  if (hasActiveReceiver()) {
+  if (espnowController.hasActiveReceiver()) {
     lv_label_set_text(controllerStatus, "No Receiver");
 
     return;
@@ -170,7 +170,9 @@ void updateControllerStatus() {
 
   char text[64];
 
-  snprintf(text, sizeof(text), "CTRL: %s", receivers[activeReceiver].name);
+  snprintf(text, sizeof(text), "CTRL: %s",
+           espnowController.getReceivers()[espnowController.getActiveReceiver()]
+               .name);
 
   lv_label_set_text(controllerStatus, text);
 }
@@ -218,9 +220,9 @@ static void scanEvent(lv_event_t* event) {
 
   // Remove receiver peers
 
-    removePeers();
+  espnowController.removePeers();
 
-  resetDiscover();
+  espnowController.resetDiscover();
   if (controllerStatus != NULL) {
     lv_label_set_text(controllerStatus, "Scanning...");
   }
@@ -244,7 +246,7 @@ static void controllerMenuEvent(lv_event_t* event) {
   if (lv_obj_is_hidden(controllerMenu)) {
     lv_obj_set_hidden(controllerMenu, false);
 
-    receiverListNeedsRefresh = true;
+    espnowController.setReceiverListNeedsRefresh(true);
   }
 
   else {
@@ -280,8 +282,8 @@ void refreshControllerList() {
 
   // Receiver buttons
 
-  for (int i = 0; i < receiverCount; i++) {
-    if (!receivers[i].used) {
+  for (int i = 0; i < espnowController.getNumberOfReceivers(); i++) {
+    if (!espnowController.getReceivers()[i].used) {
       continue;
     }
 
@@ -289,7 +291,7 @@ void refreshControllerList() {
 
     lv_obj_set_size(button, 280, 40);
 
-    bool selected = isActiveReceiver(i);
+    bool selected = espnowController.isActiveReceiver(i);
 
     lv_obj_set_style_bg_color(button,
                               selected ? lv_color_hex(COLOR_SELECTED)
@@ -299,7 +301,7 @@ void refreshControllerList() {
     char text[64];
 
     snprintf(text, sizeof(text), "%s%s", selected ? "> " : "",
-             receivers[i].name);
+             espnowController.getReceivers()[i].name);
 
     lv_obj_t* label = lv_label_create(button);
 
@@ -315,7 +317,7 @@ void refreshControllerList() {
 
   // Empty list
 
-  if (receiverCount == 0) {
+  if (espnowController.getNumberOfReceivers() == 0) {
     lv_obj_t* none = lv_label_create(controllerList);
 
     lv_label_set_text(none, "No receivers found");
@@ -404,7 +406,7 @@ void createControllerMenu(lv_obj_t* screen) {
 
   lv_obj_set_style_pad_row(controllerList, 5, LV_PART_MAIN);
 
-  receiverListNeedsRefresh = true;
+  espnowController.setReceiverListNeedsRefresh(true);
 
   lv_obj_set_hidden(controllerMenu, true);
 }
@@ -449,15 +451,15 @@ void UIRefresh() {
 
   // Refresh receiver list
 
-  if (receiverListNeedsRefresh) {
-    receiverListNeedsRefresh = false;
+  if (espnowController.getReceiverListNeedsRefresh()) {
+    espnowController.setReceiverListNeedsRefresh(false);
 
     refreshControllerList();
   }
 
   // ESP-NOW periodic motor/heartbeat traffic
 
-  espnowUpdate();
+  espnowController.espnowUpdate();
 
   // LVGL
 
@@ -473,7 +475,7 @@ void UIRefresh() {
 // SELECT RECEIVER
 
 void selectReceiver(int index) {
-  switch (validateSelectedPeer(index)) {
+  switch (espnowController.validateSelectedPeer(index)) {
     case INVALID_INDEX:
       return;
     case ALREADY_SELECTED:
@@ -496,7 +498,7 @@ void selectReceiver(int index) {
   app.setStatusLabelText("PAIRING...");
 
   // Send pairing request
-  switch (sendPairRequest(index)) {
+  switch (espnowController.sendPairRequest(index)) {
     case PAIR_ERROR:
       app.setStatusLabelText("PAIR FAILED");
       return;

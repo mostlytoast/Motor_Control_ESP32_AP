@@ -1,25 +1,41 @@
+
 #include "JsonAssembler.h"
-// =====================================================
-// JSON REASSEMBLY HELPERS
-// =====================================================
+
+#include <algorithm>
+#include <cstring>
+
 JsonAssembler jsonAssembler;
 
 namespace {
-JsonReassembly jsonReassemblies[MAX_CONTROLLERS];
-uint16_t nextJsonMessageId = 0;
+JsonReassembly reassemblies[MAX_JSON_REASSEMBLIES];
+uint16_t nextMessageId = 0;
 
+// Shared scratch buffer avoids placing a 2 KB serialization buffer on the
+// ESP32 task stack. This assumes disassembleJson() is called serially.
+char serializationBuffer[JSON_REASSEMBLY_BUFFER_SIZE];
+
+bool sameMac(const uint8_t* a, const uint8_t* b) {
+  return a && b && memcmp(a, b, 6) == 0;
+}
+
+bool chunkReceived(const JsonReassembly& assembly, uint8_t index) {
+  return (assembly.received[index / 8] &
+          static_cast<uint8_t>(1U << (index % 8))) != 0;
+}
+
+void markChunkReceived(JsonReassembly& assembly, uint8_t index) {
+  assembly.received[index / 8] |= static_cast<uint8_t>(1U << (index % 8));
+}
 }  // namespace
+
 int JsonAssembler::findJsonReassembly(const uint8_t* sourceMac) {
-  if (sourceMac == nullptr) {
+  if (!sourceMac) {
     return -1;
   }
 
-  for (int i = 0; i < MAX_JSON_REASSEMBLIES; i++) {
-    if (!jsonReassemblies[i].active) {
-      continue;
-    }
-
-    if (macEqual(jsonReassemblies[i].sourceMac, sourceMac)) {
+  for (int i = 0; i < MAX_JSON_REASSEMBLIES; ++i) {
+    if (reassemblies[i].active &&
+        sameMac(reassemblies[i].sourceMac, sourceMac)) {
       return i;
     }
   }
@@ -32,418 +48,285 @@ void JsonAssembler::clearJsonReassembly(int index) {
     return;
   }
 
-  memset(&jsonReassemblies[index], 0, sizeof(JsonReassembly));
+  JsonReassembly& assembly = reassemblies[index];
+
+  assembly.active = false;
+  memset(assembly.sourceMac, 0, sizeof(assembly.sourceMac));
+  assembly.type = 0;
+  assembly.messageId = 0;
+  assembly.totalChunks = 0;
+  assembly.receivedChunks = 0;
+  assembly.length = 0;
+  memset(assembly.received, 0, sizeof(assembly.received));
+  assembly.lastReceived = 0;
+
+  // No need to clear the full 2 KB payload buffer. It is overwritten as
+  // fragments arrive and is only parsed up to assembly.length.
 }
 
 int JsonAssembler::allocateJsonReassembly(const uint8_t* sourceMac) {
-  // ---------------------------------------------------
-  // First try to find an existing one
-  // ---------------------------------------------------
-
-  int existing = findJsonReassembly(sourceMac);
-
-  if (existing >= 0) {
-    return existing;
+  if (!sourceMac) {
+    return -1;
   }
 
-  // ---------------------------------------------------
-  // Find free slot
-  // ---------------------------------------------------
+  int index = findJsonReassembly(sourceMac);
+  if (index >= 0) {
+    return index;
+  }
 
-  for (int i = 0; i < MAX_JSON_REASSEMBLIES; i++) {
-    if (!jsonReassemblies[i].active) {
-      clearJsonReassembly(i);
-
-      jsonReassemblies[i].active = true;
-
-      memcpy(jsonReassemblies[i].sourceMac, sourceMac, 6);
-
-      return i;
+  for (int i = 0; i < MAX_JSON_REASSEMBLIES; ++i) {
+    if (!reassemblies[i].active) {
+      index = i;
+      break;
     }
   }
 
-  // ---------------------------------------------------
-  // No free slot.
-  //
-  // Reuse the oldest one.
-  // ---------------------------------------------------
-
-  int oldest = 0;
-
-  for (int i = 1; i < MAX_JSON_REASSEMBLIES; i++) {
-    if (jsonReassemblies[i].lastReceived <
-        jsonReassemblies[oldest].lastReceived) {
-      oldest = i;
+  if (index < 0) {
+    // Evict the oldest incomplete message. Signed subtraction handles
+    // millis() wraparound for intervals shorter than half its range.
+    index = 0;
+    for (int i = 1; i < MAX_JSON_REASSEMBLIES; ++i) {
+      if (static_cast<int32_t>(reassemblies[i].lastReceived -
+                               reassemblies[index].lastReceived) < 0) {
+        index = i;
+      }
     }
   }
 
-  clearJsonReassembly(oldest);
+  clearJsonReassembly(index);
 
-  jsonReassemblies[oldest].active = true;
+  JsonReassembly& assembly = reassemblies[index];
+  assembly.active = true;
+  memcpy(assembly.sourceMac, sourceMac, sizeof(assembly.sourceMac));
+  assembly.lastReceived = millis();
 
-  memcpy(jsonReassemblies[oldest].sourceMac, sourceMac, 6);
-
-  return oldest;
+  return index;
 }
 
 void JsonAssembler::cleanupJsonReassemblies() {
   const unsigned long now = millis();
 
-  for (int i = 0; i < MAX_JSON_REASSEMBLIES; i++) {
-    if (!jsonReassemblies[i].active) {
-      continue;
-    }
+  for (int i = 0; i < MAX_JSON_REASSEMBLIES; ++i) {
+    JsonReassembly& assembly = reassemblies[i];
 
-    if (now - jsonReassemblies[i].lastReceived > JSON_REASSEMBLY_TIMEOUT) {
-      Serial.print("JSON reassembly timeout from ");
-
-      Serial.println(macToString(jsonReassemblies[i].sourceMac));
-
+    if (assembly.active &&
+        now - assembly.lastReceived > JSON_REASSEMBLY_TIMEOUT) {
       clearJsonReassembly(i);
     }
   }
 }
 
-// =====================================================
-// PROCESS JSON FRAGMENT
-//
-// Returns true if the packet was recognized as a JSON
-// fragment.
-//
-// When all fragments have arrived, the reconstructed
-// JSON is passed to the appropriate JSON handler.
-// =====================================================
-
-bool JsonAssembler::processJsonFragment(const uint8_t* sourceMac,
-                                        const uint8_t* data, size_t len) {
-  if (sourceMac == nullptr || data == nullptr) {
-    return false;
+bool JsonAssembler::jsonFragmentToJson(const uint8_t* sourceMac,
+                                       const uint8_t* data, size_t len,
+                                       JsonDocument& doc, bool* complete) {
+  if (complete) {
+    *complete = false;
   }
 
-  // ---------------------------------------------------
-  // Not enough bytes for a header
-  // ---------------------------------------------------
+  doc.clear();
 
-  if (len < sizeof(JsonFragmentHeader)) {
+  if (!sourceMac || !data || len < sizeof(JsonFragmentHeader)) {
     return false;
   }
 
   JsonFragmentHeader header;
-
   memcpy(&header, data, sizeof(header));
-
-  // ---------------------------------------------------
-  // Not a JSON fragment
-  // ---------------------------------------------------
 
   if (header.magic != JSON_FRAGMENT_MAGIC) {
     return false;
   }
 
-  // ---------------------------------------------------
-  // Validate header
-  // ---------------------------------------------------
-
-  if (header.totalChunks == 0) {
-    Serial.println("Invalid JSON fragment count");
-
+  // The packet is recognized as a fragment from here onward. Invalid or
+  // incomplete fragments must not be dispatched as completed commands.
+  if (len != JSON_FRAGMENT_PACKET_SIZE || header.totalChunks == 0 ||
+      header.chunkIndex >= header.totalChunks ||
+      header.totalChunks > MAX_CHUNKS) {
     return true;
   }
 
-  if (header.chunkIndex >= header.totalChunks) {
-    Serial.println("Invalid JSON fragment index");
+  const uint8_t* payload = data + sizeof(header);
+  size_t payloadLength = len - sizeof(header);
+  const bool isLastChunk = header.chunkIndex == header.totalChunks - 1;
 
+  // JSON serialization does not contain embedded NUL bytes. The sender
+  // zero-pads fixed-size packets, so only the final chunk may contain
+  // trailing zero padding.
+  if (isLastChunk) {
+    const void* zero = memchr(payload, '\0', payloadLength);
+    if (zero) {
+      const size_t firstZero = static_cast<const uint8_t*>(zero) - payload;
+
+      for (size_t i = firstZero; i < payloadLength; ++i) {
+        if (payload[i] != 0) {
+          return true;
+        }
+      }
+
+      payloadLength = firstZero;
+    }
+  } else if (memchr(payload, '\0', payloadLength)) {
     return true;
   }
 
-  size_t chunkLength = len - sizeof(JsonFragmentHeader);
-
-  if (chunkLength == 0) {
-    Serial.println("Empty JSON fragment");
-
+  if (payloadLength == 0) {
     return true;
   }
 
-  // ---------------------------------------------------
-  // Get reassembly slot for this sender
-  // ---------------------------------------------------
-
-  int slot = findJsonReassembly(sourceMac);
-
-  // ---------------------------------------------------
-  // New message
-  // ---------------------------------------------------
-
-  if (slot < 0) {
-    slot = allocateJsonReassembly(sourceMac);
-
-    JsonReassembly& assembly = jsonReassemblies[slot];
-
-    assembly.type = header.type;
-
-    assembly.messageId = header.messageId;
-
-    assembly.totalChunks = header.totalChunks;
-
-    assembly.receivedChunks = 0;
-
-    assembly.length = 0;
-
-    memset(assembly.received, 0, sizeof(assembly.received));
-  }
-
-  JsonReassembly& assembly = jsonReassemblies[slot];
-
-  // ---------------------------------------------------
-  // If this is a different message from the same
-  // sender, start over.
-  //
-  // This also handles a new message arriving before
-  // the previous one has completed.
-  // ---------------------------------------------------
-
-  if (assembly.messageId != header.messageId ||
-      assembly.totalChunks != header.totalChunks ||
-      assembly.type != header.type) {
-    clearJsonReassembly(slot);
-
-    assembly.active = true;
-
-    memcpy(assembly.sourceMac, sourceMac, 6);
-
-    assembly.type = header.type;
-
-    assembly.messageId = header.messageId;
-
-    assembly.totalChunks = header.totalChunks;
-
-    assembly.receivedChunks = 0;
-
-    assembly.length = 0;
-
-    memset(assembly.received, 0, sizeof(assembly.received));
-  }
-
-  assembly.lastReceived = millis();
-
-  // ---------------------------------------------------
-  // Ignore duplicate fragment
-  // ---------------------------------------------------
-
-  if (assembly.received[header.chunkIndex]) {
-    Serial.print("Duplicate JSON chunk ");
-
-    Serial.println(header.chunkIndex);
-
-    return true;
-  }
-
-  // ---------------------------------------------------
-  // Calculate where this chunk belongs
-  // ---------------------------------------------------
-
-  size_t offset =
+  const size_t offset =
       static_cast<size_t>(header.chunkIndex) * JSON_FRAGMENT_DATA_SIZE;
 
-  // ---------------------------------------------------
-  // Check buffer
-  // ---------------------------------------------------
-
-  if (offset + chunkLength >= JSON_REASSEMBLY_BUFFER_SIZE) {
-    Serial.println("JSON reassembly buffer overflow");
-
-    clearJsonReassembly(slot);
-
+  if (offset >= JSON_REASSEMBLY_BUFFER_SIZE ||
+      payloadLength >= JSON_REASSEMBLY_BUFFER_SIZE - offset) {
     return true;
   }
 
-  // ---------------------------------------------------
-  // Copy chunk
-  // ---------------------------------------------------
+  const size_t end = offset + payloadLength;
 
-  memcpy(assembly.buffer + offset, data + sizeof(JsonFragmentHeader),
-         chunkLength);
+  // A fixed 244-byte stride is used for every fragment except the trimmed
+  // final payload. The final JSON must fit, including its terminating NUL.
+  if (header.totalChunks >
+      (JSON_REASSEMBLY_BUFFER_SIZE + JSON_FRAGMENT_DATA_SIZE - 1) /
+          JSON_FRAGMENT_DATA_SIZE) {
+    return true;
+  }
 
-  assembly.received[header.chunkIndex] = true;
+  cleanupJsonReassemblies();
 
-  assembly.receivedChunks++;
+  const int index = allocateJsonReassembly(sourceMac);
+  if (index < 0) {
+    return true;
+  }
 
-  size_t end = offset + chunkLength;
+  JsonReassembly& assembly = reassemblies[index];
+
+  // A sender can only have one in-progress message in this implementation.
+  // A different ID or message type starts a new assembly for that sender.
+  if (assembly.receivedChunks != 0 &&
+      (assembly.messageId != header.messageId ||
+       assembly.totalChunks != header.totalChunks ||
+       assembly.type != header.type)) {
+    clearJsonReassembly(index);
+    assembly.active = true;
+    memcpy(assembly.sourceMac, sourceMac, sizeof(assembly.sourceMac));
+  }
+
+  assembly.messageId = header.messageId;
+  assembly.totalChunks = header.totalChunks;
+  assembly.type = header.type;
+  assembly.lastReceived = millis();
+
+  if (chunkReceived(assembly, header.chunkIndex)) {
+    return true;
+  }
+
+  memcpy(assembly.buffer + offset, payload, payloadLength);
+  markChunkReceived(assembly, header.chunkIndex);
+  ++assembly.receivedChunks;
 
   if (end > assembly.length) {
     assembly.length = end;
   }
-  // ---------------------------------------------------
-  // Still waiting for chunks
-  // ---------------------------------------------------
 
-  if (assembly.receivedChunks < assembly.totalChunks) {
+  if (assembly.receivedChunks != assembly.totalChunks) {
     return true;
   }
 
-  // ---------------------------------------------------
-  // COMPLETE
-  // ---------------------------------------------------
+  // Every chunk is now present. The final chunk determines the true JSON
+  // length, including the case where its payload exactly fills the packet.
+  const size_t lastOffset =
+      static_cast<size_t>(assembly.totalChunks - 1) * JSON_FRAGMENT_DATA_SIZE;
+
+  if (assembly.length <= lastOffset ||
+      assembly.length >= sizeof(assembly.buffer)) {
+    clearJsonReassembly(index);
+    return true;
+  }
 
   assembly.buffer[assembly.length] = '\0';
 
-  // ---------------------------------------------------
-  // Parse reconstructed JSON
-  // ---------------------------------------------------
-
-  JsonDocument doc;
-
-  DeserializationError error =
+  const DeserializationError error =
       deserializeJson(doc, assembly.buffer, assembly.length);
 
-  if (error) {
-    Serial.print("Reassembled JSON parse failed: ");
-
-    Serial.println(error.c_str());
-
-    clearJsonReassembly(slot);
-
+  if (error || !doc["type"].is<uint8_t>() ||
+      doc["type"].as<uint8_t>() != assembly.type) {
+    doc.clear();
+    clearJsonReassembly(index);
     return true;
   }
 
-  // ---------------------------------------------------
-  // Validate type
-  // ---------------------------------------------------
+  clearJsonReassembly(index);
 
-  if (!doc["type"].is<uint8_t>()) {
-    Serial.println("Reassembled JSON has no type");
-
-    clearJsonReassembly(slot);
-
-    return true;
+  if (complete) {
+    *complete = true;
   }
-
-  uint8_t type = doc["type"].as<uint8_t>();
-
-  // ---------------------------------------------------
-  // SERVER STATE
-  // ---------------------------------------------------
-
-  if (type == CMD_SERVER_STATE) {
-    int receiverIndex = findController(sourceMac);
-
-    if (receiverIndex >= 0) {
-      receivers[receiverIndex].lastSeen = millis();
-    }
-
-    processServerState(reinterpret_cast<const uint8_t*>(assembly.buffer),
-                       assembly.length);
-  }
-
-  // ---------------------------------------------------
-  // Other JSON commands
-  // ---------------------------------------------------
-
-  else {
-    processJsonCommand(sourceMac, doc);
-  }
-
-  // ---------------------------------------------------
-  // Done
-  // ---------------------------------------------------
-
-  clearJsonReassembly(slot);
 
   return true;
 }
 
 bool JsonAssembler::disassembleJson(const uint8_t* destination,
-                                    JsonDocument& doc, uint8_t* packets) {
-  String json;
+                                    JsonDocument& doc, uint8_t*& packets,
+                                    size_t& totalChunks) {
+  (void)destination;
 
-  serializeJson(doc, json);
+  totalChunks = 0;
 
-  if (json.length() == 0) {
-    Serial.println("sendJsonDocument: empty JSON");
-
+  if (!packets) {
     return false;
   }
 
-  // ---------------------------------------------------
-  // Calculate number of fragments
-  // ---------------------------------------------------
+  const size_t jsonLength = measureJson(doc);
 
-  size_t totalChunks =
-      (json.length() + JSON_FRAGMENT_DATA_SIZE - 1) / JSON_FRAGMENT_DATA_SIZE;
-
-  if (totalChunks == 0) {
+  if (jsonLength == 0 || jsonLength >= sizeof(serializationBuffer)) {
     return false;
   }
 
-  if (totalChunks > 255) {
-    Serial.print("JSON too large: ");
+  const size_t written =
+      serializeJson(doc, serializationBuffer, sizeof(serializationBuffer));
 
-    Serial.print(json.length());
-
-    Serial.println(" bytes. Maximum is 255 chunks.");
-
+  if (written != jsonLength) {
     return false;
   }
 
-  // ---------------------------------------------------
-  // Message ID
-  // ---------------------------------------------------
+  totalChunks =
+      (written + JSON_FRAGMENT_DATA_SIZE - 1) / JSON_FRAGMENT_DATA_SIZE;
 
-  uint16_t messageId = ++nextJsonMessageId;
-
-  if (messageId == 0) {
-    messageId = ++nextJsonMessageId;
+  if (totalChunks == 0 || totalChunks > MAX_CHUNKS ||
+      totalChunks >
+          (JSON_REASSEMBLY_BUFFER_SIZE + JSON_FRAGMENT_DATA_SIZE - 1) /
+              JSON_FRAGMENT_DATA_SIZE) {
+    totalChunks = 0;
+    return false;
   }
 
-  // ---------------------------------------------------
-  // Determine JSON type
-  // ---------------------------------------------------
+  const uint8_t type =
+      doc["type"].is<uint8_t>() ? doc["type"].as<uint8_t>() : 0;
 
-  uint8_t type = 0;
-
-  if (doc["type"].is<uint8_t>()) {
-    type = doc["type"].as<uint8_t>();
+  ++nextMessageId;
+  if (nextMessageId == 0) {
+    ++nextMessageId;
   }
 
-  // ---------------------------------------------------
-  // Send every fragment
-  // ---------------------------------------------------
+  for (size_t i = 0; i < totalChunks; ++i) {
+    uint8_t* packet = packets + i * JSON_FRAGMENT_PACKET_SIZE;
+    memset(packet, 0, JSON_FRAGMENT_PACKET_SIZE);
 
-  for (size_t chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-    uint8_t packet[JSON_FRAGMENT_PACKET_SIZE];
-
-    JsonFragmentHeader header = {};
-
+    JsonFragmentHeader header{};
     header.magic = JSON_FRAGMENT_MAGIC;
-
     header.type = type;
-
-    header.messageId = messageId;
-
-    header.chunkIndex = static_cast<uint8_t>(chunkIndex);
-
+    header.messageId = nextMessageId;
+    header.chunkIndex = static_cast<uint8_t>(i);
     header.totalChunks = static_cast<uint8_t>(totalChunks);
 
     memcpy(packet, &header, sizeof(header));
 
-    // -------------------------------------------------
-    // Calculate chunk data
-    // -------------------------------------------------
+    const size_t offset = i * JSON_FRAGMENT_DATA_SIZE;
+    const size_t remaining = written - offset;
+    const size_t chunkLength = remaining < JSON_FRAGMENT_DATA_SIZE
+                                   ? remaining
+                                   : JSON_FRAGMENT_DATA_SIZE;
 
-    size_t offset = chunkIndex * JSON_FRAGMENT_DATA_SIZE;
-
-    size_t remaining = json.length() - offset;
-
-    size_t chunkLength = min(remaining, JSON_FRAGMENT_DATA_SIZE);
-
-    memcpy(packet + sizeof(header), json.c_str() + offset, chunkLength);
-
-    size_t packetLength = sizeof(header) + chunkLength;
-
-    // -------------------------------------------------
-    // Send
-    // -------------------------------------------------
-
-    // combine into single array of packets 
+    memcpy(packet + sizeof(header), serializationBuffer + offset, chunkLength);
   }
+
+  return true;
 }
