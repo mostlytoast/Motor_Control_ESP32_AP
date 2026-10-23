@@ -376,7 +376,7 @@ void LvDisplayController::updateRampLabel() {
   }
 
   char text[32];
-  std::snprintf(text, sizeof(text), "Ramp: %d", app.getRampTime() / 1000);
+  std::snprintf(text, sizeof(text), "Ramp: %lu", app.getRampTime() / 1000);
   setWidgetText(rampLabel_, text);
 }
 

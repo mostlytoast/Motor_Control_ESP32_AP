@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include <cstdint>
+#define MAC_LENGTH 6
 // TODO might move to utils?
 String macToString(const uint8_t* mac);
 

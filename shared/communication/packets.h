@@ -64,7 +64,6 @@ struct __attribute__((packed)) PairResponse {
 
   uint8_t receiverMac[6];
 
-  uint8_t controllerSlot;
   uint8_t paired;
 
   char receiverName[24];

@@ -57,7 +57,7 @@ LvTrackMap::LvTrackMap(lv_obj_t* parent) {
   lv_obj_set_size(root_, LV_PCT(100), LV_PCT(100));
   lv_obj_set_pos(root_, 0, 0);
 
-  lv_obj_remove_flag(root_, LV_OBJ_FLAG_SCROLLABLE);
+  // lv_obj_clear_flag(root_, LV_OBJ_FLAG_SCROLLABLE);
 
   installCallbacks();
 

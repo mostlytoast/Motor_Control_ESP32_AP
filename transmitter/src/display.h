@@ -71,7 +71,7 @@ void createUI();
 
 void UIRefresh();
 
-void selectReceiver(int index);
+void selectReceiver(Peer* peer);
 
 // HOST WRAPPER
 

@@ -55,7 +55,7 @@ class JsonAssembler {
 
   void cleanupJsonReassemblies();
 
-  bool disassembleJson(const uint8_t* destination, JsonDocument& doc,
+  bool disassembleJson( JsonDocument& doc,
                        uint8_t*& packets, size_t& totalChunks);
 
  private:

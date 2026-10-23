@@ -169,10 +169,12 @@ void updateControllerStatus() {
   }
 
   char text[64];
+  // Todo change to one that gets the current active receiver
+  Peer* peer = espnowController.getActiveReceiverPeer();
 
-  snprintf(text, sizeof(text), "CTRL: %s",
-           espnowController.getReceivers()[espnowController.getActiveReceiver()]
-               .name);
+  if (peer != nullptr) {
+    snprintf(text, sizeof(text), "CTRL: %s", peer->getName());
+  }
 
   lv_label_set_text(controllerStatus, text);
 }
@@ -187,18 +189,23 @@ void closeControllerMenu() {
 
 // RECEIVER SELECT EVENT
 
-static void receiverSelectEvent(lv_event_t* event) {
-  if (lv_event_get_code(event) != LV_EVENT_CLICKED) {
+void receiverSelectEvent(lv_event_t* e) {
+  auto* mac = static_cast<const uint8_t*>(lv_event_get_user_data(e));
+
+  if (mac == nullptr) {
     return;
   }
 
-  intptr_t index = (intptr_t)lv_event_get_user_data(event);
+  // Look up the original Peer in the persistent collection.
+  Peer* peer = peers.findPeer(mac);
 
-  selectReceiver((int)index);
+  if (peer == nullptr) {
+    return;
+  }
 
+  selectReceiver(peer);
   closeControllerMenu();
 }
-
 // SCAN EVENT lv
 
 // TODO move to espnow
@@ -265,33 +272,22 @@ void refreshControllerList() {
   lv_obj_clean(controllerList);
 
   // Scan button
-
   lv_obj_t* scanButton = lv_button_create(controllerList);
-
   lv_obj_set_size(scanButton, 280, 36);
-
   lv_obj_set_style_bg_color(scanButton, lv_color_hex(COLOR_SCAN), LV_PART_MAIN);
 
   lv_obj_t* scanLabel = lv_label_create(scanButton);
-
   lv_label_set_text(scanLabel, "SCAN / DISCOVER");
-
   lv_obj_center(scanLabel);
 
   lv_obj_add_event_cb(scanButton, scanEvent, LV_EVENT_CLICKED, NULL);
 
   // Receiver buttons
-
-  for (int i = 0; i < espnowController.getNumberOfReceivers(); i++) {
-    if (!espnowController.getReceivers()[i].used) {
-      continue;
-    }
-
+  for (const Peer& peer : espnowController.getActiveReceiverPeers()) {
     lv_obj_t* button = lv_button_create(controllerList);
-
     lv_obj_set_size(button, 280, 40);
 
-    bool selected = espnowController.isActiveReceiver(i);
+    bool selected = peer.getIsUsed();
 
     lv_obj_set_style_bg_color(button,
                               selected ? lv_color_hex(COLOR_SELECTED)
@@ -299,33 +295,40 @@ void refreshControllerList() {
                               LV_PART_MAIN);
 
     char text[64];
-
-    snprintf(text, sizeof(text), "%s%s", selected ? "> " : "",
-             espnowController.getReceivers()[i].name);
-
+    snprintf(text, sizeof(text), "%s%s", selected ? "> " : "", peer.getName());
+    Serial.print("display receiver ");
+    Serial.print(peer.getName());
+    char macText[20];
+    formatMac(peer.getMac(), macText, sizeof(macText));
+    Serial.println(macText);
     lv_obj_t* label = lv_label_create(button);
-
     lv_label_set_text(label, text);
-
     lv_obj_set_style_text_color(label, lv_color_hex(COLOR_TEXT), LV_PART_MAIN);
-
     lv_obj_center(label);
 
-    lv_obj_add_event_cb(button, receiverSelectEvent, LV_EVENT_CLICKED,
-                        (void*)(intptr_t)i);
+    // Store a copy of the MAC, not a pointer to the temporary Peer.
+    auto* mac = new uint8_t[6];
+    memcpy(mac, peer.getMac(), 6);
+
+    lv_obj_add_event_cb(button, receiverSelectEvent, LV_EVENT_CLICKED, mac);
+
+    // Free the copied MAC when the button is deleted.
+    lv_obj_add_event_cb(
+        button,
+        [](lv_event_t* e) {
+          auto* storedMac = static_cast<uint8_t*>(lv_event_get_user_data(e));
+          delete[] storedMac;
+        },
+        LV_EVENT_DELETE, mac);
   }
 
   // Empty list
-
   if (espnowController.getNumberOfReceivers() == 0) {
     lv_obj_t* none = lv_label_create(controllerList);
-
     lv_label_set_text(none, "No receivers found");
-
     lv_obj_set_style_text_color(none, lv_color_hex(COLOR_INFO), LV_PART_MAIN);
   }
 }
-
 // CREATE BUTTON
 
 lv_obj_t* createButton(lv_obj_t* parent, const char* text, int x, int y,
@@ -474,10 +477,8 @@ void UIRefresh() {
 
 // SELECT RECEIVER
 
-void selectReceiver(int index) {
-  switch (espnowController.validateSelectedPeer(index)) {
-    case INVALID_INDEX:
-      return;
+void selectReceiver(Peer* peer) {
+  switch (espnowController.validateSelectedPeer(peer)) {
     case ALREADY_SELECTED:
       closeControllerMenu();
       return;
@@ -498,7 +499,7 @@ void selectReceiver(int index) {
   app.setStatusLabelText("PAIRING...");
 
   // Send pairing request
-  switch (espnowController.sendPairRequest(index)) {
+  switch (espnowController.sendPairRequest(peer)) {
     case PAIR_ERROR:
       app.setStatusLabelText("PAIR FAILED");
       return;

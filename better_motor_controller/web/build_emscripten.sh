@@ -169,7 +169,7 @@ echo
 # --------------------------------------------------------------------
 # Copy generated WebAssembly files to ESP32 LittleFS data directory
 # --------------------------------------------------------------------
-
+mkdir -p data
 cp "$DIST_DIR/index.html" data/
 cp "$DIST_DIR/index.js" data/
 cp "$DIST_DIR/index.wasm" data/

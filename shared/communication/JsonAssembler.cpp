@@ -28,6 +28,7 @@ void markChunkReceived(JsonReassembly& assembly, uint8_t index) {
 }
 }  // namespace
 
+
 int JsonAssembler::findJsonReassembly(const uint8_t* sourceMac) {
   if (!sourceMac) {
     return -1;
@@ -263,10 +264,10 @@ bool JsonAssembler::jsonFragmentToJson(const uint8_t* sourceMac,
   return true;
 }
 
-bool JsonAssembler::disassembleJson(const uint8_t* destination,
+bool JsonAssembler::disassembleJson(
                                     JsonDocument& doc, uint8_t*& packets,
                                     size_t& totalChunks) {
-  (void)destination;
+
 
   totalChunks = 0;
 
