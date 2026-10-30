@@ -1,5 +1,14 @@
 #include "Peers.h"
 Peers peers;
+
+std::ostream& operator<<(std::ostream& os, const Peers& p) {
+  for (const Peer& peer : p.peersList) {
+    os << peer;
+  }
+  return os;  // Return the stream reference to allow chaining (e.g., std::cout
+              // << a << b;)
+}
+
 int Peers::getNumberOfPeers() { return static_cast<int>(peersList.size()); }
 
 // Peer* Peers::findPeer(int index_) { return &peersList.at(index_); }
@@ -85,6 +94,8 @@ std::vector<Peer> Peers::getActivePeers() {
 
   return activeReceiverPeers;
 }
+
+std::vector<Peer> Peers::getPeers() { return peersList; }
 
 Peer* Peers::getActiveReceiverPeer() {
   auto it = std::find_if(peersList.begin(), peersList.end(), [](Peer& p) {

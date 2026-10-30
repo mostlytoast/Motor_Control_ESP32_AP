@@ -11,6 +11,8 @@ enum class PeerRole : uint8_t { UNKNOWN, CONTROLLER, RECEIVER };
 
 class Peer {
  public:
+  friend std::ostream& operator<<(std::ostream& os, const Peer& p);
+
   // Peer.h
   Peer(const uint8_t* mac_, uint8_t channel_, const char* name_);
   const bool getIsUsed() const;
@@ -40,6 +42,9 @@ class Peer {
 
   bool getIsActivePeerReceiver();
   bool getIsActivePeerController();
+
+  String toString();
+  
 
  private:
   uint8_t mac[MAC_LENGTH] = {0};

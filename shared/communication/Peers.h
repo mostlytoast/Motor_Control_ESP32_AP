@@ -11,6 +11,8 @@
 // TODO make it dynamic sized list
 class Peers {
  public:
+  friend std::ostream& operator<<(std::ostream& os, const Peers& p);
+
   int getNumberOfPeers();
 
   // Peer* findPeer(int index_);
@@ -32,7 +34,10 @@ class Peers {
   std::vector<Peer> getActiveReceiverPeers();
 
   std::vector<Peer> getActivePeers();
+  std::vector<Peer> getPeers();
+
   Peer* getActiveReceiverPeer();
+
   bool isPeerAdded(Peer* peer_);
 
  private:

@@ -140,7 +140,7 @@ void setupDisplay() {
   // ESP-NOW
   // ===================================================
 
-  if (!espnowController.setupESPNow(true)) {
+  if (!espnowController.setupESPNow(getJsonFromState, getStateFromJson, true)) {
     app.setStatusLabelText("ESP-NOW ERROR");
 
     return;
@@ -227,7 +227,7 @@ static void scanEvent(lv_event_t* event) {
 
   // Remove receiver peers
 
-  espnowController.removePeers();
+  // espnowController.removePeers();
 
   espnowController.resetDiscover();
   if (controllerStatus != NULL) {
@@ -283,7 +283,7 @@ void refreshControllerList() {
   lv_obj_add_event_cb(scanButton, scanEvent, LV_EVENT_CLICKED, NULL);
 
   // Receiver buttons
-  for (const Peer& peer : espnowController.getActiveReceiverPeers()) {
+  for (const Peer& peer : espnowController.getPeers()) {
     lv_obj_t* button = lv_button_create(controllerList);
     lv_obj_set_size(button, 280, 40);
 

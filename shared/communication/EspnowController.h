@@ -17,7 +17,6 @@
 #include "../utils/MacUtils.h"
 #include "JsonAssembler.h"
 #include "Peers.h"
-#include "StateJson.h"
 #include "packets.h"
 
 // ESP-NOW TIMING
@@ -75,6 +74,8 @@ struct EspNowEvent {
 
 class EspnowController {
  public:
+  using GetJsonFromStateCallback = void (*)(JsonDocument&);
+  using GetStateFromJsonCallback = void (*)(JsonDocument&);
   // Event Queue
   void queueEspNowEvent(EspNowEventType type, const uint8_t* mac,
                         const uint8_t* data, int len);
@@ -88,7 +89,9 @@ class EspnowController {
   bool getReceiverListNeedsRefresh();
 
   // Initialization
-  bool setupESPNow(bool wifi = false);
+  bool setupESPNow(GetJsonFromStateCallback getJsonFromStateCallback_,
+                   GetStateFromJsonCallback getStateFromJsonCallback_,
+                   bool wifi = false);
 
   // Periodic communication
   void espnowUpdate();
@@ -104,6 +107,8 @@ class EspnowController {
   bool hasActiveReceiver();
   std::vector<Peer> getActiveControllerPeers();
   std::vector<Peer> getActiveReceiverPeers();
+  std::vector<Peer> getPeers();
+
   Peer* getActiveReceiverPeer();
 
  private:
@@ -224,6 +229,10 @@ class EspnowController {
   // Pairing
   bool pairingMode = true;
   unsigned long pairingModeStartedTime = 0;
+
+  // Json State Callbacks
+  GetJsonFromStateCallback getJsonFromStateCallback = nullptr;
+  GetStateFromJsonCallback getStateFromJsonCallback = nullptr;
 };
 extern EspnowController espnowController;
 

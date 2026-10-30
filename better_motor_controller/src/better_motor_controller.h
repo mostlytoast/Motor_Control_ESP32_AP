@@ -6,6 +6,8 @@
 #include "Config.h"
 // #include "../../shared/communication/ControllerStorage.h"
 #include "../../shared/communication/EspnowController.h"
+#include "../../shared/utils/StateJson.h"
+
 #include "../../shared/track/map.h"
 #include "../../shared/utils/AppState.h"
 #include "hardware/LedControl.h"

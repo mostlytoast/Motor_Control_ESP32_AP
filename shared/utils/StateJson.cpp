@@ -3,9 +3,8 @@
 #include "../track/map.h"
 
 void getStateFromJson(JsonDocument& doc) {
-  
-  // Serial.println("=== getStateFromJson INPUT ===");
-  // serializeJsonPretty(doc, Serial);
+  Serial.println("=== getStateFromJson INPUT ===");
+  serializeJsonPretty(doc, Serial);
   JsonObject state = doc["state"].as<JsonObject>();
   JsonArray tracks = doc["tracks"].as<JsonArray>();
 
@@ -109,11 +108,12 @@ void getJsonFromState(JsonDocument& doc) {
   // ----------------------------------------------------
   // TRACK MAP
   // ----------------------------------------------------
-  // todo maybe store trackmap in appstate? 
+  // todo maybe store trackmap in appstate?
   JsonDocument mapDoc;
   trackMap.mapToJson(mapDoc);
 
   // mapToJson() already creates the "tracks" property.
   doc["tracks"] = mapDoc["tracks"];
-  
+  Serial.println("=== getStateFromJson OUTPUT ===");
+  serializeJsonPretty(doc, Serial);
 }

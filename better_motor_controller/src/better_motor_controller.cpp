@@ -1,4 +1,5 @@
 #include "better_motor_controller.h"
+
 // TODO convert everything into classes at least what makes sense
 // ==============================================
 // GLOBAL VARIABLE DEFINITIONS
@@ -87,7 +88,7 @@ void setup() {
 
   setupWifi();
 
-  espnowController.setupESPNow();
+  espnowController.setupESPNow(getJsonFromState,getStateFromJson);
 
   WebServer_begin();
 

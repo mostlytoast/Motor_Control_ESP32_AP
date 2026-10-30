@@ -52,3 +52,20 @@ bool Peer::getIsActivePeer() { return role != PeerRole::UNKNOWN; }
 bool Peer::getIsActivePeerReceiver() { return role == PeerRole::RECEIVER; }
 
 bool Peer::getIsActivePeerController() { return role == PeerRole::CONTROLLER; }
+
+std::ostream& operator<<(std::ostream& os, const Peer& p) {
+  os << "Peer: mac: " << macToString(p.getMac()).c_str() << ", channel: " << p.channel << ", role: " << (p.role == PeerRole::UNKNOWN ? "Unkown" : (p.role == PeerRole::RECEIVER  ? "Receiver" : "Controller")) << ", name: " << p.name << ", last seen:" << p.lastSeen << ", valid: " << p.valid << ", used: " << p.used << ", paired: " << p.paired;
+  
+  return os; // Return the stream reference to allow chaining (e.g., std::cout << a << b;)
+
+}
+
+
+// template <>
+// struct std::formatter<Peer> : std::formatter<std::string> {
+//     auto format(const Peer& p, std::format_context& ctx) const {
+//         return std::format_to(ctx.out(), "({}, {})", p.name, p.lastSeen);
+//   // os << "Peer: mac: " << macToString(p.getMac()).c_str() << ", channel: " << p.channel << ", role: " << (p.role == PeerRole::UNKNOWN ? "Unkown" : (p.role == PeerRole::RECEIVER  ? "Receiver" : "Controller")) << ", name: " << p.name << ", last seen:" << p.lastSeen << ", valid: " << p.valid << ", used: " << p.used << ", paired: " << p.paired;
+
+//     }
+// };
