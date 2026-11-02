@@ -5,7 +5,7 @@ std::ostream& operator<<(std::ostream& os, const Peers& p) {
   for (const Peer& peer : p.peersList) {
     os << peer;
   }
-  return os; 
+  return os;
 }
 
 int Peers::getNumberOfPeers() { return static_cast<int>(peersList.size()); }
@@ -69,24 +69,43 @@ std::vector<Peer> Peers::getActivePeersWithRole(PeerRole role) {
 
   return activePeers;
 }
+std::vector<Peer> Peers::getActivePeers() {
+  // First get all peers regardless of role, then filter by state
+  std::vector<Peer> activePeers;
 
-std::vector<Peer> Peers::getActiveControllerPeers() {
-  return getActivePeersWithRole(PeerRole::CONTROLLER);
+  for (const Peer& peer : peersList) {
+    if (peer.getState() == PeerState::ACTIVE) {
+      activePeers.push_back(peer);
+    }
+  }
+
+  return activePeers;
 }
 
 std::vector<Peer> Peers::getActiveReceiverPeers() {
-  return getActivePeersWithRole(PeerRole::RECEIVER);
+  std::vector<Peer> activePeers;
+
+  for (const Peer& peer : peersList) {
+    if (peer.getState() == PeerState::ACTIVE &&
+        peer.getRole() == PeerRole::RECEIVER) {
+      activePeers.push_back(peer);
+    }
+  }
+
+  return activePeers;
 }
 
-std::vector<Peer> Peers::getActivePeers() {
-  std::vector<Peer> activeReceiverPeers = getActiveReceiverPeers();
-  std::vector<Peer> activeControllerPeers = getActiveControllerPeers();
+std::vector<Peer> Peers::getActiveControllerPeers() {
+  std::vector<Peer> activePeers;
 
-  activeReceiverPeers.insert(activeReceiverPeers.end(),
-                             activeControllerPeers.begin(),
-                             activeControllerPeers.end());
+  for (const Peer& peer : peersList) {
+    if (peer.getState() == PeerState::ACTIVE &&
+        peer.getRole() == PeerRole::CONTROLLER) {
+      activePeers.push_back(peer);
+    }
+  }
 
-  return activeReceiverPeers;
+  return activePeers;
 }
 
 std::vector<Peer> Peers::getPeers() { return peersList; }
