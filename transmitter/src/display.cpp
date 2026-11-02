@@ -287,7 +287,7 @@ void refreshControllerList() {
     lv_obj_t* button = lv_button_create(controllerList);
     lv_obj_set_size(button, 280, 40);
 
-    bool selected = peer.getIsUsed();
+    bool selected = peer.getState() == PeerState::ACTIVE;
 
     lv_obj_set_style_bg_color(button,
                               selected ? lv_color_hex(COLOR_SELECTED)
@@ -296,11 +296,11 @@ void refreshControllerList() {
 
     char text[64];
     snprintf(text, sizeof(text), "%s%s", selected ? "> " : "", peer.getName());
-    Serial.print("display receiver ");
-    Serial.print(peer.getName());
-    char macText[20];
-    formatMac(peer.getMac(), macText, sizeof(macText));
-    Serial.println(macText);
+    // Serial.print("display receiver ");
+    // Serial.print(peer.getName());
+    // char macText[20];
+    // formatMac(peer.getMac(), macText, sizeof(macText));
+    // Serial.println(macText);
     lv_obj_t* label = lv_label_create(button);
     lv_label_set_text(label, text);
     lv_obj_set_style_text_color(label, lv_color_hex(COLOR_TEXT), LV_PART_MAIN);

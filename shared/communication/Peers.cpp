@@ -5,8 +5,7 @@ std::ostream& operator<<(std::ostream& os, const Peers& p) {
   for (const Peer& peer : p.peersList) {
     os << peer;
   }
-  return os;  // Return the stream reference to allow chaining (e.g., std::cout
-              // << a << b;)
+  return os; 
 }
 
 int Peers::getNumberOfPeers() { return static_cast<int>(peersList.size()); }
@@ -35,18 +34,11 @@ Peer* Peers::addPeer(Peer* peer_) {
     Serial.println("Peer already exists");
     return nullptr;
   }
-  Serial.print("Adding receiver to list ");
-  Serial.print(peer_->getName());
-  Serial.print(peer_->getRole() == PeerRole::RECEIVER
-                   ? "receiver"
-                   : (peer_->getRole() == PeerRole::CONTROLLER ? "controller"
-                                                               : "unkown"));
 
-  char macText[20];
-  formatMac(peer_->getMac(), macText, sizeof(macText));
-  Serial.println(macText);
+  std::cout << "Adding peer: " << *peer_ << "\n";
 
   peersList.emplace_back(*peer_);
+
   // peersList.emplace_back(mac_, channel_, name_);
   return &peersList.back();
 }
@@ -55,7 +47,9 @@ void Peers::removePeer(const uint8_t* mac_) {
   auto peer =
       std::find_if(peersList.begin(), peersList.end(),
                    [&mac_](Peer& p) { return macEqual(p.getMac(), mac_); });
+
   if (peer != peersList.end()) {
+    std::cout << "removing: " << *peer << "\n";
     peersList.erase(peer);
   }
 }
@@ -99,7 +93,7 @@ std::vector<Peer> Peers::getPeers() { return peersList; }
 
 Peer* Peers::getActiveReceiverPeer() {
   auto it = std::find_if(peersList.begin(), peersList.end(), [](Peer& p) {
-    return p.getIsUsed() && p.getIsActivePeerReceiver();
+    return (p.getState() == PeerState::ACTIVE) && p.getIsActivePeerReceiver();
   });
 
   return it != peersList.end() ? &(*it) : nullptr;

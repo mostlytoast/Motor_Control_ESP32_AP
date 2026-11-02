@@ -3,6 +3,7 @@
 // TODO fix issue where it does not always pair (like when turning controller
 // off and on after paired)
 // TODO unify naming scheme
+// TODO: Fix ESP-NOW pairing logic for correct claiming sequence.
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <WiFi.h>
@@ -177,7 +178,6 @@ class EspnowController {
 
   bool processReceivedControllerBinaryPacket(const uint8_t* mac,
                                              const uint8_t* data, int len);
-  bool hasPreviousStateChanged();
   void processStateChanges();
   // =====================================================
   // LOCAL ESP-NOW STATE

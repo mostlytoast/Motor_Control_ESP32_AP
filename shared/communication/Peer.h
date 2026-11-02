@@ -9,20 +9,21 @@
 #include "../utils/MacUtils.h"
 enum class PeerRole : uint8_t { UNKNOWN, CONTROLLER, RECEIVER };
 
+enum class PeerState : uint8_t {
+  DISCOVERED,
+  PAIRING,
+  PAIRED,
+  ACTIVE,
+  TIMED_OUT,
+  NONE
+};
+
 class Peer {
  public:
   friend std::ostream& operator<<(std::ostream& os, const Peer& p);
 
   // Peer.h
   Peer(const uint8_t* mac_, uint8_t channel_, const char* name_);
-  const bool getIsUsed() const;
-  void setIsUsed(bool enable);
-
-  const bool getIsPaired() const;
-  void setIsPaired(bool enable);
-
-  const bool getIsValid() const;
-  void setIsValid(bool enable);
 
   unsigned long getLastSeen();
   void setLastSeen(unsigned long time);
@@ -38,13 +39,16 @@ class Peer {
 
   void setRole(PeerRole role_);
   const PeerRole getRole() const;
+
+  void setState(PeerState state_);
+  PeerState getState() const;
+
   bool getIsActivePeer();
 
   bool getIsActivePeerReceiver();
   bool getIsActivePeerController();
 
   String toString();
-  
 
  private:
   uint8_t mac[MAC_LENGTH] = {0};
@@ -53,10 +57,8 @@ class Peer {
 
   PeerRole role = PeerRole::UNKNOWN;
 
+  PeerState state = PeerState::NONE;
   // can these be condensed into one state?
-  bool used = false;
-  bool paired = false;
-  bool valid = false;
 
   unsigned long lastSeen = 0;
 };
