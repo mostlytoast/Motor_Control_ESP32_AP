@@ -312,28 +312,30 @@ void EspnowController::ESPNowCheckFailsafe() {
 }
 
 void EspnowController::processStateChanges() {
-  Serial.println("sending state");
+  // Serial.println("sending state");
   // std::cout << "peers";
-  // for (const auto& peer : peers.getActivePeers()) {
-  //   std::cout << peer;
-  // }
-  // Todo need to fix peers.getActivePeers() and use it here 
-  for (const Peer& peer : peers.getPeers()) {
-    std::cout << "peer" << peer;
+  for (const auto& peer : peers.getActivePeers()) {
+    Serial.println("active peers");
 
-    Serial.println("sending state");
+    std::cout << peer;
+  }
+  // Todo need to fix peers.getActivePeers() and use it here
+  for (const Peer& peer : peers.getPeers()) {
+    // std::cout << "peer" << peer;
+
+    // Serial.println("sending state");
     sendServerState(peer);
   }
 }
 
 bool EspnowController::sendServerState(const Peer& peer) {
-  Serial.println("sendServerState called");
+  // Serial.println("sendServerState called");
 
   JsonDocument fullState;
 
   getJsonFromStateCallback(fullState);
-  Serial.println("=== getStateFromJson OUTPUT ===");
-  serializeJsonPretty(fullState, Serial);
+  // Serial.println("=== getStateFromJson OUTPUT ===");
+  // serializeJsonPretty(fullState, Serial);
 
   // First call: establish the baseline
   if (!previousStateUpdated) {
@@ -344,12 +346,12 @@ bool EspnowController::sendServerState(const Peer& peer) {
 
   // Nothing changed
   if (previousState == fullState) {
-    Serial.println("sendServerState no change");
+    // Serial.println("sendServerState no change");
 
     return false;
   }
 
-  Serial.println("sendServerState change detected");
+  // Serial.println("sendServerState change detected");
 
   // Something changed, update the baseline
   previousState = fullState;
@@ -359,7 +361,7 @@ bool EspnowController::sendServerState(const Peer& peer) {
   getJsonFromStateCallback(state);
 
   if (state.isNull()) {
-    Serial.println("sendServerState: empty state");
+    // Serial.println("sendServerState: empty state");
 
     return false;
   }
@@ -831,8 +833,9 @@ bool EspnowController::processReceivedPeerBinaryPacket(const uint8_t* mac,
 
     if (peer->getState() == PeerState::PAIRED) {
       Serial.println("process");
-
+      peer->setRole(PeerRole::RECEIVER);
       sendControllerStatus(peer);
+      return true;
     }
 
     return true;
@@ -1122,6 +1125,7 @@ sendPairRequestState EspnowController::sendPairRequest(Peer* peer) {
   Serial.print("PAIR request sent to: ");
 
   Serial.println(peer->getName());
+  std::cout << peer << "\n";
 
   return PAIR_SUCCESS;
 }
