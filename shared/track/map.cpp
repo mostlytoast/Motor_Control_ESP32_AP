@@ -37,11 +37,11 @@ static Point rotatePoint(Point point, float heading) {
 // ============================================================
 
 static bool isEntrance(Track& track, Tag* tag) {
-  return tag == &track.getTags()[0] || tag == &track.getTags()[1];
+  return tag == &track.getTags()[0] || tag == &track.getTags()[2];
 }
 
 static bool isExit(Track& track, Tag* tag) {
-  return tag == &track.getTags()[2] || tag == &track.getTags()[3];
+  return tag == &track.getTags()[1] || tag == &track.getTags()[3];
 }
 
 // ============================================================
@@ -49,27 +49,27 @@ static bool isExit(Track& track, Tag* tag) {
 // ============================================================
 
 void TrackMap::calculateStraightPose(Track& track) {
-  track.getPoints()[0].setHeading(
-      normalizeHeading(track.getPoints()[0].getHeading()));
+  Point& entrance = track.getPoints()[0];
+  Point& exit = track.getPoints()[1];
 
-  track.getPoints()[2] =
-      movePoint(track.getPoints()[0], track.getPoints()[0].getHeading(),
-                track.getLength());
+  entrance.setHeading(normalizeHeading(entrance.getHeading()));
 
-  track.getPoints()[2].setHeading(track.getPoints()[0].getHeading());
+  exit = movePoint(entrance, entrance.getHeading(), track.getLength());
+
+  exit.setHeading(entrance.getHeading());
 
   track.setPositioned(true);
 }
 
 void TrackMap::calculateStraightFromExit(Track& track) {
-  track.getPoints()[2].setHeading(
-      normalizeHeading(track.getPoints()[2].getHeading()));
+  Point& entrance = track.getPoints()[0];
+  Point& exit = track.getPoints()[1];
 
-  track.getPoints()[0] =
-      movePoint(track.getPoints()[2], track.getPoints()[2].getHeading(),
-                -track.getLength());
+  exit.setHeading(normalizeHeading(exit.getHeading()));
 
-  track.getPoints()[0].setHeading(track.getPoints()[2].getHeading());
+  entrance = movePoint(exit, exit.getHeading(), -track.getLength());
+
+  entrance.setHeading(exit.getHeading());
 
   track.setPositioned(true);
 }
@@ -110,6 +110,7 @@ void TrackMap::calculateFromEntrance(Track& track) {
 // ============================================================
 
 void TrackMap::calculateFromExit(Track& track) {
+  
   Serial.print("calculateFromExit serial type ");
   Serial.println(track.getTrackType());
   switch (track.getTrackType()) {
@@ -133,8 +134,6 @@ void TrackMap::calculateFromExit(Track& track) {
 // ============================================================
 
 void TrackMap::calculateCurvePose(Track& track) {
-  Serial.println("calculateCurvePose");
-
   const float radius = track.getRadius();
 
   if (radius <= 0.0f) {
@@ -144,82 +143,90 @@ void TrackMap::calculateCurvePose(Track& track) {
 
   const float length = track.getLength();
 
-  const float angleRadians = length / radius;
-  const float angleDegrees = radiansToDegrees(angleRadians);
+  if (length <= 0.0f) {
+    return;
+  }
 
-  const float heading = normalizeHeading(track.getPoints()[0].getHeading());
+  Point& entrance = track.getPoints()[0];
+  Point& exit = track.getPoints()[1];
 
-  const float turn = track.getDirection() ? -angleDegrees : angleDegrees;
+  const float heading = normalizeHeading(entrance.getHeading());
 
-  const float centerHeading =
-      track.getDirection() ? heading - 90.0f : heading + 90.0f;
+  // Angular displacement in degrees.
+  const float turn = track.getDirection() ? -radiansToDegrees(length / radius)
+                                          : radiansToDegrees(length / radius);
 
-  const Point center = movePoint(track.getPoints()[0], centerHeading, radius);
+  // Find the center of the circle.
+  const float centerHeading = heading + (track.getDirection() ? -90.0f : 90.0f);
 
-  const float startAngle = atan2(track.getPoints()[0].getY() - center.getY(),
-                                 track.getPoints()[0].getX() - center.getX());
+  const Point center = movePoint(entrance, centerHeading, radius);
 
+  // Calculate the entrance angle relative to the center.
+  const float startAngle =
+      atan2(entrance.getY() - center.getY(), entrance.getX() - center.getX());
+
+  // Rotate around the circle.
   const float endAngle = startAngle + degreesToRadians(turn);
 
-  const float exitX = center.getX() + cos(endAngle) * radius;
-  const float exitY = center.getY() + sin(endAngle) * radius;
+  // Calculate exit coordinates.
+  exit.setX(center.getX() + cos(endAngle) * radius);
 
-  const float exitHeading = normalizeHeading(heading + turn);
+  exit.setY(center.getY() + sin(endAngle) * radius);
 
-  // Primary curve exit is point 2, matching straight tracks.
-  track.getPoints()[2] = Point(exitX, exitY, exitHeading);
+  exit.setHeading(normalizeHeading(heading + turn));
 
   track.setPositioned(true);
-
-  Serial.printf("Curve entrance: %.2f, %.2f, heading %.2f\n",
-                track.getPoints()[0].getX(), track.getPoints()[0].getY(),
-                track.getPoints()[0].getHeading());
-
-  Serial.printf("Curve exit: %.2f, %.2f, heading %.2f\n",
-                track.getPoints()[2].getX(), track.getPoints()[2].getY(),
-                track.getPoints()[2].getHeading());
+  Serial.printf("CURVE RESULT: P0=(%.2f, %.2f, %.2f) P1=(%.2f, %.2f, %.2f)\n",
+                entrance.getX(), entrance.getY(), entrance.getHeading(),
+                exit.getX(), exit.getY(), exit.getHeading());
 }
-
 // ============================================================
 // CURVE FROM EXIT
 // ============================================================
 
 void TrackMap::calculateCurveFromExit(Track& track) {
-  float radius = track.getRadius();
+  const float radius = track.getRadius();
 
   if (radius <= 0.0f) {
     calculateStraightFromExit(track);
     return;
   }
 
-  float angleRadians = track.getLength() / radius;
-  float angleDegrees = radiansToDegrees(angleRadians);
+  const float length = track.getLength();
 
-  float turn = track.getDirection() ? -angleDegrees : angleDegrees;
+  if (length <= 0.0f) {
+    return;
+  }
 
-  float exitHeading = normalizeHeading(track.getPoints()[2].getHeading());
+  Point& entrance = track.getPoints()[0];
+  Point& exit = track.getPoints()[1];
 
-  float entranceHeading = normalizeHeading(exitHeading - turn);
+  const float angleDegrees = radiansToDegrees(length / radius);
 
-  float centerHeading =
-      track.getDirection() ? exitHeading - 90.0f : exitHeading + 90.0f;
+  const float turn = track.getDirection() ? -angleDegrees : angleDegrees;
 
-  Point center = movePoint(track.getPoints()[2], centerHeading, radius);
+  const float exitHeading = normalizeHeading(exit.getHeading());
 
-  float exitAngle = atan2(track.getPoints()[2].getY() - center.getY(),
-                          track.getPoints()[2].getX() - center.getX());
+  const float entranceHeading = normalizeHeading(exitHeading - turn);
 
-  float entranceAngle = exitAngle - degreesToRadians(turn);
+  const float centerHeading =
+      exitHeading + (track.getDirection() ? -90.0f : 90.0f);
 
-  track.getPoints()[0] =
-      Point(center.getX() + cos(entranceAngle) * radius,
-            center.getY() + sin(entranceAngle) * radius, entranceAngle);
+  const Point center = movePoint(exit, centerHeading, radius);
 
-  track.getPoints()[0].setHeading(entranceHeading);
+  const float exitAngle =
+      atan2(exit.getY() - center.getY(), exit.getX() - center.getX());
+
+  const float entranceAngle = exitAngle - degreesToRadians(turn);
+
+  entrance.setX(center.getX() + cos(entranceAngle) * radius);
+
+  entrance.setY(center.getY() + sin(entranceAngle) * radius);
+
+  entrance.setHeading(entranceHeading);
 
   track.setPositioned(true);
 }
-
 // ============================================================
 // SWITCH POSE
 // ============================================================
@@ -267,127 +274,88 @@ void TrackMap::calculateCrossPose(Track& track) {
 // ============================================================
 
 bool TrackMap::positionConnectedTrack(Track& source, Tag& sourceTag) {
-  Serial.println("positionConnectedTrack");
+  if (!source.getPositioned()) return false;
 
   Tag* destinationTag = findTagByUid(sourceTag.getConnectedTagUid());
+
   if (!destinationTag) return false;
-  Track* destinationTrack = findTrackByUid(destinationTag->getUid());
-  if (!destinationTrack) return false;
-  Serial.println("positionConnectedTrack1");
 
-  if (!destinationTrack) return false;
-  Serial.println("positionConnectedTrack2");
+  Track* destination = findTrackByUid(destinationTag->getUid());
 
-  if (destinationTrack->getPositioned()) return true;
+  if (!destination || destination->getPositioned()) return false;
 
-  bool sourceIsEntrance = isEntrance(source, &sourceTag);
+  const int sourceIndex = &sourceTag - source.getTags().data();
 
-  bool sourceIsExit = isExit(source, &sourceTag);
-  Serial.println("positionConnectedTrack3");
+  const int destinationIndex = destinationTag - destination->getTags().data();
 
-  if (!sourceIsEntrance && !sourceIsExit) return false;
+  // Transfer the connected endpoint position.
+  Point& point = destination->getPoints()[destinationIndex];
 
-  Point sourcePoint;
-  float sourceHeading;
+  point = source.getPoints()[sourceIndex];
 
-  if (sourceIsEntrance) {
-    Serial.println("positionConnectedTrack4");
+  // Reverse heading when connecting through an entrance.
+  // TODO Might be able to have it so headings are correctly set and thus we dont have to worry about index issues
+  point.setHeading(normalizeHeading(
+      point.getHeading() + (sourceIndex % 2 == 0 ? 180.0f : 0.0f) +
+      (destinationIndex % 2 != 0 ? 180.0f : 0.0f)));
 
-    sourcePoint = source.getPoints()[0];
-
-    sourceHeading = source.getPoints()[0].getHeading();
-
+  // Calculate the destination track.
+  if (destinationIndex % 2 == 0) {
+    calculateFromEntrance(*destination);
   } else {
-    Serial.println("positionConnectedTrack5");
-
-    sourcePoint = source.getPoints()[2];
-    sourceHeading = source.getPoints()[2].getHeading();
+    calculateFromExit(*destination);
   }
 
-  sourceHeading = normalizeHeading(sourceHeading);
-
-  bool destinationIsEntrance = isEntrance(*destinationTrack, destinationTag);
-
-  bool destinationIsExit = isExit(*destinationTrack, destinationTag);
-
-  if (!destinationIsEntrance && !destinationIsExit) {
-    Serial.println("positionConnectedTrack6");
-
-    return false;
-  }
-
-  float headingAwayFromSource = sourceIsEntrance
-                                    ? normalizeHeading(sourceHeading + 180.0f)
-                                    : sourceHeading;
-  Serial.println("positionConnectedTrack7");
-
-  if (destinationIsEntrance) {
-    Serial.println("positionConnectedTrack8");
-
-    destinationTrack->getPoints()[0] = sourcePoint;
-
-    destinationTrack->getPoints()[0].setHeading(headingAwayFromSource);
-
-    calculateFromEntrance(*destinationTrack);
-
-    return destinationTrack->getPositioned();
-  }
-
-  destinationTrack->getPoints()[2] = sourcePoint;
-
-  destinationTrack->getPoints()[2].setHeading(
-      normalizeHeading(headingAwayFromSource + 180.0f));
-
-  calculateFromExit(*destinationTrack);
-  Serial.print("positionConnectedTrack9 positioned");
-  Serial.println(destinationTrack->getPositioned());
-
-  return destinationTrack->getPositioned();
+  return destination->getPositioned();
 }
-
 // ============================================================
 // CALCULATE ENTIRE MAP
 // ============================================================
-
 void TrackMap::calculateMap() {
-  // Serial.println("calculating map");
-  if (tracks.size() == 0) return;
-
-  for (uint8_t i = 0; i < tracks.size(); i++) {
-    tracks[i].setPositioned(false);
+  if (tracks.empty()) {
+    return;
   }
 
-  // Track 0 is the world origin.
+  for (Track& track : tracks) {
+    track.setPositioned(false);
+  }
+
+  // Establish the origin.
   tracks[0].getPoints()[0] = Point(0.0f, 0.0f, 0.0f);
 
-  tracks[0].getPoints()[0].setHeading(0.0f);
-
   calculateFromEntrance(tracks[0]);
-  Serial.print("track positioned ");
-  Serial.println(tracks[0].getPositioned());
+
+  if (!tracks[0].getPositioned()) {
+    Serial.println("Failed to position origin");
+    return;
+  }
+
   bool changed;
 
   do {
     changed = false;
 
-    for (uint8_t i = 0; i < tracks.size(); i++) {
-      Track& track = tracks[i];
+    for (Track& source : tracks) {
+      if (!source.getPositioned()) {
+        continue;
+      }
 
-      if (track.getPositioned()) continue;
-
-      Serial.print("calculating map ");
-      Serial.print(track.getPositioned());
-      Serial.print(" i ");
-
-      Serial.println(i);
-
-      for (Tag tag : track.getTags()) {
-        if (positionConnectedTrack(track, tag)) changed = true;
+      for (Tag& tag : source.getTags()) {
+        // TODO could simplify positionConnectedTrack by changing its call
+        // structure?
+        if (positionConnectedTrack(source, tag)) {
+          changed = true;
+        }
       }
     }
-  } while (changed);
-}
 
+  } while (changed);
+
+  for (size_t i = 0; i < tracks.size(); ++i) {
+    Serial.printf("Track %u: %s\n", static_cast<unsigned>(i),
+                  tracks[i].getPositioned() ? "POSITIONED" : "NOT POSITIONED");
+  }
+}
 // ============================================================
 // CREATE TRACK
 // ============================================================
@@ -434,31 +402,30 @@ void TrackMap::addTrack(Track track) { tracks.emplace_back(track); }
 // ============================================================
 
 bool TrackMap::connectTags(Tag* a, Tag* b) {
-  Track* trackA = findTrackByUid(a->getUid());
-  Track* trackB = findTrackByUid(b->getUid());
-
-  if (!a || !b || !trackA || !trackB) {
-    Serial.println("one of the tags is null");
+  if (!a || !b || a == b) {
+    Serial.println("ERROR: Invalid tags");
     return false;
   }
 
-  // a->connectedTag = b;
-  a->getConnectedTagUid() = b->getUid();
-  // b->connectedTag = a;
-  b->getConnectedTagUid() = a->getUid();
+  Track* trackA = findTrackByUid(a->getUid());
+  Track* trackB = findTrackByUid(b->getUid());
 
-  if (trackA) {
-    trackA->setPositioned(false);
+  if (!trackA || !trackB) {
+    Serial.println("ERROR: Could not find owning tracks");
+    return false;
   }
 
-  if (trackB) {
-    trackB->setPositioned(false);
-  }
-  Serial.println("Connected");
+  // Store the connection in both directions.
+  a->setConnectedTagUid(b->getUid());
+  b->setConnectedTagUid(a->getUid());
+
+  trackA->setPositioned(false);
+  trackB->setPositioned(false);
+
+  Serial.println("Tags connected");
 
   return true;
 }
-
 // ============================================================
 // GET TRACK
 // ============================================================
@@ -474,17 +441,17 @@ Track* TrackMap::getTrack(uint8_t index) {
 // ============================================================
 
 Track* TrackMap::findTrackByUid(Uid uid) {
-  for (uint8_t i = 0; i < tracks.size(); i++) {
-    Track& trackSearch = tracks[i];
+  if (!uid.isValid()) {
+    return nullptr;
+  }
 
-    for (Tag& tagSearch : trackSearch.getTags()) {
-      if (tagSearch.getUid().equals(uid)) {
-        return &trackSearch;
+  for (Track& track : tracks) {
+    for (Tag& tag : track.getTags()) {
+      if (tag.getUid().isValid() && tag.getUid().equals(uid)) {
+        return &track;
       }
     }
   }
-
-  Serial.println("did not find tag");
 
   return nullptr;
 }
@@ -494,21 +461,20 @@ Track* TrackMap::findTrackByUid(Uid uid) {
 // ============================================================
 
 Tag* TrackMap::findTagByUid(Uid uid) {
-  for (uint8_t i = 0; i < tracks.size(); i++) {
-    Track& trackSearch = tracks[i];
+  if (!uid.isValid()) {
+    return nullptr;
+  }
 
-    for (Tag& tagSearch : trackSearch.getTags()) {
-      if (tagSearch.getUid().equals(uid)) {
-        return &tagSearch;
+  for (Track& track : tracks) {
+    for (Tag& tag : track.getTags()) {
+      if (tag.getUid().isValid() && tag.getUid().equals(uid)) {
+        return &tag;
       }
     }
   }
 
-  Serial.println("did not find tag");
-
   return nullptr;
 }
-
 // ============================================================
 // DOES TRACK EXIST
 // ============================================================

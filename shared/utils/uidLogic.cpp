@@ -4,6 +4,10 @@
 // CONSTRUCTORS
 // ============================================================
 
+Uid::Uid(const char* uidString) {
+  fromString(uidString);
+}
+
 Uid::Uid() { clear(); }
 
 Uid::Uid(const uint8_t* uid, uint8_t length) {

@@ -168,7 +168,9 @@ class Track {
 
   const TrackType getTrackType() const { return trackType; }
 
-  std::vector<Tag> getTags() { return tags; }
+  std::vector<Tag>& getTags() { return tags; }
+
+  const std::vector<Tag>& getTags() const { return tags; }
   bool operator!=(const Track& other) const { return !(*this == other); }
 
   // Equality operator for comparing two Track objects
@@ -198,10 +200,9 @@ class Track {
     return true;
   }
 
-  const std::vector<Tag> getTags() const { return tags; }
+  std::vector<Point>& getPoints() { return points; }
 
-  std::vector<Point> getPoints() { return points; }
-  const std::vector<Point> getPoints() const { return points; }
+  const std::vector<Point>& getPoints() const { return points; }
 
   bool stringToTrackType(const char*& type, TrackType& trackType) {
     if (type == nullptr) {
@@ -271,15 +272,15 @@ class Track {
     // Serial.println("=== trackToJson ===");
     // serializeJsonPretty(obj, Serial);
   }
-    /**
+  /**
    * Prints the entire track structure to Serial using Pretty JSON formatting.
    * Call this using: track.printTrack();
    */
-  void printTrack()  {
+  void printTrack() {
     JsonDocument doc;
     // Create the object structure
     JsonObject obj = doc.to<JsonObject>();
-    
+
     // Fill the object with data
     trackToJson(obj);
 
@@ -294,13 +295,11 @@ class Track {
    */
   std::string toString() const {
     // printTrack();
-    return "Track: " + std::string(trackTypeToString(trackType)) + 
-           " | Len: " + std::to_string(length) + 
-           " | Rad: " + std::to_string(radius) + 
+    return "Track: " + std::string(trackTypeToString(trackType)) +
+           " | Len: " + std::to_string(length) +
+           " | Rad: " + std::to_string(radius) +
            " | Dir: " + std::string(direction ? "CW" : "CCW");
   }
-
-
 
   const char* trackTypeToString() const { return trackTypeToString(trackType); }
 

@@ -1,7 +1,8 @@
 #pragma once
 
 #include <Arduino.h>
-// #include <Arduino.h> cant include as this script gets imported by map which is used in webassm
+// #include <Arduino.h> cant include as this script gets imported by map which
+// is used in webassm
 #include <stdint.h>
 #include <string.h>
 
@@ -12,8 +13,9 @@ class Uid {
   // ============================================================
   // CONSTRUCTORS
   // ============================================================
-
   Uid();
+  Uid(const char* uidString);
+
   Uid(const uint8_t* uid, uint8_t length);
 
   // ============================================================

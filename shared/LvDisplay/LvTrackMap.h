@@ -63,6 +63,7 @@ class LvTrackMap {
 
   void clear();
   void refresh();
+void invalidateMap() ;
 
   size_t trackCount() const;
 
@@ -74,6 +75,11 @@ class LvTrackMap {
   static void resetButtonEvent(lv_event_t* e);
 
  private:
+ private:
+  bool transformDirty_ = true;
+
+  lv_coord_t lastWidth_ = 0;
+  lv_coord_t lastHeight_ = 0;
   using Point = ::Point;
 
   struct Transform {
@@ -100,8 +106,6 @@ class LvTrackMap {
   static void drawEvent(lv_event_t* e);
 
   void calculateTransform(lv_coord_t width = 0, lv_coord_t height = 0);
-
-  std::vector<Point> worldToMap(std::vector<Point> points) const;
 
   Point worldToMap(Point p) const;
 
