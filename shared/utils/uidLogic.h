@@ -15,7 +15,7 @@ class Uid {
   // ============================================================
   Uid();
   Uid(const char* uidString);
-
+  Uid(const String& uidString);
   Uid(const uint8_t* uid, uint8_t length);
 
   // ============================================================
@@ -24,7 +24,7 @@ class Uid {
 
   void set(const uint8_t* uid, uint8_t length);
   bool fromString(const char* uidString);
-
+bool fromString(const String& uidString);
   // ============================================================
   // GETTERS
   // ============================================================

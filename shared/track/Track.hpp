@@ -1,12 +1,11 @@
 #ifndef TRACK_HPP
 #define TRACK_HPP
 #include <ArduinoJson.h>
-#include <math.h>
-#include <stdio.h>
 
 #include <iostream>
 #include <string>
 
+#include "../utils/Math.hpp"
 #include "../utils/uidLogic.h"
 #include "Arduino.h"
 #include "Point.hpp"
@@ -66,19 +65,23 @@ class Track {
 
     if (!tagsArray.isNull()) {
       for (JsonObject tagObj : tagsArray) {
-        const char* uidString = tagObj["uid"].as<const char*>();
+        // // move logic into tags?
+        // const char* uidString = tagObj["uid"].as<const char*>();
 
-        const char* connectedTagUid =
-            tagObj["connectedTagUid"].as<const char*>();
+        // const char* connectedTagUid =
+        //     tagObj["connectedTagUid"].as<const char*>();
 
-        if (uidString == nullptr) {
-          uidString = "";
-        }
-        Uid uid;
-        uid.fromString(uidString);
-        Uid connectedUid;
-        connectedUid.fromString(connectedTagUid);
-        tags.emplace_back(uid, connectedUid);
+        // const char* point = tagObj["point"].as<const char*>();
+        // if (uidString == nullptr) {
+        //   uidString = "";
+        // }
+        // Uid uid;
+        // uid.fromString(uidString);
+        // Uid connectedUid;
+        // connectedUid.fromString(connectedTagUid);
+        // Serial.print("pointasdfasasdfsadf");
+        // Serial.println(Point(point).toString());
+        tags.emplace_back((const char*)tagObj["tag"]);
         // --------------------------------------------------------
         // Parse corresponding UID
         // --------------------------------------------------------
@@ -90,6 +93,8 @@ class Track {
     // ============================================================
     // todo might need to find way to add back in pose and position marker
     // settings?  dont want stateJson to call calculateMap?
+    setTagPositions();
+
     success = true;
   }
 
@@ -109,32 +114,12 @@ class Track {
     this->include = !dontAdd;
 
     this->positioned = false;
-
-    tags.emplace_back(entranceAUid, connectEntranceAUid);
-    tags.emplace_back(exitAUid, connectExitAUid);
-    tags.emplace_back(entranceBUid, connectEntranceBUid);
-    tags.emplace_back(exitBUid, connectExitBUid);
-    points.emplace_back(Point());
-    points.emplace_back(Point());
-    points.emplace_back(Point());
-    points.emplace_back(Point());
+    tags.emplace_back(entranceAUid, connectEntranceAUid, Point());
+    tags.emplace_back(exitAUid, connectExitAUid, Point());
+    tags.emplace_back(entranceBUid, connectEntranceBUid, Point());
+    tags.emplace_back(exitBUid, connectExitBUid, Point());
+    setTagPositions();
   }
-
-  /*
-   * Calculate the complete map.
-   */
-
-  /*
-   * returns true if track with associated uid is in track file
-   */
-
-  // float angle = 0;
-  // float length = 0;
-  // float radius = 0;
-  // // for switch and cross
-  // float branchAngle = 0;
-  // float branchRadius = 0;
-  // float branchLength = 0;
 
   void setAngle(float angle_) { angle = angle_; }
   float getAngle() { return angle; }
@@ -191,18 +176,8 @@ class Track {
       if (tags[i] != other.tags[i]) return false;
     }
 
-    // Compare points
-    if (points.size() != other.points.size()) return false;
-    for (size_t i = 0; i < points.size(); i++) {
-      if (points[i] != other.points[i]) return false;
-    }
-
     return true;
   }
-
-  std::vector<Point>& getPoints() { return points; }
-
-  const std::vector<Point>& getPoints() const { return points; }
 
   bool stringToTrackType(const char*& type, TrackType& trackType) {
     if (type == nullptr) {
@@ -254,15 +229,7 @@ class Track {
 
     obj["type"] = trackTypeToString(trackType);
 
-    JsonObject pose = obj["pose"].to<JsonObject>();
-
-    for (int i = 0; i < points.size(); i++) {
-      pose[("X" + std::to_string(i)).c_str()] = points[i].getX();
-      pose[("Y" + std::to_string(i)).c_str()] = points[i].getY();
-      pose[("H" + std::to_string(i)).c_str()] = points[i].getHeading();
-    }
-
-    pose["positioned"] = positioned;
+    obj["positioned"] = positioned;
 
     JsonArray tagsArray = obj["tags"].to<JsonArray>();
 
@@ -325,30 +292,147 @@ class Track {
     }
   }
 
+  /**
+   * @brief position the unpositionfd track by using the source tag as a
+   * starting point to manipulate the destinationTag
+   *
+   * @param sourceTag
+   * @param destinationTag
+   */
+  void calculatePoseFromSourceTag(Tag& sourceTag, Tag* destinationTag) {
+    if (destinationTag == nullptr) return;
+
+    const Point originalDestination = destinationTag->getPoint();
+    const Point target = sourceTag.getPoint();
+
+    // Outward-facing headings must oppose each other.
+    float rotation =
+        (target.getHeading() + 180.0f) - originalDestination.getHeading();
+
+    while (rotation >= 360.0f) rotation -= 360.0f;
+    while (rotation < 0.0f) rotation += 360.0f;
+
+    for (Tag& tag : tags) {
+      tag.getPoint().transformPoint(originalDestination, target, rotation);
+    }
+
+    positioned = true;
+  }
+
  private:
+  // todo maybe move to a math file
+
+  void setCurveOrStraightPose(Tag& entranceTag, Tag& exitTag, float length_,
+                              float radius_) {
+    if (radius_ == 0.0f) {
+      entranceTag.setPoint(Point(0.0f, 0.0f, 180.0f));
+      exitTag.setPoint(Point(length_, 0.0f, 0.0f));
+      return;
+    }
+
+    entranceTag.setPoint(Point(0.0f, 0.0f, 180.0f));
+    // entranceTag.setPoint(Point(0.0f, 0.0f, 0.0f));
+
+    entranceTag.getPoint().normalizeHeading();
+
+    float turn = direction ? -radiansToDegrees(length_ / radius_)
+                           : radiansToDegrees(length_ / radius_);
+    if (std::isinf(turn)) {
+      Serial.println("heading is infinite");
+      turn = 0.0;
+      return;
+    }
+    const float centerHeading = (entranceTag.getPoint().getHeading() - 180) +
+                                (direction ? -90.0f : 90.0f);
+    Serial.print("turn ");
+    Serial.print(turn);
+    Serial.print(" centerHeading ");
+    Serial.print(centerHeading);
+    Serial.print(" entranceTag.getPoint().getHeading() ");
+    Serial.println(entranceTag.getPoint().getHeading());
+
+    Point center = entranceTag.getPoint();
+
+    center.movePoint(centerHeading, radius_);
+
+    const float startAngle =
+        atan2(entranceTag.getPoint().getY() - center.getY(),
+              entranceTag.getPoint().getX() - center.getX());
+
+    const float endAngle = startAngle + degreesToRadians(turn);
+
+    exitTag.setPoint(Point(center.getX() + cos(endAngle) * radius_,
+                           center.getY() + sin(endAngle) * radius_,
+                           exitTag.getPoint().getHeading() + turn));
+    exitTag.getPoint().normalizeHeading();
+  }
+
+  void setTagPositions() {
+    switch (trackType) {
+      case BUMPER:
+      case STRAIGHT:
+        setCurveOrStraightPose(tags[0], tags[1], length, 0);
+        break;
+      case CURVED:
+        setCurveOrStraightPose(tags[0], tags[1], length, radius);
+        tags[2].getPoint().setHeading(0.0f);
+
+        break;
+
+      case SWITCH:
+        setCurveOrStraightPose(tags[0], tags[1], length, radius);
+
+        setCurveOrStraightPose(tags[2], tags[3], branchLength, branchRadius);
+
+        break;
+
+      case CROSS: {
+        setCurveOrStraightPose(tags[0], tags[1], length, radius);
+        setCurveOrStraightPose(tags[2], tags[3], branchLength, branchRadius);
+
+        Point entrance = tags[0].getPoint();
+        Point exit = tags[1].getPoint();
+
+        Point halfwayPoint((entrance.getX() + exit.getX()) / 2.0f,
+                           (entrance.getY() + exit.getY()) / 2.0f,
+                           entrance.getHeading());
+
+        tags[2].getPoint().rotatePoint(branchAngle, halfwayPoint);
+        tags[3].getPoint().rotatePoint(-branchAngle, halfwayPoint);
+
+        break;
+      }
+
+      default:
+        Serial.println("wrong type");
+        break;
+    }
+  }
   void addTagJson(JsonArray& array, const char* name, Tag& tag) {
     JsonObject obj = array.add<JsonObject>();
+    obj["tag"] = tag.toString();
+    // obj["name"] = name;
 
-    obj["name"] = name;
+    // // Uid now knows its own length.
+    // obj["uid"] = tag.getUid().toString();
 
-    // Uid now knows its own length.
-    obj["uid"] = tag.getUid().toString();
+    // // Store whether the UID is valid.
+    // obj["valid"] = tag.getUid().isValid();
 
-    // Store whether the UID is valid.
-    obj["valid"] = tag.getUid().isValid();
+    // Uid emptyUid;
+    // obj["connectedTagUid"] = tag.getConnectedTagUid().toString();
 
-    Uid emptyUid;
-    obj["connectedTagUid"] = tag.getConnectedTagUid().toString();
+    // obj["point"] = tag.getPoint().toString();
   }
 
   // TOdo might want to have these included as offset values in points?
-  float angle = 0;
-  float length = 0;
-  float radius = 0;
+  float angle = 0.0;
+  float length = 0.0;
+  float radius = 0.0;
   // for switch and cross
-  float branchAngle = 0;
-  float branchRadius = 0;
-  float branchLength = 0;
+  float branchAngle = 0.0;
+  float branchRadius = 0.0;
+  float branchLength = 0.0;
 
   bool include = true;
   /*
@@ -373,7 +457,6 @@ class Track {
   /*
    * Position in the global track map.
    */
-  std::vector<Point> points;
 };
 
 #endif  // TRACK_H

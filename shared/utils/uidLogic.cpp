@@ -4,9 +4,9 @@
 // CONSTRUCTORS
 // ============================================================
 
-Uid::Uid(const char* uidString) {
-  fromString(uidString);
-}
+Uid::Uid(const char* uidString) { fromString(uidString); }
+
+Uid::Uid(const String& uidString) : Uid() { fromString(uidString); }
 
 Uid::Uid() { clear(); }
 
@@ -93,6 +93,10 @@ bool Uid::fromString(const char* uidString) {
   }
 
   return uidLength > 0;
+}
+
+bool Uid::fromString(const String& uidString) {
+  return fromString(uidString.c_str());
 }
 
 // ============================================================

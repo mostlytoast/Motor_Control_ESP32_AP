@@ -3,6 +3,7 @@
 #include <lvgl.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "../track/map.h"
 
@@ -63,7 +64,7 @@ class LvTrackMap {
 
   void clear();
   void refresh();
-void invalidateMap() ;
+  void invalidateMap();
 
   size_t trackCount() const;
 
@@ -115,13 +116,8 @@ void invalidateMap() ;
 
   void drawTrack(lv_layer_t* layer, const Track& track, size_t index) const;
 
-  void drawStraight(lv_layer_t* layer, Point a, Point b) const;
-
-  void drawCurve(lv_layer_t* layer, const Track& track) const;
-
-  void drawSwitch(lv_layer_t* layer, const Track& track) const;
-
-  void drawCross(lv_layer_t* layer, const Track& track) const;
+  void drawCurveOrStraight(lv_layer_t* layer, const Point entrance,
+                           const Point exit) const;
 
   void drawBumper(lv_layer_t* layer, const Track& track) const;
 
@@ -129,13 +125,13 @@ void invalidateMap() ;
 
   void drawLabel(lv_layer_t* layer, const Track& track, size_t index) const;
 
-  Point tagWorldPosition(const Track& track, const Tag& tag) const;
+  // Point tagWorldPosition(const Track& track, const Tag& tag) const;
 
   void drawSegment(lv_layer_t* layer, Point a, Point b, lv_color_t color,
                    uint8_t width) const;
 
   void drawCircle(lv_layer_t* layer, Point center, int32_t radius,
-                  lv_color_t color, bool filled) const;
+                  lv_color_t color, bool filled, float heading) const;
 
   void drawText(lv_layer_t* layer, Point center, const char* text,
                 lv_color_t color, bool small = false) const;

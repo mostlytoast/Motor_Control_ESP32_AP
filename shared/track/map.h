@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "../utils/Math.hpp"
 #include "../utils/uidLogic.h"
 #include "Arduino.h"
 #include "Station.hpp"
@@ -15,12 +16,13 @@
 class TrackMap {
  public:
   Track* createTrack(TrackType type, float length, float radius,
-                   float branchAngle, float branchRadius, float branchLength,
-                   bool direction, Uid entranceAUid, Uid exitAUid,
-                   Uid entranceBUid = Uid(), Uid exitBUid = Uid(),
-                   bool dontAdd = false, Uid connectEntranceAUid = Uid(),
-                   Uid connectExitAUid = Uid(), Uid connectEntranceBUid = Uid(),
-                   Uid connectExitBUid = Uid());
+                     float branchAngle, float branchLength, float branchRadius,
+                     bool direction, Uid entranceAUid, Uid exitAUid,
+                     Uid entranceBUid = Uid(), Uid exitBUid = Uid(),
+                     bool dontAdd = false, Uid connectEntranceAUid = Uid(),
+                     Uid connectExitAUid = Uid(),
+                     Uid connectEntranceBUid = Uid(),
+                     Uid connectExitBUid = Uid());
   void addTrack(Track track);
 
   // Station* createStation(Track* track, Uid stationUID, bool dontAdd = false);
@@ -52,16 +54,13 @@ class TrackMap {
 
   void JsonToMap(JsonArray doc);
 
-
  private:
   static constexpr uint8_t MAX_TRACKS = 100;
 
   std::vector<Track> tracks;
 
-
   //  used when creating track that should not be added
   Track tempTrack;
-
 
   /*
    * Position a track using an already-positioned connected track.
@@ -76,34 +75,15 @@ class TrackMap {
   void calculateStraightPose(Track& track);
 
   /*
-   * Calculate a straight track when its exit position
-   * and heading are known.
-   */
-  void calculateStraightFromExit(Track& track);
-
-  /*
    * Calculate a track when its entrance position and heading
    * are known.
    */
   void calculateFromEntrance(Track& track);
 
   /*
-   * Calculate a track when its exit position and heading
-   * are known.
-   */
-  void calculateFromExit(Track& track);
-
-
-  /*
    * Curve geometry.
    */
   void calculateCurvePose(Track& track);
-
-  /*
-   * Calculate a curve when its exit position and heading
-   * are known.
-   */
-  void calculateCurveFromExit(Track& track);
 
   /*
    * Switch geometry.
