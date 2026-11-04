@@ -4,11 +4,10 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
+#include "../../../shared/track/map.h"
+#include "../../../shared/utils/AppState.h"
+#include "../../../shared/utils/uidLogic.h"
 #include "../hardware/NFC.h"
-#include "TrackScanner.h"
-#include "../../shared/track/map.h"
-#include "../../shared/utils/AppState.h"
-#include "../../shared/utils/uidLogic.h"
 class TrackScanner {
  public:
   TrackScanner(TrackMap& map);
@@ -27,7 +26,7 @@ class TrackScanner {
 
  private:
   static constexpr uint8_t MAX_TRACKS = 100;
-
+  
   Track tracks[MAX_TRACKS];
   uint8_t trackCount = 0;
   TrackMap& trackMap;

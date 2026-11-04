@@ -17,17 +17,19 @@ static float normalizeHeading(float heading) {
 
 static Point movePoint(Point start, float heading, float distance) {
   float radians = degreesToRadians(heading);
+  // todo have to check heading
 
-  return Point(start.x + cos(radians) * distance,
-               start.y + sin(radians) * distance);
+  return Point(start.getX() + cos(radians) * distance,
+               start.getY() + sin(radians) * distance, heading);
 }
 
 static Point rotatePoint(Point point, float heading) {
   float radians = degreesToRadians(heading);
   float c = cos(radians);
   float s = sin(radians);
-
-  return Point(point.x * c - point.y * s, point.x * s + point.y * c);
+  // todo have to check heading
+  return Point(point.getX() * c - point.getY() * s,
+               point.getX() * s + point.getY() * c, heading);
 }
 
 // ============================================================
@@ -35,11 +37,11 @@ static Point rotatePoint(Point point, float heading) {
 // ============================================================
 
 static bool isEntrance(Track& track, Tag* tag) {
-  return tag == &track.entranceA || tag == &track.entranceB;
+  return tag == &track.getTags()[0] || tag == &track.getTags()[1];
 }
 
 static bool isExit(Track& track, Tag* tag) {
-  return tag == &track.exitA || tag == &track.exitB;
+  return tag == &track.getTags()[2] || tag == &track.getTags()[3];
 }
 
 // ============================================================
@@ -47,25 +49,29 @@ static bool isExit(Track& track, Tag* tag) {
 // ============================================================
 
 void TrackMap::calculateStraightPose(Track& track) {
-  track.pose.entranceAHeading = normalizeHeading(track.pose.entranceAHeading);
+  track.getPoints()[0].setHeading(
+      normalizeHeading(track.getPoints()[0].getHeading()));
 
-  track.pose.exit =
-      movePoint(track.pose.entrance, track.pose.entranceAHeading, track.length);
+  track.getPoints()[2] =
+      movePoint(track.getPoints()[0], track.getPoints()[0].getHeading(),
+                track.getLength());
 
-  track.pose.exitAHeading = track.pose.entranceAHeading;
+  track.getPoints()[2].setHeading(track.getPoints()[0].getHeading());
 
-  track.positioned = true;
+  track.setPositioned(true);
 }
 
 void TrackMap::calculateStraightFromExit(Track& track) {
-  track.pose.exitAHeading = normalizeHeading(track.pose.exitAHeading);
+  track.getPoints()[2].setHeading(
+      normalizeHeading(track.getPoints()[2].getHeading()));
 
-  track.pose.entrance =
-      movePoint(track.pose.exit, track.pose.exitAHeading, -track.length);
+  track.getPoints()[0] =
+      movePoint(track.getPoints()[2], track.getPoints()[2].getHeading(),
+                -track.getLength());
 
-  track.pose.entranceAHeading = track.pose.exitAHeading;
+  track.getPoints()[0].setHeading(track.getPoints()[2].getHeading());
 
-  track.positioned = true;
+  track.setPositioned(true);
 }
 
 // ============================================================
@@ -73,7 +79,7 @@ void TrackMap::calculateStraightFromExit(Track& track) {
 // ============================================================
 
 void TrackMap::calculateFromEntrance(Track& track) {
-  switch (track.trackType) {
+  switch (track.getTrackType()) {
     case STRAIGHT:
     // uses same as bumper
     case BUMPER:
@@ -99,7 +105,7 @@ void TrackMap::calculateFromEntrance(Track& track) {
 // ============================================================
 
 void TrackMap::calculateFromExit(Track& track) {
-  switch (track.trackType) {
+  switch (track.getTrackType()) {
     case STRAIGHT:
     case BUMPER:
     case SWITCH:
@@ -126,35 +132,36 @@ void TrackMap::calculateTrackPose(Track& track) {
 // ============================================================
 
 void TrackMap::calculateCurvePose(Track& track) {
-  float radius = track.radius;
+  float radius = track.getRadius();
 
   if (radius <= 0.0f) {
     calculateStraightPose(track);
     return;
   }
 
-  float angleRadians = track.length / radius;
+  float angleRadians = track.getLength() / radius;
   float angleDegrees = radiansToDegrees(angleRadians);
 
-  float turn = track.direction ? -angleDegrees : angleDegrees;
+  float turn = track.getDirection() ? -angleDegrees : angleDegrees;
 
-  float heading = normalizeHeading(track.pose.entranceAHeading);
+  float heading = normalizeHeading(track.getPoints()[0].getHeading());
 
-  float centerHeading = track.direction ? heading - 90.0f : heading + 90.0f;
+  float centerHeading =
+      track.getDirection() ? heading - 90.0f : heading + 90.0f;
 
-  Point center = movePoint(track.pose.entrance, centerHeading, radius);
+  Point center = movePoint(track.getPoints()[0], centerHeading, radius);
 
-  float startAngle =
-      atan2(track.pose.entrance.y - center.y, track.pose.entrance.x - center.x);
+  float startAngle = atan2(track.getPoints()[0].getY() - center.getY(),
+                           track.getPoints()[0].getX() - center.getX());
 
   float endAngle = startAngle + degreesToRadians(turn);
+  // TODO have to check endAngle
+  track.getPoints()[1] = {center.getX() + cos(endAngle) * radius,
+                          center.getY() + sin(endAngle) * radius, endAngle};
 
-  track.pose.exit = {center.x + cos(endAngle) * radius,
-                     center.y + sin(endAngle) * radius};
+  track.getPoints()[2].setHeading(normalizeHeading(heading + turn));
 
-  track.pose.exitAHeading = normalizeHeading(heading + turn);
-
-  track.positioned = true;
+  track.setPositioned(true);
 }
 
 // ============================================================
@@ -162,38 +169,39 @@ void TrackMap::calculateCurvePose(Track& track) {
 // ============================================================
 
 void TrackMap::calculateCurveFromExit(Track& track) {
-  float radius = track.radius;
+  float radius = track.getRadius();
 
   if (radius <= 0.0f) {
     calculateStraightFromExit(track);
     return;
   }
 
-  float angleRadians = track.length / radius;
+  float angleRadians = track.getLength() / radius;
   float angleDegrees = radiansToDegrees(angleRadians);
 
-  float turn = track.direction ? -angleDegrees : angleDegrees;
+  float turn = track.getDirection() ? -angleDegrees : angleDegrees;
 
-  float exitHeading = normalizeHeading(track.pose.exitAHeading);
+  float exitHeading = normalizeHeading(track.getPoints()[2].getHeading());
 
   float entranceHeading = normalizeHeading(exitHeading - turn);
 
   float centerHeading =
-      track.direction ? exitHeading - 90.0f : exitHeading + 90.0f;
+      track.getDirection() ? exitHeading - 90.0f : exitHeading + 90.0f;
 
-  Point center = movePoint(track.pose.exit, centerHeading, radius);
+  Point center = movePoint(track.getPoints()[1], centerHeading, radius);
 
-  float exitAngle =
-      atan2(track.pose.exit.y - center.y, track.pose.exit.x - center.x);
+  float exitAngle = atan2(track.getPoints()[1].getY() - center.getY(),
+                          track.getPoints()[1].getX() - center.getX());
 
   float entranceAngle = exitAngle - degreesToRadians(turn);
 
-  track.pose.entrance = Point(center.x + cos(entranceAngle) * radius,
-                              center.y + sin(entranceAngle) * radius);
+  track.getPoints()[0] =
+      Point(center.getX() + cos(entranceAngle) * radius,
+            center.getY() + sin(entranceAngle) * radius, entranceAngle);
 
-  track.pose.entranceAHeading = entranceHeading;
+  track.getPoints()[0].setHeading(entranceHeading);
 
-  track.positioned = true;
+  track.setPositioned(true);
 }
 
 // ============================================================
@@ -201,29 +209,33 @@ void TrackMap::calculateCurveFromExit(Track& track) {
 // ============================================================
 
 void TrackMap::calculateSwitchPose(Track& track) {
-  float heading = normalizeHeading(track.pose.entranceAHeading);
+  float heading = normalizeHeading(track.getPoints()[0].getHeading());
 
   // Main route
-  track.pose.exit = movePoint(track.pose.entrance, heading, track.length);
+  track.getPoints()[1] =
+      movePoint(track.getPoints()[0], heading, track.getLength());
 
-  track.pose.exitAHeading = heading;
+  track.getPoints()[2].setHeading(heading);
 
   // Curved branch
-  float angle = degreesToRadians(track.branchAngle);
+  float angle = degreesToRadians(track.getBranchAngle());
 
-  float radius = track.branchRadius;
+  float radius = track.getBranchRadius();
 
-  Point local = Point(radius * sin(angle), radius * (1.0f - cos(angle)));
+  // TODO check angle
+  Point local = Point(radius * sin(angle), radius * (1.0f - cos(angle)), angle);
 
   Point offset = rotatePoint(local, heading);
 
-  track.pose.exitB =
-      Point(track.pose.entrance.x + offset.x, track.pose.entrance.y + offset.y);
+  // todo check heading
+  track.getPoints()[3] =
+      Point(track.getPoints()[0].getX() + offset.getX(),
+            track.getPoints()[0].getY() + offset.getY(), heading);
 
-  track.pose.exitBHeading =
-      normalizeHeading(heading + track.branchAngle + 10.0f);
+  track.getPoints()[3].setHeading(
+      normalizeHeading(heading + track.getBranchAngle() + 10.0f));
 
-  track.positioned = true;
+  track.setPositioned(true);
 }
 
 // ============================================================
@@ -239,15 +251,13 @@ void TrackMap::calculateCrossPose(Track& track) {
 // ============================================================
 
 bool TrackMap::positionConnectedTrack(Track& source, Tag& sourceTag) {
-  if (!findTagByUid(sourceTag.connectedTagUid)) return false;
+  Tag* destinationTag = findTagByUid(sourceTag.getConnectedTagUid());
 
-  Tag* destinationTag = findTagByUid(sourceTag.connectedTagUid);
-
-  Track* destinationTrack = destinationTag->track;
+  Track* destinationTrack = findTrackByUid(destinationTag->getUid());
 
   if (!destinationTrack) return false;
 
-  if (destinationTrack->positioned) return true;
+  if (destinationTrack->getPositioned()) return true;
 
   bool sourceIsEntrance = isEntrance(source, &sourceTag);
 
@@ -259,14 +269,14 @@ bool TrackMap::positionConnectedTrack(Track& source, Tag& sourceTag) {
   float sourceHeading;
 
   if (sourceIsEntrance) {
-    sourcePoint = source.pose.entrance;
+    sourcePoint = source.getPoints()[0];
 
-    sourceHeading = source.pose.entranceAHeading;
+    sourceHeading = source.getPoints()[0].getHeading();
 
   } else {
-    sourcePoint = source.pose.exit;
+    sourcePoint = source.getPoints()[1];
 
-    sourceHeading = source.pose.exitAHeading;
+    sourceHeading = source.getPoints()[1].getHeading();
   }
 
   sourceHeading = normalizeHeading(sourceHeading);
@@ -284,23 +294,23 @@ bool TrackMap::positionConnectedTrack(Track& source, Tag& sourceTag) {
                                     : sourceHeading;
 
   if (destinationIsEntrance) {
-    destinationTrack->pose.entrance = sourcePoint;
+    destinationTrack->getPoints()[0] = sourcePoint;
 
-    destinationTrack->pose.entranceAHeading = headingAwayFromSource;
+    destinationTrack->getPoints()[0].setHeading(headingAwayFromSource);
 
     calculateFromEntrance(*destinationTrack);
 
-    return destinationTrack->positioned;
+    return destinationTrack->getPositioned();
   }
 
-  destinationTrack->pose.exit = sourcePoint;
+  destinationTrack->getPoints()[1] = sourcePoint;
 
-  destinationTrack->pose.exitAHeading =
-      normalizeHeading(headingAwayFromSource + 180.0f);
+  destinationTrack->getPoints()[1].setHeading(
+      normalizeHeading(headingAwayFromSource + 180.0f));
 
   calculateFromExit(*destinationTrack);
 
-  return destinationTrack->positioned;
+  return destinationTrack->getPositioned();
 }
 
 // ============================================================
@@ -309,16 +319,16 @@ bool TrackMap::positionConnectedTrack(Track& source, Tag& sourceTag) {
 
 void TrackMap::calculateMap() {
   // Serial.println("calculating map");
-  if (trackCount == 0) return;
+  if (tracks.size() == 0) return;
 
-  for (uint8_t i = 0; i < trackCount; i++) {
-    tracks[i].positioned = false;
+  for (uint8_t i = 0; i < tracks.size(); i++) {
+    tracks[i].setPositioned(false);
   }
 
   // Track 0 is the world origin.
-  tracks[0].pose.entrance = Point(0.0f, 0.0f);
+  tracks[0].getPoints()[0] = Point(0.0f, 0.0f, 0.0f);
 
-  tracks[0].pose.entranceAHeading = 0.0f;
+  tracks[0].getPoints()[0].setHeading(0.0f);
 
   calculateFromEntrance(tracks[0]);
 
@@ -327,33 +337,15 @@ void TrackMap::calculateMap() {
   do {
     changed = false;
 
-    for (uint8_t i = 0; i < trackCount; i++) {
+    for (uint8_t i = 0; i < tracks.size(); i++) {
       Track& track = tracks[i];
 
-      // Serial.printf("Track %d: entranceA=%p entranceB=%p exitA=%p exitB=%p\n",
-      //               i, findTagByUid(track.entranceA.connectedTagUid),
-      //               findTagByUid(track.entranceB.connectedTagUid),
-      //               findTagByUid(track.exitA.connectedTagUid),
-      //               findTagByUid(track.exitB.connectedTagUid));
+      if (!track.getPositioned()) continue;
 
-      if (!track.positioned) continue;
-
-      Tag* tags[] = {&track.entranceA, &track.entranceB, &track.exitA,
-                     &track.exitB};
-
-      for (Tag* tag : tags) {
-        if (!findTagByUid(tag->connectedTagUid)) continue;
-
-        Track* next = findTagByUid(tag->connectedTagUid)->track;
-
-        if (!next || next->positioned) continue;
-
-        if (positionConnectedTrack(track, *tag)) {
-          changed = true;
-        }
+      for (Tag tag : track.getTags()) {
+        if (positionConnectedTrack(track, tag)) changed = true;
       }
     }
-
   } while (changed);
 }
 
@@ -368,75 +360,60 @@ Track* TrackMap::createTrack(TrackType type, float length, float radius,
                              Uid exitBUid, bool dontAdd,
                              Uid connectEntranceAUid, Uid connectExitAUid,
                              Uid connectEntranceBUid, Uid connectExitBUid) {
-  if (trackCount >= MAX_TRACKS && !dontAdd) return nullptr;
-
-  Track* track;
-
+  Track track = Track(type, length, radius, branchAngle, branchRadius,
+                      branchLength, direction, entranceAUid, exitAUid,
+                      entranceBUid, exitBUid, dontAdd, connectEntranceAUid,
+                      connectExitAUid, connectEntranceBUid, connectExitBUid);
   if (dontAdd) {
-    // Use temporary storage without changing trackCount
-    track = &tempTrack;
+    // Use temporary storage without changing tracks.size()
+    tempTrack = track;
+
+    return &tempTrack;
+
+  } else if (tracks.size() >= MAX_TRACKS && !dontAdd) {
+    return nullptr;
   } else {
     // Add to the tracks array
-    track = &tracks[trackCount++];
+    tracks.emplace_back(track);
+    Serial.println("added tracks");
+    return &tracks.back();
   }
-
-  track->length = length;
-  track->radius = radius;
-  track->branchAngle = branchAngle;
-  track->branchRadius = branchRadius;
-  track->branchLength = branchLength;
-  track->direction = direction;
-  track->trackType = type;
-  track->include = !dontAdd;
-  track->pose = {};
-  track->positioned = false;
-
-  Tag* tags[] = {&track->entranceA, &track->entranceB, &track->exitA,
-                 &track->exitB};
-
-  // Uid connectedTagUid[] = {connectEntranceAUid, connectExitAUid,
-  //                          connectEntranceBUid, connectExitBUid};
-
-  for (Tag* tag : tags) {
-    tag->track = track;
-
-    // tag->connectedTag = nullptr;
-  }
-
-  track->entranceA.connectedTagUid = connectEntranceAUid;
-  track->exitA.connectedTagUid = connectExitAUid;
-  track->entranceB.connectedTagUid = connectEntranceBUid;
-  track->exitB.connectedTagUid = connectExitBUid;
-
-  track->entranceA.uid = entranceAUid;
-  track->exitA.uid = exitAUid;
-  track->entranceB.uid = entranceBUid;
-  track->exitB.uid = exitBUid;
-
-  return track;
 }
 
+void TrackMap::addTrack(Track track) { tracks.emplace_back(track); }
+
+// Station* TrackMap::createStation(Track* track, Uid stationUID, bool dontAdd)
+// { Station* station; station->tag->uid = stationUID; station->tag->track =
+// track; if (dontAdd) {
+//   return station;
+// } else {
+//   track->station.tag->uid = stationUID;
+// }
+// }
 // ============================================================
 // CONNECT TAGS
 // ============================================================
 
 bool TrackMap::connectTags(Tag* a, Tag* b) {
-  if (!a || !b) {
+  Track* trackA = findTrackByUid(a->getUid());
+  Track* trackB = findTrackByUid(b->getUid());
+
+  if (!a || !b || !trackA || !trackB) {
     Serial.println("one of the tags is null");
     return false;
   }
 
   // a->connectedTag = b;
-  a->connectedTagUid = b->uid;
+  a->getConnectedTagUid() = b->getUid();
   // b->connectedTag = a;
-  b->connectedTagUid = a->uid;
+  b->getConnectedTagUid() = a->getUid();
 
-  if (a->track) {
-    a->track->positioned = false;
+  if (trackA) {
+    trackA->setPositioned(false);
   }
 
-  if (b->track) {
-    b->track->positioned = false;
+  if (trackB) {
+    trackB->setPositioned(false);
   }
   Serial.println("Connected");
 
@@ -448,7 +425,7 @@ bool TrackMap::connectTags(Tag* a, Tag* b) {
 // ============================================================
 
 Track* TrackMap::getTrack(uint8_t index) {
-  if (index >= trackCount) return nullptr;
+  if (index >= tracks.size()) return nullptr;
 
   return &tracks[index];
 }
@@ -458,11 +435,17 @@ Track* TrackMap::getTrack(uint8_t index) {
 // ============================================================
 
 Track* TrackMap::findTrackByUid(Uid uid) {
-  Tag* tag = findTagByUid(uid);
+  for (uint8_t i = 0; i < tracks.size(); i++) {
+    Track& trackSearch = tracks[i];
 
-  if (tag != nullptr) {
-    return tag->track;
+    for (Tag& tagSearch : trackSearch.getTags()) {
+      if (tagSearch.getUid().equals(uid)) {
+        return &trackSearch;
+      }
+    }
   }
+
+  Serial.println("did not find tag");
 
   return nullptr;
 }
@@ -472,23 +455,12 @@ Track* TrackMap::findTrackByUid(Uid uid) {
 // ============================================================
 
 Tag* TrackMap::findTagByUid(Uid uid) {
-  for (uint8_t i = 0; i < trackCount; i++) {
+  for (uint8_t i = 0; i < tracks.size(); i++) {
     Track& trackSearch = tracks[i];
 
-    Tag* tags[] = {&trackSearch.entranceA, &trackSearch.entranceB,
-                   &trackSearch.exitA, &trackSearch.exitB};
-
-    for (Tag* tagSearch : tags) {
-      // Serial.print("Stored tag UID: ");
-      // Serial.println(tagSearch->uid.toString());
-
-      // Serial.print("Searching UID: ");
-      // Serial.println(uid.toString());
-
-      if (tagSearch->uid.equals(uid)) {
-        // Serial.println("found tag");
-
-        return tagSearch;
+    for (Tag& tagSearch : trackSearch.getTags()) {
+      if (tagSearch.getUid().equals(uid)) {
+        return &tagSearch;
       }
     }
   }
@@ -509,23 +481,12 @@ bool TrackMap::doUidsBelongToSameTrack(const Uid& uidA, const Uid& uidB) {
     return false;
   }
 
-  Tag* tags[] = {&track->entranceA, &track->entranceB, &track->exitA,
-                 &track->exitB};
-  for (Tag* tagSearch : tags) {
-    if (tagSearch->uid.equals(uidB)) {
+  for (Tag tagSearch : track->getTags()) {
+    if (tagSearch.getUid().equals(uidB)) {
       return true;
     }
   }
   return false;
-}
-
-void TrackMap::printTrack(Track& track) {
-  JsonDocument doc;
-
-  JsonObject jsonTag = doc.to<JsonObject>();
-  trackToJson(track, jsonTag);
-
-  serializeJsonPretty(jsonTag, Serial);
 }
 
 bool TrackMap::doesTrackExist(Uid uid) { return findTagByUid(uid) != nullptr; }
@@ -534,104 +495,38 @@ bool TrackMap::doesTrackExist(Uid uid) { return findTagByUid(uid) != nullptr; }
 // GET TRACK COUNT
 // ============================================================
 
-uint8_t TrackMap::getTrackCount() const { return trackCount; }
+uint8_t TrackMap::getTrackCount() const { return tracks.size(); }
 
-// ============================================================
-// TRACK TYPE TO STRING
-// ============================================================
-
-const char* TrackMap::trackTypeToString(TrackType type) {
-  switch (type) {
-    case STRAIGHT:
-      return "STRAIGHT";
-
-    case CURVED:
-      return "CURVED";
-
-    case SWITCH:
-      return "SWITCH";
-
-    case BUMPER:
-      return "BUMPER";
-
-    case CROSS:
-      return "CROSS";
-
-    default:
-      return "UNKNOWN";
+int TrackMap::trackIndex(const Track* track) const {
+  if (!track) {
+    return -1;
   }
-}
+  // todo use vector operations
+  const uint8_t count = getTrackCount();
 
-// ============================================================
-// TO JSON
-// ============================================================
+  for (uint8_t i = 0; i < count; ++i) {
+    const Track current = tracks.at(i);
 
-void TrackMap::trackToJson(Track& track, JsonObject& obj) {
-  obj["length"] = track.length;
+    if (current == *track) {
+      return static_cast<int>(i);
+    }
+  }
 
-  obj["radius"] = track.radius;
-
-  obj["direction"] = track.direction;
-
-  obj["branchAngle"] = track.branchAngle;
-
-  obj["branchRadius"] = track.branchRadius;
-
-  obj["branchLength"] = track.branchLength;
-
-  obj["type"] = trackTypeToString(track.trackType);
-
-  JsonObject pose = obj["pose"].to<JsonObject>();
-
-  pose["entranceAX"] = track.pose.entrance.x;
-
-  pose["entranceAY"] = track.pose.entrance.y;
-
-  pose["exitAX"] = track.pose.exit.x;
-
-  pose["exitAY"] = track.pose.exit.y;
-
-  pose["entranceAHeading"] = track.pose.entranceAHeading;
-
-  pose["exitAHeading"] = track.pose.exitAHeading;
-
-  pose["entranceBX"] = track.pose.entranceB.x;
-
-  pose["entranceBY"] = track.pose.entranceB.y;
-
-  pose["exitBX"] = track.pose.exitB.x;
-
-  pose["exitBY"] = track.pose.exitB.y;
-
-  pose["entranceBHeading"] = track.pose.entranceBHeading;
-
-  pose["exitBHeading"] = track.pose.exitBHeading;
-
-  pose["positioned"] = track.positioned;
-
-  JsonArray tags = obj["tags"].to<JsonArray>();
-
-  addTagJson(tags, "entranceA", track.entranceA);
-
-  addTagJson(tags, "entranceB", track.entranceB);
-
-  addTagJson(tags, "exitA", track.exitA);
-
-  addTagJson(tags, "exitB", track.exitB);
+  return -1;
 }
 
 void TrackMap::mapToJson(JsonDocument& doc) {
   JsonArray tracksJson = doc["tracks"].to<JsonArray>();
   int count = 0;
-  for (uint8_t i = 0; i < trackCount; i++) {
+  for (uint8_t i = 0; i < tracks.size(); i++) {
     JsonObject obj = tracksJson.add<JsonObject>();
 
     Track& track = tracks[i];
 
-    if (track.include) {
+    if (track.getInclude()) {
       obj["id"] = count;
 
-      trackToJson(track, obj);
+      track.trackToJson(obj);
       count++;
     }
   }
@@ -639,206 +534,26 @@ void TrackMap::mapToJson(JsonDocument& doc) {
   // serializeJsonPretty(tracksJson,Serial);
 }
 
-// ============================================================
-// TAG JSON
-// ============================================================
-
-void TrackMap::addTagJson(JsonArray& array, const char* name, Tag& tag) {
-  JsonObject obj = array.add<JsonObject>();
-
-  obj["name"] = name;
-
-  // Uid now knows its own length.
-  obj["uid"] = tag.uid.toString();
-
-  // Store whether the UID is valid.
-  obj["valid"] = tag.uid.isValid();
-
-  Uid emptyUid;
-  obj["connectedTagUid"] = tag.connectedTagUid.toString();
-}
-
-// ============================================================
-// FIND TRACK INDEX
-// ============================================================
-
-int TrackMap::findTrackIndex(Track* track) {
-  if (!track) return -1;
-
-  for (uint8_t i = 0; i < trackCount; i++) {
-    if (&tracks[i] == track) {
-      return i;
-    }
-  }
-
-  return -1;
-}
-void TrackMap::clearMap() {
-  trackCount = 0;
-  memset(tracks, 0, sizeof(tracks));
-  trackCount = 0;
-}
 void TrackMap::JsonToMap(JsonArray doc) {
   // todo find better way to prevent it creating multiple of same track
-  // if (trackCount ==1 ) return;
+  // if (tracks.size() ==1 ) return;
   clearMap();
   if (doc.isNull()) {
     Serial.println("JsonToMap: no tracks array found");
     return;
   }
-  // Serial.println("JsonToMap: loading in map");
-  // Serial.print("JsonToMap: size ");
-  // Serial.println(doc.size());
-  // serializeJsonPretty(doc, Serial);
+
   for (uint8_t i = 0; i < doc.size(); i++) {
-    jsonToTrack(doc[i]);
+    if (tracks.size() >= MAX_TRACKS) {
+      continue;
+    } else {
+      // Add to the tracks array
+      bool success;
+      Track track = Track(doc[i].as<JsonObject>(), success);
+      if (success) tracks.emplace_back(track);
+    }
   }
   trackMap.calculateMap();
 }
 
-// ============================================================
-// JSON TO TRACK
-// ============================================================
-
-Track* TrackMap::jsonToTrack(JsonObject obj) {
-  // ============================================================
-  // Validate input
-  // ============================================================
-
-  if (trackCount >= MAX_TRACKS) return nullptr;
-
-  if (obj.isNull()) {
-    Serial.println("jsonToTrack: JSON object is null");
-
-    return nullptr;
-  }
-
-  // Serial.println("=== jsonToTrack ===");
-
-  // serializeJsonPretty(obj, Serial);
-
-  // Serial.println();
-
-  float length = obj["length"].is<float>() ? obj["length"].as<float>() : 0;
-  // Serial.println("length");
-  // Serial.println(length);
-
-  float radius = obj["radius"].is<float>() ? obj["radius"].as<float>() : 0;
-
-  bool direction =
-      obj["direction"].is<bool>() ? obj["direction"].as<bool>() : false;
-
-  float branchAngle =
-      obj["branchAngle"].is<float>() ? obj["branchAngle"].as<float>() : 0;
-
-  float branchRadius =
-      obj["branchRadius"].is<float>() ? obj["branchRadius"].as<float>() : 0;
-
-  float branchLength =
-      obj["branchLength"].is<float>() ? obj["branchLength"].as<float>() : 0;
-
-  // ============================================================
-  // Track type
-  // ============================================================
-
-  const char* type = obj["type"].as<const char*>();
-
-  TrackType trackType = STRAIGHT;
-
-  if (type == nullptr) {
-    type = "STRAIGHT";
-  }
-
-  if (strcmp(type, "STRAIGHT") == 0) {
-    trackType = STRAIGHT;
-
-  } else if (strcmp(type, "CURVED") == 0) {
-    trackType = CURVED;
-
-  } else if (strcmp(type, "SWITCH") == 0) {
-    trackType = SWITCH;
-
-  } else if (strcmp(type, "BUMPER") == 0) {
-    trackType = BUMPER;
-
-  } else if (strcmp(type, "CROSS") == 0) {
-    trackType = CROSS;
-
-  } else {
-    Serial.print("jsonToTrack: Unknown track type: ");
-
-    Serial.println(type);
-
-    return nullptr;
-  }
-
-  // ============================================================
-  // UID objects
-  // ============================================================
-
-  Uid entranceAUid;
-  Uid exitAUid;
-  Uid entranceBUid;
-  Uid exitBUid;
-
-  Uid connectEntranceAUid;
-  Uid connectExitAUid;
-  Uid connectEntranceBUid;
-  Uid connectExitBUid;
-
-  JsonArray tags = obj["tags"].as<JsonArray>();
-
-  if (!tags.isNull()) {
-    for (JsonObject tagObj : tags) {
-      const char* name = tagObj["name"].as<const char*>();
-
-      const char* uidString = tagObj["uid"].as<const char*>();
-
-      const char* connectedTagUid = tagObj["connectedTagUid"].as<const char*>();
-
-      if (name == nullptr) {
-        continue;
-      }
-
-      if (uidString == nullptr) {
-        uidString = "";
-      }
-
-      // --------------------------------------------------------
-      // Parse corresponding UID
-      // --------------------------------------------------------
-
-      if (strcmp(name, "entranceA") == 0) {
-        entranceAUid.fromString(uidString);
-        connectEntranceAUid.fromString(connectedTagUid);
-      } else if (strcmp(name, "entranceB") == 0) {
-        entranceBUid.fromString(uidString);
-        connectEntranceBUid.fromString(connectedTagUid);
-
-      } else if (strcmp(name, "exitA") == 0) {
-        exitAUid.fromString(uidString);
-        connectExitAUid.fromString(connectedTagUid);
-
-      } else if (strcmp(name, "exitB") == 0) {
-        exitBUid.fromString(uidString);
-        connectExitBUid.fromString(connectedTagUid);
-
-      } else {
-        Serial.print("jsonToTrack: Unknown tag name: ");
-
-        Serial.println(name);
-        continue;
-      }
-    }
-  }
-
-  // ============================================================
-  // CREATE TRACK
-  // ============================================================
-  // todo might need to find way to add back in pose and position marker
-  // settings?  dont want stateJson to call calculateMap?
-  return createTrack(trackType, length, radius, branchAngle, branchRadius,
-                     branchLength, direction, entranceAUid, exitAUid,
-                     entranceBUid, exitBUid, false, connectEntranceAUid,
-                     connectExitAUid, connectEntranceBUid, connectExitBUid);
-}
+void TrackMap::clearMap() { tracks.clear(); }

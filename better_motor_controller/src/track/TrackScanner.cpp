@@ -1,13 +1,15 @@
 
 #include "TrackScanner.h"
 
-// TODO fix issue where if track is scanned it does not get sent to display unless you connect to website
+// TODO fix issue where if track is scanned it does not get sent to display
+// unless you connect to website
 
 // ============================================================================
 // CONSTRUCTOR
 // ============================================================================
 
 TrackScanner::TrackScanner(TrackMap& map) : trackMap(map) {
+
   app.setScannerMode(REGISTER_TRACKS);
 
   firstTagUid.clear();
@@ -27,9 +29,9 @@ void TrackScanner::begin() {
   float length = (diameter * M_PI) / 8;
   Uid emptyUid;
 
-  app.setTemplateTrack(trackMap.createTrack(CURVED, length, diameter / 2, 0, 0,
-                                            0, false, emptyUid, emptyUid,
-                                            emptyUid, emptyUid, true));
+  app.setTemplateTrack(trackMap.createTrack(CURVED, length, diameter / 2, 0, 0, 0, true, emptyUid,
+                       emptyUid, emptyUid, emptyUid, false));
+                       
   app.setScannerMode(REGISTER_TRACKS);
 
   firstTagUid.clear();
@@ -157,14 +159,11 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
 
   if (!trackMap.doesTrackExist(uid)) {
     Serial.println("creating track");
-
-    Track* track = trackMap.jsonToTrack(jsonTag);
-
-    if (!track) {
-      Serial.println("Failed to create track from JSON.");
-      return;
+    bool success;
+    Track track = Track(jsonTag, success);
+    if (success) {
+      trackMap.addTrack(track);
     }
-
   }
 
   // ============================================================
@@ -270,13 +269,10 @@ void TrackScanner::registerScannedTracks(const Uid& uid, Track* templateTrack) {
   Uid emptyUid;
 
   Track* track = trackMap.createTrack(
-      templateTrack->trackType, templateTrack->length, templateTrack->radius,
-      templateTrack->branchAngle, templateTrack->branchRadius,
-      templateTrack->branchLength, templateTrack->direction,
-
-      firstTagUid, uid,
-
-      emptyUid, emptyUid);
+      templateTrack->getTrackType(), templateTrack->getLength(),
+      templateTrack->getRadius(), templateTrack->getBranchAngle(),
+      templateTrack->getBranchRadius(), templateTrack->getBranchLength(),
+      templateTrack->getDirection(), firstTagUid, uid, emptyUid, emptyUid);
   // todo have tracks cleared after registering
 
   if (!track) {
@@ -317,7 +313,7 @@ bool TrackScanner::writeTrackForTag(const Uid& uid, JsonObject& jsonTag) {
     return false;
   }
 
-  trackMap.trackToJson(*track, jsonTag);
+  track->trackToJson(jsonTag);
 
   return true;
 }

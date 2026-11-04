@@ -121,8 +121,11 @@ void LvTrackMap::clear() {
 
 size_t LvTrackMap::trackCount() const {
   if (!map_) {
+    Serial.println("no map");
     return 0;
   }
+  Serial.print("track count ");
+  Serial.println(map_->getTrackCount());
 
   return map_->getTrackCount();
 }
@@ -181,11 +184,12 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
     foundGeometry = true;
   };
 
-  // auto includePoint = [&](const Point& p) { includePoint(p.x, p.y); };
+  // auto includePoint = [&](const Point& p) { includePoint(p.getX(), p.getY());
+  // };
 
   auto includeRadius = [&](const Point& p, float radius) {
-    includePoint(p.x - radius, p.y - radius);
-    includePoint(p.x + radius, p.y + radius);
+    includePoint(p.getX() - radius, p.getY() - radius);
+    includePoint(p.getX() + radius, p.getY() + radius);
   };
 
   // ----------------------------------------------------------
@@ -193,11 +197,11 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
   // ----------------------------------------------------------
 
   auto includeLine = [&](const Point& a, const Point& b, float halfWidth) {
-    includePoint(a.x, a.y);
-    includePoint(b.x, b.y);
+    includePoint(a.getX(), a.getY());
+    includePoint(b.getX(), b.getY());
 
-    const float dx = b.x - a.x;
-    const float dy = b.y - a.y;
+    const float dx = b.getX() - a.getX();
+    const float dy = b.getY() - a.getY();
 
     const float length = sqrtf(dx * dx + dy * dy);
 
@@ -206,13 +210,13 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
       const float nx = -dy / length;
       const float ny = dx / length;
 
-      includePoint(a.x + nx * halfWidth, a.y + ny * halfWidth);
+      includePoint(a.getX() + nx * halfWidth, a.getY() + ny * halfWidth);
 
-      includePoint(a.x - nx * halfWidth, a.y - ny * halfWidth);
+      includePoint(a.getX() - nx * halfWidth, a.getY() - ny * halfWidth);
 
-      includePoint(b.x + nx * halfWidth, b.y + ny * halfWidth);
+      includePoint(b.getX() + nx * halfWidth, b.getY() + ny * halfWidth);
 
-      includePoint(b.x - nx * halfWidth, b.y - ny * halfWidth);
+      includePoint(b.getX() - nx * halfWidth, b.getY() - ny * halfWidth);
     } else {
       includeRadius(a, halfWidth);
     }
@@ -234,13 +238,13 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
     const float effectiveRadius = radius + halfWidth;
 
     // Always include the endpoints.
-    includePoint(center.x + cosf(startAngle) * effectiveRadius,
-                 center.y + sinf(startAngle) * effectiveRadius);
+    includePoint(center.getX() + cosf(startAngle) * effectiveRadius,
+                 center.getY() + sinf(startAngle) * effectiveRadius);
 
     const float endAngle = startAngle + delta;
 
-    includePoint(center.x + cosf(endAngle) * effectiveRadius,
-                 center.y + sinf(endAngle) * effectiveRadius);
+    includePoint(center.getX() + cosf(endAngle) * effectiveRadius,
+                 center.getY() + sinf(endAngle) * effectiveRadius);
 
     // --------------------------------------------------------
     // Test the four circle extrema:
@@ -293,8 +297,8 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
         continue;
       }
 
-      includePoint(center.x + cosf(angle) * effectiveRadius,
-                   center.y + sinf(angle) * effectiveRadius);
+      includePoint(center.getX() + cosf(angle) * effectiveRadius,
+                   center.getY() + sinf(angle) * effectiveRadius);
     }
   };
 
@@ -305,11 +309,11 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
   for (uint8_t i = 0; i < count; ++i) {
     const Track* track = map_->getTrack(i);
 
-    if (!track || !track->positioned) {
+    if (!track || !track->getPositioned()) {
       continue;
     }
 
-    const TrackPose& pose = track->pose;
+    const std::vector<Point>& pose = track->getPoints();
 
     // --------------------------------------------------------
     // Track width in WORLD units.
@@ -320,15 +324,17 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
     // --------------------------------------------------------
 
     const float geometryPadding =
-        0.5f * fmaxf(track->radius > 0.0f ? track->radius * 0.02f : 1.0f, 1.0f);
+        0.5f *
+        fmaxf(track->getRadius() > 0.0f ? track->getRadius() * 0.02f : 1.0f,
+              1.0f);
 
-    switch (track->trackType) {
+    switch (track->getTrackType()) {
         // ======================================================
         // STRAIGHT
         // ======================================================
 
       case STRAIGHT: {
-        includeLine(pose.entrance, pose.exit, geometryPadding);
+        includeLine(pose[0], pose[1], geometryPadding);
 
         break;
       }
@@ -338,13 +344,13 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
         // ======================================================
 
       case CURVED: {
-        if (track->radius <= 0.0f) {
-          includeLine(pose.entrance, pose.exit, geometryPadding);
+        if (track->getRadius() <= 0.0f) {
+          includeLine(pose[0], pose[1], geometryPadding);
 
           break;
         }
 
-        const float radius = track->radius;
+        const float radius = track->getRadius();
 
         // map.cpp uses:
         //
@@ -352,28 +358,28 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
         // false -> heading + 90
         //
 
-        const float centerHeading = track->direction
-                                        ? pose.entranceAHeading - 90.0f
-                                        : pose.entranceAHeading + 90.0f;
+        const float centerHeading = track->getDirection()
+                                        ? pose[0].getHeading() - 90.0f
+                                        : pose[0].getHeading() + 90.0f;
 
         const float centerHeadingRad = centerHeading * DEG_TO_RAD_F;
 
         Point centerWorld;
 
-        centerWorld.x = pose.entrance.x + cosf(centerHeadingRad) * radius;
+        centerWorld.setX(pose[0].getX() + cosf(centerHeadingRad) * radius);
 
-        centerWorld.y = pose.entrance.y + sinf(centerHeadingRad) * radius;
+        centerWorld.setY(pose[0].getY() + sinf(centerHeadingRad) * radius);
 
-        const float startAngle = atan2f(pose.entrance.y - centerWorld.y,
-                                        pose.entrance.x - centerWorld.x);
+        const float startAngle = atan2f(pose[0].getY() - centerWorld.getY(),
+                                        pose[0].getX() - centerWorld.getX());
 
-        const float endAngle =
-            atan2f(pose.exit.y - centerWorld.y, pose.exit.x - centerWorld.x);
+        const float endAngle = atan2f(pose[1].getY() - centerWorld.getY(),
+                                      pose[1].getX() - centerWorld.getX());
 
         float delta = normalizeAngle(endAngle - startAngle);
 
         // Match drawCurve().
-        if (track->direction) {
+        if (track->getDirection()) {
           if (delta > 0.0f) {
             delta -= 2.0f * PI_F;
           }
@@ -393,9 +399,9 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
         // ======================================================
 
       case SWITCH: {
-        includeLine(pose.entrance, pose.exit, geometryPadding);
+        includeLine(pose[0], pose[1], geometryPadding);
 
-        includeLine(pose.entrance, pose.exitB, geometryPadding);
+        includeLine(pose[0], pose[3], geometryPadding);
 
         break;
       }
@@ -409,7 +415,7 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
         //
         // If you later add the second crossing route, add it
         // here too.
-        includeLine(pose.entrance, pose.exit, geometryPadding);
+        includeLine(pose[0], pose[1], geometryPadding);
 
         break;
       }
@@ -419,7 +425,7 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
         // ======================================================
 
       case BUMPER: {
-        includeLine(pose.entrance, pose.exit, geometryPadding);
+        includeLine(pose[0], pose[1], geometryPadding);
 
         // Include the bumper itself.
         //
@@ -428,7 +434,7 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
         // expansion here.
         const float bumperWorldRadius = fmaxf(geometryPadding, 1.0f);
 
-        includeRadius(pose.exit, bumperWorldRadius);
+        includeRadius(pose[1], bumperWorldRadius);
 
         break;
       }
@@ -444,19 +450,12 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
     // physical tag radius so they don't get clipped.
     // --------------------------------------------------------
 
-    const Tag* tags[] = {
-        &track->entranceA,
-        &track->entranceB,
-        &track->exitA,
-        &track->exitB,
-    };
-
-    for (const Tag* tag : tags) {
-      if (!tag || !tag->uid.isValid()) {
+    for (const Tag tag : track->getTags()) {
+      if (!tag.getUid().isValid()) {
         continue;
       }
 
-      const Point tagPosition = tagWorldPosition(*track, *tag);
+      const Point tagPosition = tagWorldPosition(*track, tag);
 
       // Conservative world-space tag radius.
       //
@@ -586,11 +585,13 @@ void LvTrackMap::resetView() {
 LvTrackMap::Point LvTrackMap::worldToMap(Point point) const {
   Point result;
 
-  result.x =
-      (point.x - transform_.minX) * transform_.scale + transform_.offsetX;
+  result.setX((point.getX() - transform_.minX) * transform_.scale +
+              transform_.offsetX);
 
-  result.y =
-      (point.y - transform_.minY) * transform_.scale + transform_.offsetY;
+  result.setY((point.getY() - transform_.minY) * transform_.scale +
+              transform_.offsetY);
+
+  result.setHeading(point.getHeading());
 
   return result;
 }
@@ -663,9 +664,10 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
 
   snprintf(countText, sizeof(countText), "Tracks: %u",
            static_cast<unsigned>(self->trackCount()));
+  // TODO check angle
 
-  self->drawText(layer, {static_cast<float>(width) / 2.0f, 10.0f}, countText,
-                 self->config_.label);
+  self->drawText(layer, {static_cast<float>(width) / 2.0f, 10.0f, 0.0f},
+                 countText, self->config_.label);
 }
 // ============================================================
 // BACKGROUND
@@ -688,14 +690,14 @@ void LvTrackMap::drawBackground(lv_layer_t* layer,
   const int32_t height = lv_area_get_height(&area);
 
   for (int32_t x = 0; x < width; x += spacing) {
-    drawSegment(layer, {static_cast<float>(x), 0.0f},
-                {static_cast<float>(x), static_cast<float>(height)},
+    drawSegment(layer, {static_cast<float>(x), 0.0f, 0.0f},
+                {static_cast<float>(x), static_cast<float>(height), 0.0f},
                 config_.grid, 1);
   }
 
   for (int32_t y = 0; y < height; y += spacing) {
-    drawSegment(layer, {0.0f, static_cast<float>(y)},
-                {static_cast<float>(width), static_cast<float>(y)},
+    drawSegment(layer, {0.0f, static_cast<float>(y), 0.0f},
+                {static_cast<float>(width), static_cast<float>(y), 0.0f},
                 config_.grid, 1);
   }
 }
@@ -722,13 +724,13 @@ void LvTrackMap::drawSegment(lv_layer_t* layer, Point a, Point b,
   lv_area_t rootArea;
   lv_obj_get_coords(root_, &rootArea);
 
-  dsc.p1.x = rootArea.x1 + static_cast<lv_coord_t>(lroundf(a.x));
+  dsc.p1.x = rootArea.x1 + static_cast<lv_coord_t>(lroundf(a.getX()));
 
-  dsc.p1.y = rootArea.y1 + static_cast<lv_coord_t>(lroundf(a.y));
+  dsc.p1.y = rootArea.y1 + static_cast<lv_coord_t>(lroundf(a.getY()));
 
-  dsc.p2.x = rootArea.x1 + static_cast<lv_coord_t>(lroundf(b.x));
+  dsc.p2.x = rootArea.x1 + static_cast<lv_coord_t>(lroundf(b.getX()));
 
-  dsc.p2.y = rootArea.y1 + static_cast<lv_coord_t>(lroundf(b.y));
+  dsc.p2.y = rootArea.y1 + static_cast<lv_coord_t>(lroundf(b.getY()));
 
   lv_draw_line(layer, &dsc);
 }
@@ -761,13 +763,17 @@ void LvTrackMap::drawCircle(lv_layer_t* layer, Point center, int32_t radius,
 
   lv_area_t area;
 
-  area.x1 = rootArea.x1 + static_cast<lv_coord_t>(lroundf(center.x - radius));
+  area.x1 =
+      rootArea.x1 + static_cast<lv_coord_t>(lroundf(center.getX() - radius));
 
-  area.y1 = rootArea.y1 + static_cast<lv_coord_t>(lroundf(center.y - radius));
+  area.y1 =
+      rootArea.y1 + static_cast<lv_coord_t>(lroundf(center.getY() - radius));
 
-  area.x2 = rootArea.x1 + static_cast<lv_coord_t>(lroundf(center.x + radius));
+  area.x2 =
+      rootArea.x1 + static_cast<lv_coord_t>(lroundf(center.getX() + radius));
 
-  area.y2 = rootArea.y1 + static_cast<lv_coord_t>(lroundf(center.y + radius));
+  area.y2 =
+      rootArea.y1 + static_cast<lv_coord_t>(lroundf(center.getY() + radius));
 
   lv_draw_rect(layer, &dsc, &area);
 }
@@ -792,13 +798,17 @@ void LvTrackMap::drawText(lv_layer_t* layer, Point center, const char* text,
 
   lv_area_t area;
 
-  area.x1 = rootArea.x1 + static_cast<lv_coord_t>(lroundf(center.x - 100.0f));
+  area.x1 =
+      rootArea.x1 + static_cast<lv_coord_t>(lroundf(center.getX() - 100.0f));
 
-  area.x2 = rootArea.x1 + static_cast<lv_coord_t>(lroundf(center.x + 100.0f));
+  area.x2 =
+      rootArea.x1 + static_cast<lv_coord_t>(lroundf(center.getX() + 100.0f));
 
-  area.y1 = rootArea.y1 + static_cast<lv_coord_t>(lroundf(center.y - 8.0f));
+  area.y1 =
+      rootArea.y1 + static_cast<lv_coord_t>(lroundf(center.getY() - 8.0f));
 
-  area.y2 = rootArea.y1 + static_cast<lv_coord_t>(lroundf(center.y + 8.0f));
+  area.y2 =
+      rootArea.y1 + static_cast<lv_coord_t>(lroundf(center.getY() + 8.0f));
 
   dsc.text = text;
 
@@ -818,40 +828,28 @@ void LvTrackMap::drawConnections(lv_layer_t* layer) const {
   for (uint8_t i = 0; i < count; ++i) {
     const Track* track = map_->getTrack(i);
 
-    if (!track || !track->positioned) {
+    if (!track || !track->getPositioned()) {
       continue;
     }
 
-    const Tag* tags[] = {&track->entranceA, &track->entranceB, &track->exitA,
-                         &track->exitB};
-
-    for (const Tag* tag : tags) {
-      if (!tag) {
-        continue;
-      }
-
+    for (Tag tag : track->getTags()) {
       // No connection stored.
-      if (!tag->connectedTagUid.isValid()) {
+      if (!tag.getConnectedTagUid().isValid()) {
         continue;
       }
 
-      const Tag* otherTag = map_->findTagByUid(tag->connectedTagUid);
+      const Tag* otherTag = map_->findTagByUid(tag.getConnectedTagUid());
 
       if (!otherTag) {
         continue;
       }
+      const Track* otherTrack = map_->findTrackByUid(otherTag->getUid());
 
-      if (!otherTag->track) {
+      if (!otherTrack || otherTrack->getPositioned()) {
         continue;
       }
 
-      const Track* otherTrack = otherTag->track;
-
-      if (!otherTrack->positioned) {
-        continue;
-      }
-
-      const int otherIndex = trackIndex(otherTrack);
+      const int otherIndex = map_->trackIndex(otherTrack);
 
       if (otherIndex < 0) {
         continue;
@@ -863,7 +861,7 @@ void LvTrackMap::drawConnections(lv_layer_t* layer) const {
         continue;
       }
 
-      const Point aWorld = tagWorldPosition(*track, *tag);
+      const Point aWorld = tagWorldPosition(*track, tag);
 
       const Point bWorld = tagWorldPosition(*otherTrack, *otherTag);
 
@@ -878,40 +876,24 @@ void LvTrackMap::drawConnections(lv_layer_t* layer) const {
 // TRACK INDEX / TAG POSITION
 // ============================================================
 
-int LvTrackMap::trackIndex(const Track* track) const {
-  if (!map_ || !track) {
-    return -1;
-  }
-
-  const uint8_t count = map_->getTrackCount();
-
-  for (uint8_t i = 0; i < count; ++i) {
-    const Track* current = map_->getTrack(i);
-
-    if (current == track) {
-      return static_cast<int>(i);
-    }
-  }
-
-  return -1;
-}
-
 LvTrackMap::Point LvTrackMap::tagWorldPosition(const Track& track,
                                                const Tag& tag) const {
-  if (&tag == &track.entranceA) {
-    return track.pose.entrance;
+  // TODO have to check order? might be ok
+  // TODO turn into for loop
+  if (&tag == &track.getTags()[0]) {
+    return track.getPoints()[0];
   }
 
-  if (&tag == &track.entranceB) {
-    return track.pose.entranceB;
+  if (&tag == &track.getTags()[1]) {
+    return track.getPoints()[1];
   }
 
-  if (&tag == &track.exitA) {
-    return track.pose.exit;
+  if (&tag == &track.getTags()[2]) {
+    return track.getPoints()[2];
   }
 
-  if (&tag == &track.exitB) {
-    return track.pose.exitB;
+  if (&tag == &track.getTags()[3]) {
+    return track.getPoints()[3];
   }
 
   return {};
@@ -925,16 +907,16 @@ void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
                            size_t index) const {
   // Serial.println("draw track");
 
-  if (!track.positioned) {
+  if (!track.getPositioned()) {
     Serial.println("track has not been positioned");
 
     return;
   }
 
-  switch (track.trackType) {
+  switch (track.getTrackType()) {
     case STRAIGHT:
-      drawStraight(layer, worldToMap(track.pose.entrance),
-                   worldToMap(track.pose.exit));
+      drawStraight(layer, worldToMap(track.getPoints()[0]),
+                   worldToMap(track.getPoints()[1]));
       break;
 
     case CURVED:
@@ -950,8 +932,8 @@ void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
       break;
 
     case BUMPER:
-      drawStraight(layer, worldToMap(track.pose.entrance),
-                   worldToMap(track.pose.exit));
+      drawStraight(layer, worldToMap(track.getPoints()[0]),
+                   worldToMap(track.getPoints()[1]));
 
       drawBumper(layer, track);
       break;
@@ -977,46 +959,50 @@ void LvTrackMap::drawStraight(lv_layer_t* layer, Point a, Point b) const {
 // IMPORTANT:
 // This function only renders the curve.
 //
-// It does NOT calculate or modify track.pose.
+// It does NOT calculate or modify track.getPoints().
 //
 // map.cpp is the source of truth for the curve endpoints and headings.
 // ============================================================
 
 void LvTrackMap::drawCurve(lv_layer_t* layer, const Track& track) const {
-  const TrackPose& pose = track.pose;
+  const std::vector<Point>& pose = track.getPoints();
 
   // Fallback if radius is invalid.
-  if (track.radius <= 0.0f) {
-    drawStraight(layer, worldToMap(pose.entrance), worldToMap(pose.exit));
+  if (track.getRadius() <= 0.0f) {
+    drawStraight(layer, worldToMap(pose[0]), worldToMap(pose[1]));
     return;
   }
 
-  const float radius = track.radius;
+  const float radius = track.getRadius();
 
   // Determine which side of the entrance heading the curve center lies on.
-  const float centerHeading = track.direction ? pose.entranceAHeading - 90.0f
-                                              : pose.entranceAHeading + 90.0f;
+  const float centerHeading = track.getDirection()
+                                  ? pose[0].getHeading() - 90.0f
+                                  : pose[0].getHeading() + 90.0f;
 
   const float centerHeadingRad = centerHeading * DEG_TO_RAD_F;
 
   // Calculate the curve center in world coordinates.
-  const Point centerWorld = {pose.entrance.x + cosf(centerHeadingRad) * radius,
+  // TODO check angle
 
-                             pose.entrance.y + sinf(centerHeadingRad) * radius};
+  const Point centerWorld = {pose[0].getX() + cosf(centerHeadingRad) * radius,
+
+                             pose[0].getY() + sinf(centerHeadingRad) * radius,
+                             centerHeadingRad};
 
   // Calculate the angular position of the entrance and exit
   // relative to the curve center.
-  const float startAngle =
-      atan2f(pose.entrance.y - centerWorld.y, pose.entrance.x - centerWorld.x);
+  const float startAngle = atan2f(pose[0].getY() - centerWorld.getY(),
+                                  pose[0].getX() - centerWorld.getX());
 
-  const float endAngle =
-      atan2f(pose.exit.y - centerWorld.y, pose.exit.x - centerWorld.x);
+  const float endAngle = atan2f(pose[1].getY() - centerWorld.getY(),
+                                pose[1].getX() - centerWorld.getX());
 
   // Calculate angular travel.
   float delta = normalizeAngle(endAngle - startAngle);
 
   // Make sure the arc travels in the correct direction.
-  if (track.direction) {
+  if (track.getDirection()) {
     if (delta > 0.0f) {
       delta -= 2.0f * PI_F;
     }
@@ -1046,10 +1032,12 @@ void LvTrackMap::drawCurve(lv_layer_t* layer, const Track& track) const {
   // ---------------------------------------------------------
   // Draw OUTER track
   // ---------------------------------------------------------
+  // TODO check angle
 
-  Point previousWorld = {centerWorld.x + cosf(startAngle) * radius,
+  Point previousWorld = {centerWorld.getX() + cosf(startAngle) * radius,
 
-                         centerWorld.y + sinf(startAngle) * radius};
+                         centerWorld.getY() + sinf(startAngle) * radius,
+                         startAngle};
 
   Point previous = worldToMap(previousWorld);
 
@@ -1057,10 +1045,12 @@ void LvTrackMap::drawCurve(lv_layer_t* layer, const Track& track) const {
     const float t = static_cast<float>(i) / static_cast<float>(segments);
 
     const float angle = startAngle + delta * t;
+    // TODO check angle
 
-    const Point currentWorld = {centerWorld.x + cosf(angle) * radius,
+    const Point currentWorld = {centerWorld.getX() + cosf(angle) * radius,
 
-                                centerWorld.y + sinf(angle) * radius};
+                                centerWorld.getY() + sinf(angle) * radius,
+                                angle};
 
     const Point current = worldToMap(currentWorld);
 
@@ -1073,10 +1063,10 @@ void LvTrackMap::drawCurve(lv_layer_t* layer, const Track& track) const {
   // ---------------------------------------------------------
   // Draw CENTER of track
   // ---------------------------------------------------------
+  // TODO check angle
+  previousWorld = {centerWorld.getX() + cosf(startAngle) * radius,
 
-  previousWorld = {centerWorld.x + cosf(startAngle) * radius,
-
-                   centerWorld.y + sinf(startAngle) * radius};
+                   centerWorld.getY() + sinf(startAngle) * radius, startAngle};
 
   previous = worldToMap(previousWorld);
 
@@ -1084,10 +1074,12 @@ void LvTrackMap::drawCurve(lv_layer_t* layer, const Track& track) const {
     const float t = static_cast<float>(i) / static_cast<float>(segments);
 
     const float angle = startAngle + delta * t;
+    // TODO check angle
 
-    const Point currentWorld = {centerWorld.x + cosf(angle) * radius,
+    const Point currentWorld = {centerWorld.getX() + cosf(angle) * radius,
 
-                                centerWorld.y + sinf(angle) * radius};
+                                centerWorld.getY() + sinf(angle) * radius,
+                                angle};
 
     const Point current = worldToMap(currentWorld);
 
@@ -1110,11 +1102,11 @@ void LvTrackMap::drawCurve(lv_layer_t* layer, const Track& track) const {
 // ============================================================
 
 void LvTrackMap::drawSwitch(lv_layer_t* layer, const Track& track) const {
-  drawStraight(layer, worldToMap(track.pose.entrance),
-               worldToMap(track.pose.exit));
+  drawStraight(layer, worldToMap(track.getPoints()[0]),
+               worldToMap(track.getPoints()[1]));
 
-  drawStraight(layer, worldToMap(track.pose.entrance),
-               worldToMap(track.pose.exitB));
+  drawStraight(layer, worldToMap(track.getPoints()[0]),
+               worldToMap(track.getPoints()[3]));
 }
 
 // ============================================================
@@ -1126,8 +1118,8 @@ void LvTrackMap::drawSwitch(lv_layer_t* layer, const Track& track) const {
 // ============================================================
 
 void LvTrackMap::drawCross(lv_layer_t* layer, const Track& track) const {
-  drawStraight(layer, worldToMap(track.pose.entrance),
-               worldToMap(track.pose.exit));
+  drawStraight(layer, worldToMap(track.getPoints()[0]),
+               worldToMap(track.getPoints()[1]));
 }
 
 // ============================================================
@@ -1135,9 +1127,9 @@ void LvTrackMap::drawCross(lv_layer_t* layer, const Track& track) const {
 // ============================================================
 
 void LvTrackMap::drawBumper(lv_layer_t* layer, const Track& track) const {
-  const Point endpoint = worldToMap(track.pose.exit);
+  const Point endpoint = worldToMap(track.getPoints()[1]);
 
-  const float heading = track.pose.exitAHeading * DEG_TO_RAD_F;
+  const float heading = endpoint.getHeading() * DEG_TO_RAD_F;
 
   // Perpendicular to the direction of travel.
   const float halfWidth = 15.0f * transform_.scale;
@@ -1145,9 +1137,13 @@ void LvTrackMap::drawBumper(lv_layer_t* layer, const Track& track) const {
   const float dx = sinf(heading) * halfWidth;
 
   const float dy = -cosf(heading) * halfWidth;
+  // TODO check angle
 
-  drawSegment(layer, {endpoint.x - dx, endpoint.y - dy},
-              {endpoint.x + dx, endpoint.y + dy}, config_.bumper, 5);
+  drawSegment(
+      layer,
+      {endpoint.getX() - dx, endpoint.getY() - dy, endpoint.getHeading()},
+      {endpoint.getX() + dx, endpoint.getY() + dy, endpoint.getHeading()},
+      config_.bumper, 5);
 }
 
 // ============================================================
@@ -1155,43 +1151,39 @@ void LvTrackMap::drawBumper(lv_layer_t* layer, const Track& track) const {
 // ============================================================
 
 void LvTrackMap::drawTags(lv_layer_t* layer, const Track& track) const {
-  const Tag* tags[] = {&track.entranceA, &track.entranceB, &track.exitA,
-                       &track.exitB};
-
-  for (const Tag* tag : tags) {
-    if (!tag) {
-      continue;
-    }
-
+  for (const Tag tag : track.getTags()) {
     // Don't draw an invalid/unassigned UID as a physical tag.
-    if (!tag->uid.isValid()) {
+    if (!tag.getUid().isValid()) {
       continue;
     }
 
-    const Point world = tagWorldPosition(track, *tag);
+    const Point world = tagWorldPosition(track, tag);
 
     const Point point = worldToMap(world);
 
-    const bool connected = map_->findTagByUid(tag->connectedTagUid) != nullptr;
+    const bool connected =
+        map_->findTagByUid(tag.getConnectedTagUid()) != nullptr;
 
     drawCircle(layer, point, config_.tagRadius,
                connected ? config_.tagConnected : config_.tagUnconnected, true);
 
     const char* label = nullptr;
 
-    if (tag == &track.entranceA) {
+    if (tag == track.getTags()[0]) {
       label = "entranceA";
-    } else if (tag == &track.entranceB) {
+    } else if (tag == track.getTags()[1]) {
       label = "entranceB";
-    } else if (tag == &track.exitA) {
+    } else if (tag == track.getTags()[2]) {
       label = "exitA";
-    } else if (tag == &track.exitB) {
+    } else if (tag == track.getTags()[3]) {
       label = "exitB";
     }
 
     if (label) {
-      drawText(layer, {point.x, point.y - 10.0f}, label, lv_color_hex(0x111111),
-               true);
+      // TODO check angle
+
+      drawText(layer, {point.getX(), point.getY() - 10.0f, 0.0f}, label,
+               lv_color_hex(0x111111), true);
     }
   }
 }
@@ -1202,16 +1194,17 @@ void LvTrackMap::drawTags(lv_layer_t* layer, const Track& track) const {
 
 void LvTrackMap::drawLabel(lv_layer_t* layer, const Track& track,
                            size_t index) const {
-  const Point a = worldToMap(track.pose.entrance);
+  const Point a = worldToMap(track.getPoints()[0]);
 
-  const Point b = worldToMap(track.pose.exit);
-
-  Point center = {(a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f - 12.0f};
+  const Point b = worldToMap(track.getPoints()[1]);
+  // todo check angle
+  Point center = {(a.getX() + b.getX()) * 0.5f,
+                  (a.getY() + b.getY()) * 0.5f - 12.0f, 0.0f};
 
   char text[64];
 
   snprintf(text, sizeof(text), "#%u %s", static_cast<unsigned>(index),
-           map_->trackTypeToString(track.trackType));
+           track.trackTypeToString());
 
   drawText(layer, center, text, config_.label, true);
 }

@@ -126,7 +126,6 @@ class LvTrackMap {
 
   Point tagWorldPosition(const Track& track, const Tag& tag) const;
 
-  int trackIndex(const Track* track) const;
 
   void drawSegment(lv_layer_t* layer, Point a, Point b, lv_color_t color,
                    uint8_t width) const;

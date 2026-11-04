@@ -88,11 +88,15 @@ void setup() {
 
   setupWifi();
 
-  espnowController.setupESPNow(getJsonFromState,getStateFromJson);
+  espnowController.setupESPNow(getJsonFromState, getStateFromJson);
 
   WebServer_begin();
 
   trackScanner.begin();
+  Uid emptyUid;
+
+  trackMap.createTrack(CURVED, 10, 10, 0, 0, 0, true, emptyUid, emptyUid,
+                       emptyUid, emptyUid);
 
   audio.setupAudio();
 

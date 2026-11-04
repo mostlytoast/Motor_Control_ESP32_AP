@@ -6,101 +6,24 @@
 
 #include "../utils/uidLogic.h"
 #include "Arduino.h"
-
+#include "Station.hpp"
+#include "Track.hpp"
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
-enum TrackType { STRAIGHT, CURVED, SWITCH, BUMPER, CROSS };
-// todo make a clear track function?
-struct Track;
-// TODO add to string functions for everything (make this into a better
-// structured class too)
-struct Tag {
-  Uid uid;
-  Track* track = nullptr;
-  // Tag* connectedTag = nullptr;
-  Uid connectedTagUid;
-};
-
-struct Point {
-  float x;
-  float y;
-
-  Point() : x(0.0f), y(0.0f) {}
-  Point(float x_, float y_) : x(x_), y(y_) {}
-};
-
-struct TrackPose {
-  Point entrance;
-  Point exit;
-
-  Point entranceB;
-  Point exitB;
-
-  // Direction of travel at the entrance and exit.
-  //
-  // entranceAHeading:
-  //     direction the train travels INTO the track
-  //
-  // exitAHeading:
-  //     direction the train travels OUT OF the track
-  //   TODO maybe move into track?
-  float entranceAHeading = 0;
-  float exitAHeading = 0;
-  float entranceBHeading = 0;
-  float exitBHeading = 0;
-};
-
-struct Track {
-  float angle = 0;
-  float length = 0;
-  float radius = 0;
-  // for switch and cross
-  float branchAngle = 0;
-  float branchRadius = 0;
-  float branchLength = 0;
-
-  bool include = true;
-  /*
-   * Direction of a curve.
-   *
-   * This follows the coordinate convention used by the original
-   * map.cpp implementation:
-   *
-   *     true  = clockwise
-   *     false = counter-clockwise
-   */
-
-  //  todo remove direction just use an angle measure?
-  bool direction = false;
-
-  TrackType trackType = STRAIGHT;
-  // TODO might want to store in array/dictionary?
-  Tag entranceA;
-  Tag entranceB;
-  Tag exitA;
-  Tag exitB;
-
-  /*
-   * Position in the global track map.
-   */
-  TrackPose pose;
-
-  bool positioned = false;
-};
-
 class TrackMap {
  public:
   Track* createTrack(TrackType type, float length, float radius,
-                     float branchAngle, float branchRadius, float branchLength,
-                     bool direction, Uid entranceAUid, Uid exitAUid,
-                     Uid entranceBUid = Uid(), Uid exitBUid = Uid(),
-                     bool dontAdd = false, Uid connectEntranceAUid = Uid(),
-                     Uid connectExitAUid = Uid(),
-                     Uid connectEntranceBUid = Uid(),
-                     Uid connectExitBUid = Uid());
+                   float branchAngle, float branchRadius, float branchLength,
+                   bool direction, Uid entranceAUid, Uid exitAUid,
+                   Uid entranceBUid = Uid(), Uid exitBUid = Uid(),
+                   bool dontAdd = false, Uid connectEntranceAUid = Uid(),
+                   Uid connectExitAUid = Uid(), Uid connectEntranceBUid = Uid(),
+                   Uid connectExitBUid = Uid());
+  void addTrack(Track track);
 
+  // Station* createStation(Track* track, Uid stationUID, bool dontAdd = false);
   /*
    * Calculate the complete map.
    */
@@ -123,27 +46,22 @@ class TrackMap {
 
   uint8_t getTrackCount() const;
 
-  void JsonToMap(JsonArray doc);
-
-  Track* jsonToTrack(JsonObject obj);
-
-  void trackToJson(Track& track, JsonObject& ojb);
+  int trackIndex(const Track* track) const;
 
   void mapToJson(JsonDocument& doc);
 
-  void printTrack(Track& track);
-  
-  const char* trackTypeToString(TrackType type);
+  void JsonToMap(JsonArray doc);
+
 
  private:
   static constexpr uint8_t MAX_TRACKS = 100;
 
-  Track tracks[MAX_TRACKS];
-  uint8_t trackCount = 0;
+  std::vector<Track> tracks;
+
+
   //  used when creating track that should not be added
   Track tempTrack;
 
-  void addTagJson(JsonArray& array, const char* name, Tag& tag);
 
   /*
    * Position a track using an already-positioned connected track.
@@ -201,7 +119,6 @@ class TrackMap {
    */
   void calculateCrossPose(Track& track);
 
-  int findTrackIndex(Track* track);
   void clearMap();
 };
 
