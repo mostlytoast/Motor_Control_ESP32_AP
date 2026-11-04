@@ -1,7 +1,7 @@
 #include "StateJson.h"
 
 #include "../track/map.h"
-
+// TODO have special json funcitons that only output track when somethings change?
 void getStateFromJson(JsonDocument& doc) {
   // Serial.println("=== getStateFromJson INPUT ===");
   // serializeJsonPretty(doc, Serial);

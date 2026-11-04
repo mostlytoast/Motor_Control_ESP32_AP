@@ -99,8 +99,9 @@ class LvTrackMap {
 
   static void drawEvent(lv_event_t* e);
 
-  void calculateTransform(lv_coord_t width = 0,
-                        lv_coord_t height = 0);
+  void calculateTransform(lv_coord_t width = 0, lv_coord_t height = 0);
+
+  std::vector<Point> worldToMap(std::vector<Point> points) const;
 
   Point worldToMap(Point p) const;
 
@@ -125,7 +126,6 @@ class LvTrackMap {
   void drawLabel(lv_layer_t* layer, const Track& track, size_t index) const;
 
   Point tagWorldPosition(const Track& track, const Tag& tag) const;
-
 
   void drawSegment(lv_layer_t* layer, Point a, Point b, lv_color_t color,
                    uint8_t width) const;

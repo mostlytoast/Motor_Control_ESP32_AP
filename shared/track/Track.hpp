@@ -140,7 +140,7 @@ class Track {
   float getAngle() { return angle; }
 
   void setLength(float length_) { length = length_; }
-  float getLength() { return length; }
+  float getLength() const { return length; }
 
   void setRadius(float radius_) { radius = radius_; }
   const float getRadius() const { return radius; }
@@ -271,15 +271,36 @@ class Track {
     // Serial.println("=== trackToJson ===");
     // serializeJsonPretty(obj, Serial);
   }
-
-  void printTrack() {
+    /**
+   * Prints the entire track structure to Serial using Pretty JSON formatting.
+   * Call this using: track.printTrack();
+   */
+  void printTrack()  {
     JsonDocument doc;
+    // Create the object structure
+    JsonObject obj = doc.to<JsonObject>();
+    
+    // Fill the object with data
+    trackToJson(obj);
 
-    JsonObject jsonTag = doc.to<JsonObject>();
-    trackToJson(jsonTag);
-
-    serializeJsonPretty(jsonTag, Serial);
+    // Print to Serial
+    serializeJsonPretty(doc, Serial);
+    Serial.println("--- End of Track ---");
   }
+
+  /**
+   * Returns a simple string representation of the track for quick debugging.
+   * Call this using: Serial.println(track.toString());
+   */
+  std::string toString() const {
+    // printTrack();
+    return "Track: " + std::string(trackTypeToString(trackType)) + 
+           " | Len: " + std::to_string(length) + 
+           " | Rad: " + std::to_string(radius) + 
+           " | Dir: " + std::string(direction ? "CW" : "CCW");
+  }
+
+
 
   const char* trackTypeToString() const { return trackTypeToString(trackType); }
 

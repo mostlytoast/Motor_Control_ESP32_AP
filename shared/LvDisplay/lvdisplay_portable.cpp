@@ -144,6 +144,7 @@ void LvDisplayController::init(lv_obj_t* screen) {
   trackMapDisplay_ = new LvTrackMap(trackMapContainer_);
 
   if (trackMapDisplay_ != nullptr) {
+    
     trackMapDisplay_->setTrackMap(trackMap);
   }
 

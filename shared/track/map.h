@@ -93,10 +93,6 @@ class TrackMap {
    */
   void calculateFromExit(Track& track);
 
-  /*
-   * Original/general track pose calculation.
-   */
-  void calculateTrackPose(Track& track);
 
   /*
    * Curve geometry.

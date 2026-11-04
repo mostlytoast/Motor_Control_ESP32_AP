@@ -97,7 +97,11 @@ void setup() {
 
   trackMap.createTrack(CURVED, 10, 10, 0, 0, 0, true, emptyUid, emptyUid,
                        emptyUid, emptyUid);
+  Serial.print("track count at start ");
+  Serial.println(trackMap.getTrackCount());
+  trackMap.calculateMap();
 
+    
   audio.setupAudio();
 
   Serial.println("ESP-NOW multi-controller receiver ready");

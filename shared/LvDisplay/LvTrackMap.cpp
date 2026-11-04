@@ -99,10 +99,15 @@ void LvTrackMap::setConfig(const Config& config) {
 
 void LvTrackMap::setTrackMap(TrackMap* map) {
   map_ = map;
-  // Serial.println("json doc in lvtrackmap");
-  // JsonDocument doc;
-  // map_->mapToJson(doc);
-  // serializeJsonPretty(doc, Serial);
+  Uid emptyUid;
+  map_->createTrack(CURVED, 10, 10, 0, 0, 0, true, emptyUid, emptyUid, emptyUid,
+                    emptyUid);
+  Serial.println("json doc in lvtrackmap");
+  JsonDocument doc;
+  map_->calculateMap();
+
+  map_->mapToJson(doc);
+  serializeJsonPretty(doc, Serial);
   calculateTransform();
   refresh();
 }
@@ -124,8 +129,8 @@ size_t LvTrackMap::trackCount() const {
     Serial.println("no map");
     return 0;
   }
-  Serial.print("track count ");
-  Serial.println(map_->getTrackCount());
+  // Serial.print("track count ");
+  // Serial.println(map_->getTrackCount());
 
   return map_->getTrackCount();
 }
@@ -582,6 +587,22 @@ void LvTrackMap::resetView() {
   calculateTransform();
   refresh();
 }
+
+std::vector<LvTrackMap::Point> LvTrackMap::worldToMap(
+    std::vector<Point> points) const {
+  std::vector<LvTrackMap::Point> result;
+  result.reserve(points.size());  // Optimizes allocation
+
+  for (const auto& point : points) {
+    // Loop through each point and apply the transform to it individually
+    auto mapped_point = worldToMap(point);
+
+    result.push_back(mapped_point);
+  }
+
+  return result;
+}
+
 LvTrackMap::Point LvTrackMap::worldToMap(Point point) const {
   Point result;
 
@@ -724,13 +745,21 @@ void LvTrackMap::drawSegment(lv_layer_t* layer, Point a, Point b,
   lv_area_t rootArea;
   lv_obj_get_coords(root_, &rootArea);
 
-  dsc.p1.x = rootArea.x1 + static_cast<lv_coord_t>(lroundf(a.getX()));
+  const float scale = transform_.scale;
+  const float offsetX = transform_.offsetX;
+  const float offsetY = transform_.offsetY;
 
-  dsc.p1.y = rootArea.y1 + static_cast<lv_coord_t>(lroundf(a.getY()));
+  auto transformPoint = [&](const Point& point) -> lv_point_precise_t {
+    lv_point_precise_t result;
 
-  dsc.p2.x = rootArea.x1 + static_cast<lv_coord_t>(lroundf(b.getX()));
+    result.x = rootArea.x1 + offsetX + point.getX() * scale;
+    result.y = rootArea.y1 + offsetY + point.getY() * scale;
 
-  dsc.p2.y = rootArea.y1 + static_cast<lv_coord_t>(lroundf(b.getY()));
+    return result;
+  };
+
+  dsc.p1 = transformPoint(a);
+  dsc.p2 = transformPoint(b);
 
   lv_draw_line(layer, &dsc);
 }
@@ -921,6 +950,9 @@ void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
 
     case CURVED:
       drawCurve(layer, track);
+
+      // Draw bumper at exit point for curved tracks.
+      // drawBumper(layer, track);
       break;
 
     case SWITCH:
@@ -963,132 +995,69 @@ void LvTrackMap::drawStraight(lv_layer_t* layer, Point a, Point b) const {
 //
 // map.cpp is the source of truth for the curve endpoints and headings.
 // ============================================================
-
 void LvTrackMap::drawCurve(lv_layer_t* layer, const Track& track) const {
-  const std::vector<Point>& pose = track.getPoints();
+  constexpr int SEGMENTS = 48;
 
-  // Fallback if radius is invalid.
-  if (track.getRadius() <= 0.0f) {
-    drawStraight(layer, worldToMap(pose[0]), worldToMap(pose[1]));
+  const auto& points = worldToMap(track.getPoints());
+
+  const float radius = track.getRadius();
+  const float length = track.getLength();
+
+  if (radius <= 0.0f || length <= 0.0f) {
+    Serial.printf("ERROR: Invalid curve dimensions. Radius=%.2f Length=%.2f\n",
+                  radius, length);
     return;
   }
 
-  const float radius = track.getRadius();
+  const Point& entrance = points[0];
 
-  // Determine which side of the entrance heading the curve center lies on.
-  const float centerHeading = track.getDirection()
-                                  ? pose[0].getHeading() - 90.0f
-                                  : pose[0].getHeading() + 90.0f;
+  // Calculate signed angular sweep.
+  const float direction = track.getDirection() ? -1.0f : 1.0f;
+  const float delta = direction * (length / radius);
 
-  const float centerHeadingRad = centerHeading * DEG_TO_RAD_F;
+  // Calculate curve center.
+  const float headingRadians = entrance.getHeading() * (M_PI / 180.0f);
 
-  // Calculate the curve center in world coordinates.
-  // TODO check angle
+  const float centerHeading = headingRadians + direction * (M_PI / 2.0f);
 
-  const Point centerWorld = {pose[0].getX() + cosf(centerHeadingRad) * radius,
+  const float centerX = entrance.getX() + cosf(centerHeading) * radius;
 
-                             pose[0].getY() + sinf(centerHeadingRad) * radius,
-                             centerHeadingRad};
+  const float centerY = entrance.getY() + sinf(centerHeading) * radius;
 
-  // Calculate the angular position of the entrance and exit
-  // relative to the curve center.
-  const float startAngle = atan2f(pose[0].getY() - centerWorld.getY(),
-                                  pose[0].getX() - centerWorld.getX());
+  // Starting angle from center to entrance.
+  const float startAngle =
+      atan2f(entrance.getY() - centerY, entrance.getX() - centerX);
 
-  const float endAngle = atan2f(pose[1].getY() - centerWorld.getY(),
-                                pose[1].getX() - centerWorld.getX());
+  // Serial.println("========== DRAW CURVE ==========");
+  // Serial.printf("Entrance: X=%.2f Y=%.2f Heading=%.2f\n", entrance.getX(),
+  //               entrance.getY(), entrance.getHeading());
+  // Serial.printf("Length: %.2f Radius: %.2f\n", length, radius);
+  // Serial.printf("Direction: %d\n", track.getDirection());
+  // Serial.printf("Center: X=%.2f Y=%.2f\n", centerX, centerY);
+  // Serial.printf("Start angle: %.4f Delta: %.4f\n", startAngle, delta);
 
-  // Calculate angular travel.
-  float delta = normalizeAngle(endAngle - startAngle);
+  Point previous = entrance;
 
-  // Make sure the arc travels in the correct direction.
-  if (track.getDirection()) {
-    if (delta > 0.0f) {
-      delta -= 2.0f * PI_F;
-    }
-  } else {
-    if (delta < 0.0f) {
-      delta += 2.0f * PI_F;
-    }
-  }
-
-  // ---------------------------------------------------------
-  // Determine number of segments.
-  // More segments = smoother curve.
-  // ---------------------------------------------------------
-
-  const float pixelRadius = fabsf(radius * transform_.scale);
-
-  int segments = static_cast<int>(fabsf(delta) * pixelRadius / 5.0f);
-
-  if (segments < 12) {
-    segments = 12;
-  }
-
-  if (segments > 128) {
-    segments = 128;
-  }
-
-  // ---------------------------------------------------------
-  // Draw OUTER track
-  // ---------------------------------------------------------
-  // TODO check angle
-
-  Point previousWorld = {centerWorld.getX() + cosf(startAngle) * radius,
-
-                         centerWorld.getY() + sinf(startAngle) * radius,
-                         startAngle};
-
-  Point previous = worldToMap(previousWorld);
-
-  for (int i = 1; i <= segments; ++i) {
-    const float t = static_cast<float>(i) / static_cast<float>(segments);
-
+  for (int i = 1; i <= SEGMENTS; ++i) {
+    const float t = static_cast<float>(i) / SEGMENTS;
     const float angle = startAngle + delta * t;
-    // TODO check angle
 
-    const Point currentWorld = {centerWorld.getX() + cosf(angle) * radius,
-
-                                centerWorld.getY() + sinf(angle) * radius,
-                                angle};
-
-    const Point current = worldToMap(currentWorld);
-
-    // Temporary highly-visible outer track.
-    drawSegment(layer, previous, current, lv_color_hex(0xFF0000), 10);
-
-    previous = current;
-  }
-
-  // ---------------------------------------------------------
-  // Draw CENTER of track
-  // ---------------------------------------------------------
-  // TODO check angle
-  previousWorld = {centerWorld.getX() + cosf(startAngle) * radius,
-
-                   centerWorld.getY() + sinf(startAngle) * radius, startAngle};
-
-  previous = worldToMap(previousWorld);
-
-  for (int i = 1; i <= segments; ++i) {
-    const float t = static_cast<float>(i) / static_cast<float>(segments);
-
-    const float angle = startAngle + delta * t;
-    // TODO check angle
-
-    const Point currentWorld = {centerWorld.getX() + cosf(angle) * radius,
-
-                                centerWorld.getY() + sinf(angle) * radius,
-                                angle};
-
-    const Point current = worldToMap(currentWorld);
-
-    // Temporary highly-visible center line.
+    Point current(centerX + cosf(angle) * radius,
+                  centerY + sinf(angle) * radius, 0.0f);
+    // const float endAngle = startAngle + delta;
+    // Serial.printf("Expected exit: X=%.2f Y=%.2f\n",
+    //               centerX + cosf(endAngle) * radius,
+    //               centerY + sinf(endAngle) * radius);
+    // if (i == 1 || i == SEGMENTS / 2 || i == SEGMENTS) {
+    //   Serial.printf("Segment %d: (%.2f, %.2f) -> (%.2f, %.2f)\n", i,
+    //                 previous.getX(), previous.getY(), current.getX(),
+    //                 current.getY());
+    // }
     drawSegment(layer, previous, current, lv_color_hex(0x00FF00), 4);
-
     previous = current;
   }
 }
+
 // ============================================================
 // SWITCH
 //
