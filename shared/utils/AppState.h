@@ -15,7 +15,13 @@ struct PairedController {
   unsigned long lastSeen = 0;
 };
 
-enum ScannerMode { REGISTER_TRACKS, WRITING_TRACKS, SCANNING_TRACKS };
+enum ScannerMode {
+  REGISTER_TRACKS,
+  WRITING_TRACKS,
+  SCANNING_TRACKS,
+  PATH_FINDING,
+  NORMAL
+};
 
 class AppState {
  public:
@@ -97,6 +103,12 @@ class AppState {
   String getStatusLabelText();
   void setStatusLabelText(String statusLabelText_);
 
+  // location
+  Uid getDestinationUid();
+  void setDestinationUid(Uid destinationUid_);
+  Uid getCurrentUid();
+  void setCurrentUid(Uid currentUid_);
+
  private:
   // LEDs
   bool led1State = false;
@@ -114,11 +126,11 @@ class AppState {
   bool ambianceAudioMode = false;
   bool movementAudioMode = false;
 
-  float  movementAudioPitch = 0;
-  float  movementAudioSpeed = 0;
+  float movementAudioPitch = 0;
+  float movementAudioSpeed = 0;
 
-  float  ambianceAudioPitch = 0;
-  float  ambianceAudioSpeed = 0;
+  float ambianceAudioPitch = 0;
+  float ambianceAudioSpeed = 0;
 
   // Speed
   volatile int targetSpeed = 0;
@@ -136,6 +148,10 @@ class AppState {
 
   // display status label
   String statusLabelText;
+
+  // location
+  Uid destinationUid;
+  Uid currentUid;
 };
 
 extern AppState app;

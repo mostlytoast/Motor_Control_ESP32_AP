@@ -347,6 +347,7 @@ void LvDisplayController::handleAction(LvDisplayAction action) {
   // Update LVGL immediately.
   applyStateToUi();
 }
+
 void LvDisplayController::setButtonState(lv_obj_t* button, bool state) {
   if (button == nullptr) {
     return;

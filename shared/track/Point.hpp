@@ -38,11 +38,12 @@ class Point {
 
   // Convert Point to string: x:y:heading
   String toString() const {
-    String result = String(x, 6);
+    String result = String(static_cast<double>(x), 6);
     result += ":";
-    result += String(y, 6);
+    result += String(static_cast<double>(y), 6);
     result += ":";
-    result += String(heading, 6);
+    result += String(static_cast<double>(heading), 6);
+
     return result;
   }
 

@@ -38,15 +38,6 @@ enum class LvDisplayAction {
   Audio
 };
 
-// struct LvDisplayState {
-//   int motorSpeed = 0;
-//   int rampSetting = 0;
-//   bool led1State = false;
-//   bool led2State = false;
-//   bool autoState = false;
-//   bool audioState = false;
-// };
-
 class LvDisplayController;
 
 struct ButtonBinding {
@@ -72,7 +63,6 @@ class LvDisplayController {
   void setAuto(bool enabled);
   void setAudio(bool enabled);
 
-  // const LvDisplayState& state() const { return state_; }
   lv_obj_t* speedLabel() const { return speedLabel_; }
   lv_obj_t* rampLabel() const { return rampLabel_; }
   lv_obj_t* statusLabel() const { return statusLabel_; }
@@ -95,13 +85,10 @@ class LvDisplayController {
 
   void getStateFromJsonDisplay(const char* json);
 
-  // void sendStateJson();
-
   // --------------------------------------------------------
   // Access current state
   // --------------------------------------------------------
 
-  // const LvDisplayState& getState() const { return state_; }
   void toggleTrackMap();
   void applyStateToUi();
 
@@ -139,7 +126,7 @@ class LvDisplayController {
   LvTrackMap* trackMapDisplay_ = nullptr;
 
   bool mapVisible_ = false;
-    // todo use app state instead
+  // todo use app state instead
   std::vector<ButtonBindingPtr> bindings_;
 };
 

@@ -1,15 +1,20 @@
 #ifndef SHARED_TRACK_TAG_HPP
 #define SHARED_TRACK_TAG_HPP
 
+#include <ArduinoJson.h>
 #include <string.h>
 
 #include "../utils/uidLogic.h"
 class Tag {
  public:
   Tag(const char* tagString) { fromString(tagString); }
-  Tag(Uid uid_, Uid connectedTagUid_, Point point_) {
+  Tag(bool& success, JsonDocument doc) { fromJson(success, doc); }
+
+  Tag(Uid uid_, Uid connectedTagUid_, Point point_,
+      std::vector<Uid> internalConnectedTagUids_ = {}) {
     uid = uid_;
     connectedTagUid = connectedTagUid_;
+    internalConnectedTagUids = internalConnectedTagUids_;
     point = point_;
   }
 
@@ -18,6 +23,14 @@ class Tag {
   void setUid(Uid uid_) { uid = uid_; }
 
   Uid getConnectedTagUid() const { return connectedTagUid; }
+
+  const std::vector<Uid>& getInternalConnectedTagUids() const {
+    return internalConnectedTagUids;
+  }
+
+  void addInternalConnectedTagUid(Uid uid) {
+    internalConnectedTagUids.emplace_back(uid);
+  }
 
   void setConnectedTagUid(Uid connectedTagUid_) {
     connectedTagUid = connectedTagUid_;
@@ -40,53 +53,80 @@ class Tag {
 
     return true;
   }
-  String toString() const {
-    // TODO convert to json function
-    String result = uid.toString();
-    result += "|";
-    result += connectedTagUid.toString();
-    result += "|";
-    result += point.toString();
+
+  void fromJson(bool& success, JsonDocument& doc) {
+    success = false;
+
+    const char* uidString = doc["uid"].as<const char*>();
+
+    const char* connectedTagUid = doc["connectedTagUid"].as<const char*>();
+
+    const char* point = doc["point"].as<const char*>();
+
+    JsonArray array = doc["internalConnectedTagUids"].as<JsonArray>();
+    if (uidString == nullptr) {
+      uidString = "";
+    }
+    Uid uid;
+    uid.fromString(uidString);
+    Uid connectedUid;
+    connectedUid.fromString(connectedTagUid);
+    Serial.print("pointasdfasasdfsadf");
+    Serial.println(Point(point).toString());
+    for (const char* internalTagUidString : array) {
+      internalConnectedTagUids.emplace_back(internalTagUidString);
+    }
+    success = true;
+  }
+  void toJson(JsonObject& obj) {
+    if (obj.isNull()) {
+      return;
+    }
+
+    obj["uid"] = uid.toString();
+    obj["connectedTagUid"] = connectedTagUid.toString();
+    obj["point"] = point.toString();
+    JsonArray connectionArray = obj["internalConnectedTagUids"].to<JsonArray>();
+
+    for (int i = 0; i < internalConnectedTagUids.size(); i++) {
+      JsonObject array = connectionArray.add<JsonObject>();
+
+      array[("tag" + std::to_string(i)).c_str()] =
+          internalConnectedTagUids[i].toString();
+    }
+  }
+
+  String toString() {
+    String result;
+    JsonObject obj;
+    toJson(obj);
+    serializeJson(obj, result);
     return result;
   }
 
   // Convert string to Point: x:y:heading
   bool fromString(const char* tagString) {
     // TODO convert to json function
+
     if (tagString == nullptr) return false;
 
-    // Find the separators.
-    const char* first = strchr(tagString, '|');
-    if (!first) return false;
+    JsonDocument doc;
 
-    const char* second = strchr(first + 1, '|');
-    if (!second) return false;
+    if (deserializeJson(doc, tagString, sizeof(tagString))) {
+      return false;
+    }
 
-    // Extract individual values.
-    String newUidString = String(tagString).substring(0, first - tagString);
+    bool success;
+    fromJson(success, doc);
 
-    String newConnectedTagUidString =
-        String(first + 1).substring(0, second - first - 1);
-
-    String newPointString = String(second + 1);
-
-    // Construct temporary objects.
-    Uid newUid(newUidString.c_str());
-    Uid newConnectedTagUid(newConnectedTagUidString.c_str());
-    Point newPoint(newPointString.c_str());
-
-    // Update only after parsing.
-    uid = newUid;
-    connectedTagUid = newConnectedTagUid;
-    point = newPoint;
-
-    return true;
+    return success;
   }
   bool operator!=(const Tag& other) const { return !(*this == other); }
 
  private:
   Uid uid;
   Uid connectedTagUid;
+  std::vector<Uid> internalConnectedTagUids;
   Point point;
   //   TODO think of moving point from tracks to tag
 };

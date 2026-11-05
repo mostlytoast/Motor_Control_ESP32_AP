@@ -27,6 +27,7 @@ class Station {
   void setPoint(Point newPoint) { point = newPoint; }
 
  private:
+ 
   Tag* tag;                 // pointer to a Tag object
   bool positioned = false;  // boolean to indicate if the station is positioned
   Point point;              // the coordinate of the station

@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
+#include "../../../shared/track/PathFinder.h"
 #include "../../../shared/track/map.h"
 #include "../../../shared/utils/AppState.h"
 #include "../../../shared/utils/uidLogic.h"
@@ -26,7 +27,7 @@ class TrackScanner {
 
  private:
   static constexpr uint8_t MAX_TRACKS = 100;
-  
+
   Track tracks[MAX_TRACKS];
   uint8_t trackCount = 0;
   TrackMap& trackMap;
@@ -41,12 +42,18 @@ class TrackScanner {
 
   bool haveConnectionTag;
 
+  TrackPathFinder pathFinder;
+  Uid backwardsUid;
+  Uid forwardsUid;
+  void pathFind(const Uid& uid, JsonObject& jsonTag);
+
   // Write the track associated with a tag.
   //   todo rename
   bool writeTrackForTag(const Uid& uid, JsonObject& jsonTag);
   void addTrack(const Uid& uid, JsonObject& jsonTag);
   // Track creation.
   void registerScannedTracks(const Uid& uid, Track* templateTrack);
+  void trackLocation(const Uid& uid, JsonObject& jsonTag);
 
   void writeTag(const Uid& uid, JsonObject& jsonTag);
   // Track lookup.

@@ -12,15 +12,16 @@
 #include "Tag.hpp"
 
 enum TrackType { STRAIGHT, CURVED, SWITCH, BUMPER, CROSS };
-// todo make a clear track function?
 
-// TODO add to string functions for everything (make this into a better
-// structured class too)
-
+// TODO make it so there is only Straight, Curved, and bumper then when creating
+// things like a switch or cross you just combine the concepts into one (do
+// before auto driving)
 class Track {
  public:
   Track() = default;
-  Track(JsonObject obj, bool& success) {
+  Track(JsonObject obj, bool& success) { fromJson(success, obj); }
+
+  void fromJson(bool& success, JsonObject& obj) {
     // ============================================================
     // Validate input
     // ============================================================
@@ -81,7 +82,8 @@ class Track {
         // connectedUid.fromString(connectedTagUid);
         // Serial.print("pointasdfasasdfsadf");
         // Serial.println(Point(point).toString());
-        tags.emplace_back((const char*)tagObj["tag"]);
+        bool success;
+        tags.emplace_back(success, tagObj);
         // --------------------------------------------------------
         // Parse corresponding UID
         // --------------------------------------------------------
@@ -234,10 +236,9 @@ class Track {
     JsonArray tagsArray = obj["tags"].to<JsonArray>();
 
     for (int i = 0; i < tags.size(); i++) {
-      addTagJson(tagsArray, ("tag" + std::to_string(i)).c_str(), tags[i]);
+      JsonObject obj = tagsArray.add<JsonObject>();
+      tags[i].toJson(obj);
     }
-    // Serial.println("=== trackToJson ===");
-    // serializeJsonPretty(obj, Serial);
   }
   /**
    * Prints the entire track structure to Serial using Pretty JSON formatting.
@@ -324,6 +325,9 @@ class Track {
 
   void setCurveOrStraightPose(Tag& entranceTag, Tag& exitTag, float length_,
                               float radius_) {
+    entranceTag.addInternalConnectedTagUid(exitTag.getUid());
+    exitTag.addInternalConnectedTagUid(entranceTag.getUid());
+    ;
     if (radius_ == 0.0f) {
       entranceTag.setPoint(Point(0.0f, 0.0f, 180.0f));
       exitTag.setPoint(Point(length_, 0.0f, 0.0f));
@@ -344,12 +348,6 @@ class Track {
     }
     const float centerHeading = (entranceTag.getPoint().getHeading() - 180) +
                                 (direction ? -90.0f : 90.0f);
-    Serial.print("turn ");
-    Serial.print(turn);
-    Serial.print(" centerHeading ");
-    Serial.print(centerHeading);
-    Serial.print(" entranceTag.getPoint().getHeading() ");
-    Serial.println(entranceTag.getPoint().getHeading());
 
     Point center = entranceTag.getPoint();
 
@@ -383,12 +381,18 @@ class Track {
         setCurveOrStraightPose(tags[0], tags[1], length, radius);
 
         setCurveOrStraightPose(tags[2], tags[3], branchLength, branchRadius);
-
+        tags[0].addInternalConnectedTagUid(tags[2].getUid());
+        tags[2].addInternalConnectedTagUid(tags[0].getUid());
         break;
 
       case CROSS: {
         setCurveOrStraightPose(tags[0], tags[1], length, radius);
-        setCurveOrStraightPose(tags[2], tags[3], branchLength, branchRadius);
+        setCurveOrStraightPose(tags[2], tags[3], branchLength, 0);
+
+        Serial.print("branchLength ");
+        Serial.print(branchLength);
+        Serial.print(" branchRadius ");
+        Serial.println(branchRadius);
 
         Point entrance = tags[0].getPoint();
         Point exit = tags[1].getPoint();
@@ -397,8 +401,8 @@ class Track {
                            (entrance.getY() + exit.getY()) / 2.0f,
                            entrance.getHeading());
 
-        tags[2].getPoint().rotatePoint(branchAngle, halfwayPoint);
-        tags[3].getPoint().rotatePoint(-branchAngle, halfwayPoint);
+        tags[2].getPoint().rotatePoint(30, halfwayPoint);
+        tags[3].getPoint().rotatePoint(30, halfwayPoint);
 
         break;
       }
@@ -407,22 +411,6 @@ class Track {
         Serial.println("wrong type");
         break;
     }
-  }
-  void addTagJson(JsonArray& array, const char* name, Tag& tag) {
-    JsonObject obj = array.add<JsonObject>();
-    obj["tag"] = tag.toString();
-    // obj["name"] = name;
-
-    // // Uid now knows its own length.
-    // obj["uid"] = tag.getUid().toString();
-
-    // // Store whether the UID is valid.
-    // obj["valid"] = tag.getUid().isValid();
-
-    // Uid emptyUid;
-    // obj["connectedTagUid"] = tag.getConnectedTagUid().toString();
-
-    // obj["point"] = tag.getPoint().toString();
   }
 
   // TOdo might want to have these included as offset values in points?
@@ -446,6 +434,7 @@ class Track {
    */
 
   //  todo remove direction just use an angle measure?
+
   bool direction = false;
 
   bool positioned = false;

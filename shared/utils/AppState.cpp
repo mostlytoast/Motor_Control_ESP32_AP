@@ -133,3 +133,13 @@ String AppState::getStatusLabelText() { return statusLabelText; }
 void AppState::setStatusLabelText(String statusLabelText_) {
   statusLabelText = statusLabelText_;
 }
+
+Uid AppState::getDestinationUid() { return destinationUid; };
+void AppState::setDestinationUid(Uid destinationUid_) {
+  destinationUid = destinationUid_;
+};
+
+Uid AppState::getCurrentUid() { return currentUid; };
+void AppState::setCurrentUid(Uid currentUid_) {
+  currentUid = currentUid_;
+};

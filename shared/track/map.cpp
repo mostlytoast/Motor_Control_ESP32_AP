@@ -71,6 +71,7 @@ Track* TrackMap::createTrack(TrackType type, float length, float radius,
                              Uid exitBUid, bool dontAdd,
                              Uid connectEntranceAUid, Uid connectExitAUid,
                              Uid connectEntranceBUid, Uid connectExitBUid) {
+  // cleanup call structure for this function
   Track track = Track(type, length, radius, branchAngle, branchRadius,
                       branchLength, direction, entranceAUid, exitAUid,
                       entranceBUid, exitBUid, dontAdd, connectEntranceAUid,
@@ -130,6 +131,8 @@ bool TrackMap::connectTags(Tag* a, Tag* b) {
 
   return true;
 }
+
+const std::vector<Track>& TrackMap::getTracks() const { return tracks; }
 // ============================================================
 // GET TRACK
 // ============================================================

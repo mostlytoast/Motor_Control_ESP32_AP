@@ -252,6 +252,7 @@ bool JsonAssembler::jsonFragmentToJson(const uint8_t* sourceMac,
       doc["type"].as<uint8_t>() != assembly.type) {
     doc.clear();
     clearJsonReassembly(index);
+    // todo shouldnt this be false?
     return true;
   }
 

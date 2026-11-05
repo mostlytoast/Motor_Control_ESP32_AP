@@ -8,8 +8,7 @@
 // CONSTRUCTOR
 // ============================================================================
 
-TrackScanner::TrackScanner(TrackMap& map) : trackMap(map) {
-
+TrackScanner::TrackScanner(TrackMap& map) : trackMap(map), pathFinder(map) {
   app.setScannerMode(REGISTER_TRACKS);
 
   firstTagUid.clear();
@@ -29,9 +28,10 @@ void TrackScanner::begin() {
   float length = (diameter * M_PI) / 8;
   Uid emptyUid;
 
-  app.setTemplateTrack(trackMap.createTrack(CURVED, length, diameter / 2, 0, 0, 0, true, emptyUid,
-                       emptyUid, emptyUid, emptyUid, false));
-                       
+  app.setTemplateTrack(trackMap.createTrack(CURVED, length, diameter / 2, 0, 0,
+                                            0, true, emptyUid, emptyUid,
+                                            emptyUid, emptyUid, false));
+
   app.setScannerMode(REGISTER_TRACKS);
 
   firstTagUid.clear();
@@ -56,6 +56,7 @@ void TrackScanner::begin() {
   Serial.println();
 
   nfc.setupNFC();
+  TrackPathFinder pathFinder(trackMap);
 }
 
 // ============================================================================
@@ -81,30 +82,113 @@ void TrackScanner::processScans() {
     Serial.println("Invalid UID.");
     return;
   }
+  // has found a uid dont know if it got the jason tho
+  if (app.getScannerMode() != PATH_FINDING || app.getScannerMode() != NORMAL) {
+    app.setRampTime(0);
+    app.setTargetSpeed(0);
+  }
+  trackLocation(uid, tagJson);
 
   if (app.getScannerMode() == REGISTER_TRACKS &&
       nfcReadResults != NFC_READ_DUPLICATE) {
     Serial.println("registering track");
 
     registerScannedTracks(uid, templateTrack);
+    app.setTargetSpeed(app.getUserSpeed());
 
     return;
   }
 
   if (app.getScannerMode() == WRITING_TRACKS) {
     writeTag(uid, tagJson);
-
+    app.setTargetSpeed(app.getUserSpeed());
     return;
   }
 
   if (app.getScannerMode() == SCANNING_TRACKS &&
       nfcReadResults == NFC_READ_SUCCESS) {
     addTrack(uid, tagJson);
+    app.setTargetSpeed(app.getUserSpeed());
 
     return;
   }
+
+  if (app.getScannerMode() == PATH_FINDING) {
+    pathFind(uid, tagJson);
+  }
 }
 
+void TrackScanner::pathFind(const Uid& uid, JsonObject& jsonTag) {
+  Uid startUid;
+  Uid destinationUid = app.getDestinationUid();
+  bool uidIsForward = false;
+  if (!forwardsUid.isValid() || !backwardsUid.isValid()) {
+    return;
+  }
+  if (forwardsUid.isValid() && !backwardsUid.isValid()) {
+    uidIsForward = true;
+    startUid = forwardsUid;
+  } else if (backwardsUid.isValid()) {
+    uidIsForward = false;
+    startUid = backwardsUid;
+  }
+
+  std::vector<Uid> path;
+
+  int setSpeed = app.getUserSpeed();
+  if (pathFinder.findPath(startUid, destinationUid, path)) {
+    if (forwardsUid.isValid() && path[0].equals(forwardsUid) && uidIsForward) {
+      // go forward
+
+      app.setTargetSpeed(setSpeed);
+    } else if (forwardsUid.isValid() && path[0].equals(forwardsUid) &&
+               !uidIsForward) {
+      // go backwards
+      app.setTargetSpeed(-setSpeed);
+    } else if (backwardsUid.isValid() && path[0].equals(backwardsUid) &&
+               uidIsForward) {
+      // go forwards
+      app.setTargetSpeed(setSpeed);
+
+    } else if (backwardsUid.isValid() && path[0].equals(backwardsUid) &&
+               !uidIsForward) {
+      // go backwards
+      app.setTargetSpeed(-setSpeed);
+    }
+    Serial.println("Path found:");
+
+    for (const Uid& uid : path) {
+      Serial.println(uid.toString());
+    }
+
+  } else {
+    Serial.println("No path exists.");
+  }
+  // TODO write these functions
+  // if we have a destination tag app.getDestinationUid() then we calculate
+  // the path using PathFinder and use location data to decide if we should
+  // move forwards or backwards
+}
+void TrackScanner::trackLocation(const Uid& uid, JsonObject& jsonTag) {
+  app.setCurrentUid(uid);
+  if (app.getCurrentSpeed() > 0) {
+    // going forwards
+    backwardsUid = uid;
+    if (forwardsUid.equals(backwardsUid)) {
+      forwardsUid = Uid();
+    }
+  } else {
+    forwardsUid = uid;
+    if (backwardsUid.equals(forwardsUid)) {
+      backwardsUid = Uid();
+    }
+  }
+  // TODO write these functions
+  // reads current tag and uses that to set our current scanned uid used for
+  // locating need to determine what direction the train is facing can do that
+  // with a forward and backward uid tag that records what tag was in front and
+  // behind based on what was scanned and how train moved
+}
 // ============================================================================
 // WRITE TAG
 // ============================================================================

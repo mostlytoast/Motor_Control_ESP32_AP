@@ -1,7 +1,5 @@
 #include "LvTrackMap.h"
 
-
-
 namespace {
 
 constexpr float PI_F = 3.14159265358979323846f;
@@ -96,6 +94,7 @@ void addTrack(TrackMap* map, TrackType type, float length, float radius,
   pastUid = exitAUid;
   hasPastUid = true;
 }
+
 void LvTrackMap::setTrackMap(TrackMap* map) {
   if (!map) return;
 
@@ -131,8 +130,8 @@ void LvTrackMap::setTrackMap(TrackMap* map) {
   map_->createTrack(SWITCH, 10, 0, 0, 10, 10, true, entrance2, exit2,
                     entrance2B, exit2B);
 
-  map_->createTrack(CROSS, 10, 0, 10, 0, 10, true, entrance3, exit3, emptyUid,
-                    emptyUid);
+  map_->createTrack(CROSS, 10, 0, 10, 10, 0, true, entrance3, exit3, entrance3,
+                    exit3);
 
   // Connect tracks after they have all been created.
   // JsonDocument doc;
@@ -153,6 +152,23 @@ void LvTrackMap::setTrackMap(TrackMap* map) {
   // Position the map.
   map_->calculateMap();
 
+  TrackPathFinder pathFinder(*map_);
+
+  std::vector<Uid> path;
+
+  Uid startUid = entrance0;
+  Uid destinationUid = entrance3;
+
+  if (pathFinder.findPath(startUid, destinationUid, path)) {
+    Serial.println("Path found:");
+
+    for (const Uid& uid : path) {
+      Serial.println(uid.toString());
+    }
+
+  } else {
+    Serial.println("No path exists.");
+  }
   // JsonDocument doc1;
   // map_->mapToJson(doc1);
   // serializeJsonPretty(doc1, Serial);

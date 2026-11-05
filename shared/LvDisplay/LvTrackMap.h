@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "../track/PathFinder.h"
 #include "../track/map.h"
 
 /*

@@ -31,6 +31,8 @@ void delay(unsigned long ms);
 // Minimal Arduino String compatibility
 class String {
  public:
+  String(float value, unsigned char decimalPlaces = 2);
+  String(double value, unsigned char decimalPlaces = 2);
   String() = default;
   String(const char* value) : value_(value ? value : "") {}
   String(const std::string& value) : value_(value) {}

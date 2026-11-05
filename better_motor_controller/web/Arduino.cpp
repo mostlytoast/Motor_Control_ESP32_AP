@@ -1,5 +1,7 @@
 #include "Arduino.h"
 
+#include <stdio.h>
+
 #include <algorithm>
 #include <cctype>
 #include <cstdarg>
@@ -61,6 +63,17 @@ std::string signedNumberToBase(T value, unsigned int base) {
 // String numeric/base constructors
 // -----------------------------------------------------------------------------
 
+String::String(float value, unsigned char decimalPlaces) {
+  char buffer[64];
+  snprintf(buffer, sizeof(buffer), "%.*f", decimalPlaces, value);
+  *this = buffer;
+}
+
+String::String(double value, unsigned char decimalPlaces) {
+  char buffer[64];
+  snprintf(buffer, sizeof(buffer), "%.*f", decimalPlaces, value);
+  *this = buffer;
+}
 String::String(unsigned char value, unsigned char base)
     : value_(numberToBase(value, base)) {}
 

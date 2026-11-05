@@ -32,6 +32,7 @@ class TrackMap {
   void calculateMap();
 
   bool connectTags(Tag* a, Tag* b);
+  const std::vector<Track>& getTracks() const;
 
   Track* getTrack(uint8_t index);
 
