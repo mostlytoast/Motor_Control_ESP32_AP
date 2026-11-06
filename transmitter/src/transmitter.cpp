@@ -13,7 +13,7 @@ void setup() {
   Serial.println();
 
   Serial.println("ESP32 CYD Multi-Receiver Motor Controller");
-  setupDisplay();
+  display.setupDisplay();
 }
 
 // =====================================================
@@ -31,5 +31,5 @@ void loop() {
   //  UIRefresh();
   // }
 
-  UIRefresh();
+  display.UIRefresh();
 }

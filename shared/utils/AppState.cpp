@@ -140,6 +140,4 @@ void AppState::setDestinationUid(Uid destinationUid_) {
 };
 
 Uid AppState::getCurrentUid() { return currentUid; };
-void AppState::setCurrentUid(Uid currentUid_) {
-  currentUid = currentUid_;
-};
+void AppState::setCurrentUid(Uid currentUid_) { currentUid = currentUid_; };

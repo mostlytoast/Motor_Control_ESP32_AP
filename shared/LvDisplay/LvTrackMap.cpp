@@ -45,6 +45,9 @@ LvTrackMap::LvTrackMap(lv_obj_t* parent) {
 
   installCallbacks();
 
+  hide_button_ = display_.createActionButton(
+      root_, "Hide", 110, 27, 100, 25, [this]() { toggle(); }, kColorForward);
+  lv_obj_set_hidden(root_, true);
   Serial.println("LvTrackMap constructor finished");
 }
 LvTrackMap::~LvTrackMap() { root_ = nullptr; }
@@ -907,5 +910,18 @@ void LvTrackMap::resetButtonEvent(lv_event_t* e) {
 
   if (map) {
     map->resetView();
+  }
+}
+
+void LvTrackMap::toggle() {
+  Serial.print("call toggle");
+
+  if (lv_obj_is_hidden(root_)) {
+    lv_obj_set_hidden(root_, false);
+    lv_obj_move_foreground(root_);
+    Serial.print("show");
+  } else {
+    lv_obj_set_hidden(root_, true);
+    Serial.print("hide");
   }
 }

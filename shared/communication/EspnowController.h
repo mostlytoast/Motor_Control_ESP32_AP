@@ -22,9 +22,9 @@
 
 // ESP-NOW TIMING
 #define HEARTBEAT_INTERVAL 350
-#define DISCOVERY_INTERVAL 1000
+#define DISCOVERY_INTERVAL 2000
 #define DISCOVERY_TIMEOUT 5000
-#define MAX_RECEIVERS 8
+#define MAX_RECEIVERS 5
 
 // =====================================================
 // RECEIVER STATE

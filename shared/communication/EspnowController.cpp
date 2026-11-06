@@ -436,7 +436,7 @@ bool EspnowController::addOrUpdateReceiver(const DiscoveryPacket* packet) {
   receiverPeer.setRole(PeerRole::RECEIVER);
   receiverPeer.setState(PeerState::DISCOVERED);
 
-
+    // TODO need way to clear out old receivers 
   Serial.print("DISCOVERED RECEIVER: ");
   Serial.print(receiverPeer.getName());
   Serial.print(" / ");
@@ -672,6 +672,10 @@ bool EspnowController::sendJsonDocument(const Peer* peer, JsonDocument& doc) {
       memcpy(&header, packet, sizeof(header));
 
       // Send or process the packet here
+      if (JSON_FRAGMENT_PACKET_SIZE > ESPNOW_EVENT_DATA_MAX){
+        Serial.print("JSON fragment send failed: JSON_FRAGMENT_PACKET_SIZE > ESPNOW_EVENT_DATA_MAX ");
+        return false;  
+      }
       esp_err_t result =
           esp_now_send(destination, packet, JSON_FRAGMENT_PACKET_SIZE);
       if (result != ESP_OK) {

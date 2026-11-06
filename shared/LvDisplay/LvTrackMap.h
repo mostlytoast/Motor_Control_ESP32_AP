@@ -7,6 +7,8 @@
 
 #include "../track/PathFinder.h"
 #include "../track/map.h"
+#include "SharedDisplayCalls.h"
+#include "../SharedConfig.h"
 
 /*
  * LVGL renderer for the application's TrackMap.
@@ -76,7 +78,8 @@ class LvTrackMap {
   static void refreshButtonEvent(lv_event_t* e);
   static void resetButtonEvent(lv_event_t* e);
 
- private:
+  void toggle();
+
  private:
   bool transformDirty_ = true;
 
@@ -94,6 +97,7 @@ class LvTrackMap {
     float offsetY = 0.0f;
   };
 
+  lv_obj_t* hide_button_ = nullptr;
   lv_obj_t* root_ = nullptr;
 
   Config config_;
@@ -104,6 +108,9 @@ class LvTrackMap {
   Transform transform_;
 
   void installCallbacks();
+
+  SharedDisplayCalls display_;
+
 
   static void drawEvent(lv_event_t* e);
 

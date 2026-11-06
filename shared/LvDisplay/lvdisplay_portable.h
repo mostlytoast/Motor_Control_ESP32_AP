@@ -4,12 +4,17 @@
 #include <lvgl.h>
 
 #include <cstdint>
+#include <cstdio>
 #include <memory>
 #include <vector>
 
+#include "../SharedConfig.h"
 #include "../communication/packets.h"
+#include "../track/map.h"
 #include "../utils/StateJson.h"
 #include "LvTrackMap.h"
+#include "SharedDisplayCalls.h"
+#include "TrackScanningDisplay.h"
 // ============================================================
 // Portable display dimensions
 // ============================================================
@@ -38,14 +43,16 @@ enum class LvDisplayAction {
   Audio
 };
 
+// struct LvDisplayState {
+//   int motorSpeed = 0;
+//   int rampSetting = 0;
+//   bool led1State = false;
+//   bool led2State = false;
+//   bool autoState = false;
+//   bool audioState = false;
+// };
+
 class LvDisplayController;
-
-struct ButtonBinding {
-  LvDisplayAction action;
-  LvDisplayController* controller;
-};
-
-using ButtonBindingPtr = std::unique_ptr<ButtonBinding>;
 
 class LvDisplayController {
  public:
@@ -56,13 +63,7 @@ class LvDisplayController {
   void init(lv_obj_t* screen);
   void refresh();
 
-  void setMotorSpeed(int value);
-  void setRampSetting(int value);
-  void setLed1(bool enabled);
-  void setLed2(bool enabled);
-  void setAuto(bool enabled);
-  void setAudio(bool enabled);
-
+  // const LvDisplayState& state() const { return state_; }
   lv_obj_t* speedLabel() const { return speedLabel_; }
   lv_obj_t* rampLabel() const { return rampLabel_; }
   lv_obj_t* statusLabel() const { return statusLabel_; }
@@ -85,25 +86,25 @@ class LvDisplayController {
 
   void getStateFromJsonDisplay(const char* json);
 
+  // void sendStateJson();
+
   // --------------------------------------------------------
   // Access current state
   // --------------------------------------------------------
 
+  // const LvDisplayState& getState() const { return state_; }
   void toggleTrackMap();
   void applyStateToUi();
 
  private:
-  void setButtonState(lv_obj_t* button, bool state);
+  SharedDisplayCalls display_;
   void updateSpeedLabel();
   void updateRampLabel();
   void updateStatusLabel();
 
   void buttonEventHandler(lv_event_t* event);
 
-  lv_obj_t* createActionButton(lv_obj_t* parent, const char* text, int x, int y,
-                               int width, int height, LvDisplayAction action,
-                               uint32_t normalColor);
-
+  void sendStateToReceiver();
   ILvDisplayHost* host_ = nullptr;
   lv_obj_t* screen_ = nullptr;
 
@@ -122,12 +123,15 @@ class LvDisplayController {
   lv_obj_t* autoButton_ = nullptr;
   lv_obj_t* audioButton_ = nullptr;
   lv_obj_t* mapButton_ = nullptr;
+  lv_obj_t* trackScannerButton  = nullptr;
+
   lv_obj_t* trackMapContainer_ = nullptr;
   LvTrackMap* trackMapDisplay_ = nullptr;
+  lv_obj_t* trackScanningContainer_ = nullptr;
+  TrackScanningDisplay* trackScanningDisplay_ = nullptr;
 
   bool mapVisible_ = false;
   // todo use app state instead
-  std::vector<ButtonBindingPtr> bindings_;
 };
 
 #endif

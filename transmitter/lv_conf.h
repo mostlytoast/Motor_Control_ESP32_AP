@@ -25,7 +25,7 @@
 #define LV_USE_MSGBOX 0
 #define LV_USE_SPINNER 0
 #define LV_USE_ARC 0
-#define LV_USE_DROPDOWN 0
+#define LV_USE_DROPDOWN 1
 #define LV_USE_CANVAS 0
 #define LV_USE_IMAGEBUTTON 0
 #define LV_USE_KEYBOARD 0
@@ -40,7 +40,6 @@
 #define LV_USE_WHEEL 0
 #define LV_USE_CHART 0
 #define LV_USE_CALENDAR 0
-#define LV_USE_MENU 0
 #define LV_USE_COLORWHEEL 0
 #define LV_USE_METER 0
 #define LV_USE_GRID 1
@@ -76,4 +75,6 @@
 #define LV_USE_DRAW_G2D 0
 #define LV_USE_G2D 0
 #define LV_USE_DRAW_SW 1
+#define LV_USE_MENU 0
+
 #endif

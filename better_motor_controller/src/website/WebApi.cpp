@@ -116,7 +116,7 @@ void registerStateRoutes() {
 
           return;
         }
-        Serial.println("state change pls work");
+
         getStateFromJson(doc);
 
         // ----------------------------------------------------

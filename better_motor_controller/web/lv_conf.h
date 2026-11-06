@@ -25,5 +25,9 @@
 #define LV_USE_DRAW_G2D 0
 #define LV_USE_G2D 0
 #define LV_USE_DRAW_SW 1
+#define LV_USE_MENU 0
+
+#define LV_USE_LIST 0
+#define LV_USE_DROPDOWN 1
 
 #endif
