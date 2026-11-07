@@ -7,8 +7,16 @@
 #include "../utils/uidLogic.h"
 class Tag {
  public:
+  Tag() {}
+
   Tag(const char* tagString) { fromString(tagString); }
-  Tag(bool& success, JsonDocument doc) { fromJson(success, doc); }
+  Tag(bool& success, JsonDocument doc, bool condensedJson = false) {
+    if (condensedJson) {
+      fromCondensedJson(success, doc);
+    } else {
+      fromJson(success, doc);
+    }
+  }
 
   Tag(Uid uid_, Uid connectedTagUid_, Point point_,
       std::vector<Uid> internalConnectedTagUids_ = {}) {
@@ -59,20 +67,20 @@ class Tag {
 
     const char* uidString = doc["uid"].as<const char*>();
 
-    const char* connectedTagUid = doc["connectedTagUid"].as<const char*>();
+    const char* connectedTagUidString =
+        doc["connectedTagUid"].as<const char*>();
 
-    const char* point = doc["point"].as<const char*>();
+    const char* pointString = doc["point"].as<const char*>();
 
-    JsonArray array = doc["internalConnectedTagUids"].as<JsonArray>();
     if (uidString == nullptr) {
       uidString = "";
     }
-    Uid uid;
+
     uid.fromString(uidString);
-    Uid connectedUid;
-    connectedUid.fromString(connectedTagUid);
-    Serial.print("pointasdfasasdfsadf");
-    Serial.println(Point(point).toString());
+    connectedTagUid.fromString(connectedTagUidString);
+    point.fromString(pointString);
+    JsonArray array = doc["internalConnectedTagUids"].as<JsonArray>();
+
     for (const char* internalTagUidString : array) {
       internalConnectedTagUids.emplace_back(internalTagUidString);
     }
@@ -91,7 +99,38 @@ class Tag {
     for (int i = 0; i < internalConnectedTagUids.size(); i++) {
       JsonObject array = connectionArray.add<JsonObject>();
 
-      array[("tag" + std::to_string(i)).c_str()] =
+      array[(std::to_string(i)).c_str()] =
+          internalConnectedTagUids[i].toString();
+    }
+  }
+  void fromCondensedJson(bool& success, JsonDocument& doc) {
+    success = false;
+
+    const char* uidString = doc["uid"].as<const char*>();
+
+    if (uidString == nullptr) {
+      uidString = "";
+    }
+
+    uid.fromString(uidString);
+    JsonArray array = doc["internalConnectedTagUids"].as<JsonArray>();
+    for (const char* internalTagUidString : array) {
+      internalConnectedTagUids.emplace_back(internalTagUidString);
+    }
+    success = true;
+  }
+  void toCondensedJson(JsonObject& obj) {
+    if (obj.isNull()) {
+      return;
+    }
+
+    obj["uid"] = uid.toString();
+    JsonArray connectionArray = obj["internalConnectedTagUids"].to<JsonArray>();
+
+    for (int i = 0; i < internalConnectedTagUids.size(); i++) {
+      JsonObject array = connectionArray.add<JsonObject>();
+
+      array[(std::to_string(i)).c_str()] =
           internalConnectedTagUids[i].toString();
     }
   }

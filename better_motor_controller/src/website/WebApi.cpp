@@ -117,7 +117,7 @@ void registerStateRoutes() {
           return;
         }
 
-        getStateFromJson(doc);
+        getStateFromCondensedJson(doc);
 
         // ----------------------------------------------------
         // Return the actual state after applying the request.
@@ -134,7 +134,7 @@ void registerStateRoutes() {
 String getStateJSON() {
   // notifyLocalStateChanged();
   JsonDocument outputDoc;
-  getJsonFromState(outputDoc);
+  getCondensedJsonFromState(outputDoc);
   String outputString;
   serializeJson(outputDoc, outputString);
   // Serial.print("new state");

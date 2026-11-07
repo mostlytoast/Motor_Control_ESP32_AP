@@ -19,8 +19,13 @@ enum TrackType { STRAIGHT, CURVED, SWITCH, BUMPER, CROSS };
 class Track {
  public:
   Track() = default;
-  Track(JsonObject obj, bool& success) { fromJson(success, obj); }
-
+  Track(bool& success, JsonObject doc, bool condensedJson = false) {
+    if (condensedJson) {
+      fromCondensedJson(success, doc);
+    } else {
+      fromJson(success, doc);
+    }
+  }
   void fromJson(bool& success, JsonObject& obj) {
     // ============================================================
     // Validate input
@@ -52,52 +57,71 @@ class Track {
     // Track type
     // ============================================================
 
-    const char* type = obj["type"].as<const char*>();
-
-    if (stringToTrackType(type, trackType)) return;
-
+    trackType = obj["t"].as<TrackType>();
     // ============================================================
     // UID objects
     // ============================================================
-    std::vector<Uid> Uids;
-    std::vector<Uid> connectedUids;
 
     JsonArray tagsArray = obj["tags"].as<JsonArray>();
 
     if (!tagsArray.isNull()) {
       for (JsonObject tagObj : tagsArray) {
-        // // move logic into tags?
-        // const char* uidString = tagObj["uid"].as<const char*>();
-
-        // const char* connectedTagUid =
-        //     tagObj["connectedTagUid"].as<const char*>();
-
-        // const char* point = tagObj["point"].as<const char*>();
-        // if (uidString == nullptr) {
-        //   uidString = "";
-        // }
-        // Uid uid;
-        // uid.fromString(uidString);
-        // Uid connectedUid;
-        // connectedUid.fromString(connectedTagUid);
-        // Serial.print("pointasdfasasdfsadf");
-        // Serial.println(Point(point).toString());
         bool success;
         tags.emplace_back(success, tagObj);
-        // --------------------------------------------------------
-        // Parse corresponding UID
-        // --------------------------------------------------------
       }
     }
 
-    // ============================================================
-    // CREATE TRACK
-    // ============================================================
     // todo might need to find way to add back in pose and position marker
     // settings?  dont want stateJson to call calculateMap?
     setTagPositions();
 
     success = true;
+  }
+
+  void toJson(JsonObject& obj) {
+    if (obj.isNull()) {
+      Serial.println("jsonToTrack: JSON object is null");
+
+      return;
+    }
+    obj["length"] = length;
+
+    obj["radius"] = radius;
+
+    obj["direction"] = direction;
+
+    obj["branchAngle"] = branchAngle;
+
+    obj["branchRadius"] = branchRadius;
+
+    obj["branchLength"] = branchLength;
+
+    obj["type"] = trackTypeToString(trackType);
+
+    obj["positioned"] = positioned;
+
+    JsonArray tagsArray = obj["tags"].to<JsonArray>();
+
+    for (int i = 0; i < tags.size(); i++) {
+      JsonObject obj = tagsArray.add<JsonObject>();
+      tags[i].toJson(obj);
+    }
+  }
+  /**
+   * Prints the entire track structure to Serial using Pretty JSON formatting.
+   * Call this using: track.printTrack();
+   */
+  void printTrack() {
+    JsonDocument doc;
+    // Create the object structure
+    JsonObject obj = doc.to<JsonObject>();
+
+    // Fill the object with data
+    toJson(obj);
+
+    // Print to Serial
+    serializeJsonPretty(doc, Serial);
+    Serial.println("--- End of Track ---");
   }
 
   Track(TrackType type, float length, float radius, float branchAngle,
@@ -121,6 +145,82 @@ class Track {
     tags.emplace_back(entranceBUid, connectEntranceBUid, Point());
     tags.emplace_back(exitBUid, connectExitBUid, Point());
     setTagPositions();
+  }
+
+  void fromCondensedJson(bool& success, JsonObject& obj) {
+    // ============================================================
+    // Validate input
+    // ============================================================
+    success = false;
+
+    if (obj.isNull()) {
+      Serial.println("jsonToTrack: JSON object is null");
+      return;
+    }
+
+    length = obj["l"].is<float>() ? obj["l"].as<float>() : 0;
+
+    radius = obj["r"].is<float>() ? obj["r"].as<float>() : 0;
+
+    direction = obj["d"].is<bool>() ? obj["d"].as<bool>() : false;
+
+    branchAngle = obj["a"].is<float>() ? obj["a"].as<float>() : 0;
+
+    branchRadius = obj["h"].is<float>() ? obj["h"].as<float>() : 0;
+
+    branchLength = obj["o"].is<float>() ? obj["o"].as<float>() : 0;
+
+    // ============================================================
+    // Track type
+    // ============================================================
+
+    trackType = obj["t"].as<TrackType>();
+    // ============================================================
+    // UID objects
+    // ============================================================
+
+    JsonArray tagsArray = obj["g"].as<JsonArray>();
+
+    if (!tagsArray.isNull()) {
+      for (JsonObject tagObj : tagsArray) {
+        bool success;
+        tags.emplace_back(success, tagObj, true);
+      }
+    }
+
+    // todo might need to find way to add back in pose and position marker
+    // settings?  dont want stateJson to call calculateMap?
+    setTagPositions();
+
+    success = true;
+  }
+
+  void toCondensedJson(JsonObject& obj) {
+    if (obj.isNull()) {
+      Serial.println("jsonToTrack: JSON object is null");
+
+      return;
+    }
+    obj["l"] = length;
+
+    obj["r"] = radius;
+
+    obj["d"] = direction;
+
+    obj["a"] = branchAngle;
+
+    obj["h"] = branchRadius;
+
+    obj["o"] = branchLength;
+
+    obj["t"] = trackTypeToString(trackType);
+
+    JsonArray tagsArray = obj["g"].to<JsonArray>();
+
+    for (int i = 0; i < tags.size(); i++) {
+      JsonObject obj = tagsArray.add<JsonObject>();
+      tags[i].toCondensedJson(obj);
+    }
   }
 
   void setAngle(float angle_) { angle = angle_; }
@@ -209,52 +309,6 @@ class Track {
       return false;
     }
     return true;
-  }
-
-  void trackToJson(JsonObject& obj) {
-    if (obj.isNull()) {
-      Serial.println("jsonToTrack: JSON object is null");
-
-      return;
-    }
-    obj["length"] = length;
-
-    obj["radius"] = radius;
-
-    obj["direction"] = direction;
-
-    obj["branchAngle"] = branchAngle;
-
-    obj["branchRadius"] = branchRadius;
-
-    obj["branchLength"] = branchLength;
-
-    obj["type"] = trackTypeToString(trackType);
-
-    obj["positioned"] = positioned;
-
-    JsonArray tagsArray = obj["tags"].to<JsonArray>();
-
-    for (int i = 0; i < tags.size(); i++) {
-      JsonObject obj = tagsArray.add<JsonObject>();
-      tags[i].toJson(obj);
-    }
-  }
-  /**
-   * Prints the entire track structure to Serial using Pretty JSON formatting.
-   * Call this using: track.printTrack();
-   */
-  void printTrack() {
-    JsonDocument doc;
-    // Create the object structure
-    JsonObject obj = doc.to<JsonObject>();
-
-    // Fill the object with data
-    trackToJson(obj);
-
-    // Print to Serial
-    serializeJsonPretty(doc, Serial);
-    Serial.println("--- End of Track ---");
   }
 
   /**

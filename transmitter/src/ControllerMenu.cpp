@@ -127,11 +127,11 @@ void ControllerMenu::selectReceiverByMac(const uint8_t* mac) {
 
   if (peer == nullptr) {
     Serial.println("ERROR: Receiver not found");
+    refreshList();
     return;
   }
 
   selectReceiver(peer);
-  toggle();
 }
 
 void ControllerMenu::selectReceiver(Peer* peer) {
@@ -140,6 +140,7 @@ void ControllerMenu::selectReceiver(Peer* peer) {
       return;
     case PEER_ERROR:
       app.setStatusLabelText("PEER ERROR");
+      refreshList();
       return;
     default:
       break;
@@ -149,9 +150,11 @@ void ControllerMenu::selectReceiver(Peer* peer) {
   switch (espnowController.sendPairRequest(peer)) {
     case PAIR_ERROR:
       app.setStatusLabelText("PAIR FAILED");
+      refreshList();
       return;
     case PAIR_SUCCESS:
       app.setStatusLabelText("PAIR SUCCESS");
+      toggle();
       break;
     default:
       break;
@@ -161,13 +164,13 @@ void ControllerMenu::selectReceiver(Peer* peer) {
 void ControllerMenu::updateStatus() {
   if (!status_label) return;
   if (espnowController.hasActiveReceiver()) {
-    lv_label_set_text(status_label, "No Receiver");
+    app.setStatusLabelText("No Receiver");
   } else {
     Peer* peer = espnowController.getActiveReceiverPeer();
     if (peer) {
       char text[64];
       snprintf(text, sizeof(text), "CTRL: %s", peer->getName());
-      lv_label_set_text(status_label, text);
+      app.setStatusLabelText(text);
     }
   }
 }

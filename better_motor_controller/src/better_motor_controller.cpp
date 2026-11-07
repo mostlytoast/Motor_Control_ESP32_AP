@@ -88,20 +88,22 @@ void setup() {
 
   setupWifi();
 
-  espnowController.setupESPNow(getJsonFromState, getStateFromJson);
+  if (espnowController.setupESPNow(getCondensedJsonFromState,
+                                   getStateFromCondensedJson)) {
+    app.setStatusLabelText("ESP-NOW ERROR");
+  }
 
   WebServer_begin();
 
   trackScanner.begin();
   Uid emptyUid;
 
-  trackMap.createTrack(CURVED, 10, 10, 0, 0, 0, true, emptyUid, emptyUid,
-                       emptyUid, emptyUid);
-  Serial.print("track count at start ");
-  Serial.println(trackMap.getTrackCount());
+  // trackMap.createTrack(CURVED, 10, 10, 0, 0, 0, true, emptyUid, emptyUid,
+  //                      emptyUid, emptyUid);
+  // Serial.print("track count at start ");
+  // Serial.println(trackMap.getTrackCount());
   trackMap.calculateMap();
 
-    
   audio.setupAudio();
 
   Serial.println("ESP-NOW multi-controller receiver ready");

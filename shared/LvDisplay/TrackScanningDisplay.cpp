@@ -51,15 +51,23 @@ TrackScanningDisplay::~TrackScanningDisplay() { lv_obj_delete(container_); }
 
 void TrackScanningDisplay::registerTracks() {
   app.setScannerMode(REGISTER_TRACKS);
+  Serial.println("set scan mode to REGISTER_TRACKS");
 }
 
-void TrackScanningDisplay::writeTracks() { app.setScannerMode(WRITING_TRACKS); }
+void TrackScanningDisplay::writeTracks() {
+  app.setScannerMode(WRITING_TRACKS);
+  Serial.println("set scan mode toWRITING_TRACKS ");
+}
 
 void TrackScanningDisplay::scanNewLayout() {
   app.setScannerMode(SCANNING_TRACKS);
+  Serial.println("set scan mode to SCANNING_TRACKS");
 }
 
-void TrackScanningDisplay::pathFind() { app.setScannerMode(PATH_FINDING); }
+void TrackScanningDisplay::pathFind() {
+  app.setScannerMode(PATH_FINDING);
+  Serial.println("set scan mode to PATH_FINDING");
+}
 
 void TrackScanningDisplay::toggle() {
   if (lv_obj_is_hidden(container_)) {

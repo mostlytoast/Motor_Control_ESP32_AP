@@ -209,6 +209,7 @@ bool TrackMap::doesTrackExist(Uid uid) { return findTagByUid(uid) != nullptr; }
 
 uint8_t TrackMap::getTrackCount() const { return tracks.size(); }
 
+// TODO remove
 int TrackMap::trackIndex(const Track* track) const {
   if (!track) {
     return -1;
@@ -238,7 +239,7 @@ void TrackMap::mapToJson(JsonDocument& doc) {
     if (track.getInclude()) {
       obj["id"] = count;
 
-      track.trackToJson(obj);
+      track.toJson(obj);
       count++;
     }
   }
@@ -259,7 +260,46 @@ void TrackMap::JsonToMap(JsonArray doc) {
     } else {
       // Add to the tracks array
       bool success;
-      Track track = Track(doc[i].as<JsonObject>(), success);
+      Track track = Track(success, doc[i].as<JsonObject>());
+      if (success) tracks.emplace_back(track);
+    }
+  }
+  trackMap.calculateMap();
+}
+
+void TrackMap::mapToCondensedJson(JsonDocument& doc) {
+  JsonArray tracksJson = doc["tracks"].to<JsonArray>();
+  int count = 0;
+  for (uint8_t i = 0; i < tracks.size(); i++) {
+    JsonObject obj = tracksJson.add<JsonObject>();
+
+    Track& track = tracks[i];
+
+    if (track.getInclude()) {
+      obj["id"] = count;
+
+      track.toCondensedJson(obj);
+      count++;
+    }
+  }
+}
+
+void TrackMap::condensedJsonToMap(JsonArray doc) {
+  // todo find better way to prevent it creating multiple of same track
+  // if (tracks.size() ==1 ) return;
+  clearMap();
+  if (doc.isNull()) {
+    Serial.println("JsonToMap: no tracks array found");
+    return;
+  }
+
+  for (uint8_t i = 0; i < doc.size(); i++) {
+    if (tracks.size() >= MAX_TRACKS) {
+      continue;
+    } else {
+      // Add to the tracks array
+      bool success;
+      Track track = Track(success, doc[i].as<JsonObject>(), true);
       if (success) tracks.emplace_back(track);
     }
   }

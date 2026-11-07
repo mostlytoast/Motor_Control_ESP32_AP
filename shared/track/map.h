@@ -55,6 +55,9 @@ class TrackMap {
 
   void JsonToMap(JsonArray doc);
 
+  void mapToCondensedJson(JsonDocument& doc);
+  void condensedJsonToMap(JsonArray doc);
+
  private:
   static constexpr uint8_t MAX_TRACKS = 100;
 

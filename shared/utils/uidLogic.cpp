@@ -38,6 +38,37 @@ void Uid::set(const uint8_t* source, uint8_t length) {
 // STRING TO UID
 // ============================================================
 
+// ============================================================
+// GETTERS
+// ============================================================
+
+const uint8_t* Uid::data() const { return uid; }
+
+uint8_t Uid::length() const { return uidLength; }
+
+// ============================================================
+// UID TO STRING
+// ============================================================
+
+String Uid::toString() const {
+  String result;
+
+  for (uint8_t i = 0; i < uidLength; i++) {
+    if (i > 0) {
+      result += ":";
+    }
+
+    if (uid[i] < 0x10) {
+      result += "0";
+    }
+
+    result += String(uid[i], HEX);
+  }
+
+  result.toUpperCase();
+
+  return result;
+}
 bool Uid::fromString(const char* uidString) {
   clear();
 
@@ -97,38 +128,6 @@ bool Uid::fromString(const char* uidString) {
 
 bool Uid::fromString(const String& uidString) {
   return fromString(uidString.c_str());
-}
-
-// ============================================================
-// GETTERS
-// ============================================================
-
-const uint8_t* Uid::data() const { return uid; }
-
-uint8_t Uid::length() const { return uidLength; }
-
-// ============================================================
-// UID TO STRING
-// ============================================================
-
-String Uid::toString() const {
-  String result;
-
-  for (uint8_t i = 0; i < uidLength; i++) {
-    if (i > 0) {
-      result += ":";
-    }
-
-    if (uid[i] < 0x10) {
-      result += "0";
-    }
-
-    result += String(uid[i], HEX);
-  }
-
-  result.toUpperCase();
-
-  return result;
 }
 
 // ============================================================

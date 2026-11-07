@@ -127,12 +127,6 @@ class EspnowController {
   bool addOrUpdateReceiver(const DiscoveryPacket* packet);
   // bool pairWithReceiver(int index);
 
-  bool isPairedController(const uint8_t* mac);
-
-  int findFreeControllerSlot();
-
-  bool pairController(const uint8_t* mac, const char* controllerName);
-
   bool claimPeer(Peer* peer);
   bool isActiveController(const uint8_t* mac);
 
@@ -142,12 +136,8 @@ class EspnowController {
                                    const uint8_t* data, size_t len);
   void processJsonCommand(const uint8_t* sourceMac, JsonDocument& doc);
 
-  // ESP-NOW commands
-  bool sendCommand(uint8_t type, int16_t value);
-
   bool sendServerState(const Peer& peer);
   // Discovery
-  void sendDiscovery();
 
   void processDiscovery();
 
@@ -179,6 +169,8 @@ class EspnowController {
   bool processReceivedControllerBinaryPacket(const uint8_t* mac,
                                              const uint8_t* data, int len);
   void processStateChanges();
+
+  void handleUnkownPacket(const uint8_t* mac, const uint8_t* data, int len);
   // =====================================================
   // LOCAL ESP-NOW STATE
   // =====================================================

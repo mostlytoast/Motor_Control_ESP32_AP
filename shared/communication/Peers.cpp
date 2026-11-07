@@ -52,6 +52,7 @@ void Peers::removePeer(const uint8_t* mac_) {
     std::cout << "removing: " << *peer << "\n";
     peersList.erase(peer);
   }
+  
 }
 
 void Peers::removePeer(Peer* peer_) { removePeer(peer_->getMac()); }

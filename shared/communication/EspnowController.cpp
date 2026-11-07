@@ -217,6 +217,14 @@ void EspnowController::processESPNowEvents() {
       // 4. Unknown packet
       Serial.printf("Unknown ESP-NOW packet from %s ( %d bytes)",
                     macToString(event.mac), event.len);
+      // TODO unpair
+      ESPNowCommand command = {};
+      command.type = CMD_UNPAIR_REQUEST;
+      command.value = 0;
+
+      esp_err_t result =
+          esp_now_send(event.mac, reinterpret_cast<const uint8_t*>(&command),
+                       sizeof(command));
     }
 
     // =================================================
@@ -231,10 +239,18 @@ void EspnowController::processESPNowEvents() {
         Serial.printf("ESP-NOW send failed -> %s", macToString(event.mac));
         // Controller-side receiver
         // Todo put into a controller function
+        app.setStatusLabelText("Fail");
+        Serial.println("peer timed out");
+        std::cout << *peer << "\n";
         peer->setLastSeen(millis());
+        discoveryActive = true;
         if (peer->getIsActivePeerReceiver()) {
           peer->setState(PeerState::TIMED_OUT);
+          // TODO remove peer from list
         }
+
+        peers.removePeer(peer->getMac());
+        esp_now_del_peer(peer->getMac());
       }
 
       // SEND SUCCESS
@@ -249,6 +265,7 @@ void EspnowController::processESPNowEvents() {
 // DISCOVERY UPDATE
 
 void EspnowController::processDiscovery() {
+  if (!discoveryActive) return;
   unsigned long now = millis();
 
   if (now - lastDiscoverySend >= DISCOVERY_INTERVAL) {
@@ -273,6 +290,7 @@ void EspnowController::processDiscovery() {
 // PAIRING MODE TIMEOUT
 
 void EspnowController::ESPNowUpdatePairingMode() {
+  // TODO do i even need this maybe remove 
   if (pairingMode && pairingModeStartedTime != 0 &&
       millis() - pairingModeStartedTime > DEFAULT_PAIRING_WINDOW_MS) {
     pairingMode = false;
@@ -288,6 +306,8 @@ void EspnowController::ESPNowCheckFailsafe() {
     if (millis() - peer.getLastSeen() > ESPNOW_TIMEOUT) {
       Serial.println("ESP-NOW TIMEOUT - MOTOR STOP");
       peers.removePeer(&peer);
+      esp_now_del_peer(peer.getMac());
+      // TODO remove from espnow list
 
       // resetDiscover();
 
@@ -299,53 +319,46 @@ void EspnowController::ESPNowCheckFailsafe() {
       //   // app.setAutoMode(AUTO_IDLE);
 
       // espNowFailsafeActive = true;
+    } else if (peers.getActiveControllerPeers().size() == 0) {
+      resetDiscover();
+      espNowFailsafeActive = true;
     }
   }
-  if (peers.getActiveControllerPeers().size() == 0) {
-    espNowFailsafeActive = true;
-  }
 }
-
 void EspnowController::processStateChanges() {
   // Todo need to fix peers.getActivePeers() and use it here
   for (const Peer& peer : peers.getActivePeers()) {
     sendServerState(peer);
   }
 }
-
 bool EspnowController::sendServerState(const Peer& peer) {
   JsonDocument fullState;
 
   getJsonFromStateCallback(fullState);
-
-  // First call: establish the baseline
-  if (!previousStateUpdated) {
-    previousState = fullState;
-    previousStateUpdated = true;
-    return true;
+  if (fullState.isNull()) {
+    return false;
   }
 
-  // Nothing changed
+  if (!previousStateUpdated) {
+    previousState = fullState;  // Ensure previousState is a JsonDocument type
+    previousStateUpdated = true;
+    return false;  // Return false because nothing was sent yet
+  }
+
   if (previousState == fullState) {
     return false;
   }
 
-  // Something changed, update the baseline
   previousState = fullState;
+  // Serial.println("actually sent state");
+  // fullState["type"] = CMD_SERVER_STATE;
 
-  JsonDocument state;
+  // return sendJsonDocument(&peer, fullState);
 
-  getJsonFromStateCallback(state);
-
-  if (state.isNull()) {
-    return false;
-  }
-  // Todo maybe want to have type in a doc wrapper around the orig json (makes
-  // this more abstract)
-
-  state["type"] = CMD_SERVER_STATE;
-
-  return sendJsonDocument(&peer, state);
+  JsonDocument send;
+  send["data"] = fullState;
+  send["type"] = CMD_SERVER_STATE;
+  return sendJsonDocument(&peer, send);
 }
 
 // PEER MANAGEMENT
@@ -389,7 +402,6 @@ bool EspnowController::addPeer(Peer* peer) {
   peerInfo.channel = storedPeer->getChannel();
   peerInfo.ifidx = WIFI_IF_STA;
   peerInfo.encrypt = false;
-
   esp_err_t result = esp_now_add_peer(&peerInfo);
 
   if (result != ESP_OK && result != ESP_ERR_ESPNOW_EXIST) {
@@ -436,7 +448,7 @@ bool EspnowController::addOrUpdateReceiver(const DiscoveryPacket* packet) {
   receiverPeer.setRole(PeerRole::RECEIVER);
   receiverPeer.setState(PeerState::DISCOVERED);
 
-    // TODO need way to clear out old receivers 
+  // TODO need way to clear out old receivers
   Serial.print("DISCOVERED RECEIVER: ");
   Serial.print(receiverPeer.getName());
   Serial.print(" / ");
@@ -452,55 +464,6 @@ bool EspnowController::addOrUpdateReceiver(const DiscoveryPacket* packet) {
 }
 
 // PAIR CONTROLLER
-
-bool EspnowController::pairController(const uint8_t* mac, const char* name) {
-  // TODO condense to be shorter
-  Serial.println("pairController");
-
-  if (mac == nullptr) {
-    return false;
-  }
-  Peer* peer = peers.findPeer(mac);
-
-  if (peer != nullptr) {
-    Serial.println("already seen");
-
-    peer->setLastSeen(millis());
-    peer->setRole(PeerRole::CONTROLLER);
-
-    peer->setState(PeerState::PAIRED);
-    std::cout << *peer << std::endl;
-
-    if (name != nullptr && name[0] != '\0') {
-      peer->setName(name);
-    }
-
-    addPeer(peer);
-
-    return true;
-  }
-
-  Peer controllerPeer = Peer(mac, WIFI_CHANNEL, name);
-  controllerPeer.setRole(PeerRole::CONTROLLER);
-  controllerPeer.setLastSeen(millis());
-
-  controllerPeer.setState(PeerState::PAIRING);
-
-  if (!addPeer(&controllerPeer)) {
-    controllerPeer.setState(PeerState::TIMED_OUT);
-
-    return false;
-  }
-  controllerPeer.setState(PeerState::PAIRED);
-
-  Serial.print("Controller paired: ");
-
-  std::cout << controllerPeer << std::endl;
-
-  return true;
-}
-
-// CLAIM ACTIVE CONTROLLER
 
 bool EspnowController::claimPeer(Peer* peer) {
   peer->setState(PeerState::ACTIVE);
@@ -664,32 +627,23 @@ bool EspnowController::sendJsonDocument(const Peer* peer, JsonDocument& doc) {
     // TODO use object thats an array of packets
     // Read each packet
     for (size_t i = 0; i < totalChunks; i++) {
-      // Get the current packet
       uint8_t* packet = packets + (i * JSON_FRAGMENT_PACKET_SIZE);
 
-      // Read its header
-      JsonFragmentHeader header;
-      memcpy(&header, packet, sizeof(header));
-
-      // Send or process the packet here
-      if (JSON_FRAGMENT_PACKET_SIZE > ESPNOW_EVENT_DATA_MAX){
-        Serial.print("JSON fragment send failed: JSON_FRAGMENT_PACKET_SIZE > ESPNOW_EVENT_DATA_MAX ");
-        return false;  
-      }
       esp_err_t result =
           esp_now_send(destination, packet, JSON_FRAGMENT_PACKET_SIZE);
+
       if (result != ESP_OK) {
         Serial.print("JSON fragment send failed: ");
+        Serial.print(esp_err_to_name(result));
+        Serial.print("free memory");
+        Serial.println(ESP.getFreeHeap());
 
-        Serial.print(result);
-
-        Serial.print(" / ");
-
-        Serial.println(esp_err_to_name(result));
         free(packets);
-
         return false;
       }
+
+      // Give the ESP-NOW driver time to process the transmission.
+      delay(5);
     }
   }
   free(packets);
@@ -738,6 +692,7 @@ bool EspnowController::processReceivedPeerBinaryPacket(const uint8_t* mac,
       peer->setLastSeen(millis());
     }
     peers.removePeer(peer->getMac());
+    esp_now_del_peer(peer->getMac());
     return true;
   }
 
@@ -747,9 +702,11 @@ bool EspnowController::processReceivedPeerBinaryPacket(const uint8_t* mac,
       peer->setLastSeen(millis());
     }
     if (peer->getState() == PeerState::PAIRED) {
-      claimPeer(peer);
-      sendControllerStatus(peer);
+      discoveryActive = false;
+
       if (peer != nullptr) {
+        claimPeer(peer);
+        sendControllerStatus(peer);
         sendServerState(*peer);
       }
     } else {
@@ -775,7 +732,6 @@ bool EspnowController::sendControllerClaim(Peer* peer) {
     Serial.println("CLAIM: Invalid peer pointer or MAC");
     return false;
   }
-
 
   Serial.print("CLAIM destination MAC: ");
   Serial.println(macToString(peer->getMac()));
@@ -901,10 +857,15 @@ bool EspnowController::processReceivedJsonFragment(const uint8_t* mac,
   uint8_t type = doc["type"].as<uint8_t>();
   if (type == CMD_SERVER_STATE) {
     Peer* peer = peers.findPeer(mac);
-    if (peer != nullptr) {
-      peer->setLastSeen(millis());
+    if (peer == nullptr || !(peer->getState() == PeerState::PAIRED ||
+                             peer->getState() == PeerState::ACTIVE)) {
+      return false;
     }
-    getStateFromJsonCallback(doc);
+    peer->setLastSeen(millis());
+    JsonDocument data = doc["data"];
+    if (!data.isNull()) {
+      getStateFromJsonCallback(data);
+    }
 
   } else {
     Peer* peer = peers.findPeer(mac);

@@ -30,7 +30,7 @@ void TrackScanner::begin() {
 
   app.setTemplateTrack(trackMap.createTrack(CURVED, length, diameter / 2, 0, 0,
                                             0, true, emptyUid, emptyUid,
-                                            emptyUid, emptyUid, false));
+                                            emptyUid, emptyUid, true));
 
   app.setScannerMode(REGISTER_TRACKS);
 
@@ -244,7 +244,7 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
   if (!trackMap.doesTrackExist(uid)) {
     Serial.println("creating track");
     bool success;
-    Track track = Track(jsonTag, success);
+    Track track = Track(success, jsonTag, true);
     if (success) {
       trackMap.addTrack(track);
     }
@@ -350,16 +350,17 @@ void TrackScanner::registerScannedTracks(const Uid& uid, Track* templateTrack) {
   // exit/entrance it selects, like switches or cross. would have to add a list
   // recording unique uids seen and have user scan in certain order
 
-  Uid emptyUid;
+  // Uid emptyUid;
 
-  Track* track = trackMap.createTrack(
-      templateTrack->getTrackType(), templateTrack->getLength(),
-      templateTrack->getRadius(), templateTrack->getBranchAngle(),
-      templateTrack->getBranchRadius(), templateTrack->getBranchLength(),
-      templateTrack->getDirection(), firstTagUid, uid, emptyUid, emptyUid);
+  // Track* track = templateTrack;
+  // trackMap.createTrack(
+  //     templateTrack->getTrackType(), templateTrack->getLength(),
+  //     templateTrack->getRadius(), templateTrack->getBranchAngle(),
+  //     templateTrack->getBranchRadius(), templateTrack->getBranchLength(),
+  //     templateTrack->getDirection(), firstTagUid, uid, emptyUid, emptyUid);
   // todo have tracks cleared after registering
 
-  if (!track) {
+  if (!templateTrack) {
     Serial.println("ERROR: Failed to create track.");
 
     return;
@@ -397,7 +398,7 @@ bool TrackScanner::writeTrackForTag(const Uid& uid, JsonObject& jsonTag) {
     return false;
   }
 
-  track->trackToJson(jsonTag);
+  track->toCondensedJson(jsonTag);
 
   return true;
 }

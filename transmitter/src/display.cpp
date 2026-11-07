@@ -8,15 +8,13 @@
 LvDisplayController* gDisplayController = nullptr;
 Esp32DisplayHost gEsp32DisplayHost;
 void Esp32DisplayHost::sendJson(const char* json) {
-
   if (json == nullptr) {
     return;
   }
   JsonDocument doc;
 
   DeserializationError error = deserializeJson(doc, json);
-  getStateFromJson(doc);
-
+  getStateFromCondensedJson(doc);
 }
 TFT_eSPI tft = TFT_eSPI();
 SPIClass touchscreenSPI = SPIClass(HSPI);
@@ -62,7 +60,8 @@ void Display::setupDisplay() {
 
   createUI();
 
-  if (!espnowController.setupESPNow(getJsonFromState, getStateFromJson, true)) {
+  if (!espnowController.setupESPNow(getCondensedJsonFromState,
+                                    getStateFromCondensedJson, true)) {
     app.setStatusLabelText("ESP-NOW ERROR");
   }
 }
@@ -84,17 +83,15 @@ void Display::createUI() {
       [this]() { controllerMenuInstance->toggle(); }, COLOR_MENU_HEADER);
 
   // Status Label
-  controllerStatus = lv_label_create(screen);
-  lv_label_set_text(controllerStatus, "No Receiver");
-  lv_obj_set_style_text_color(controllerStatus, lv_color_hex(COLOR_STATUS),
-                              LV_PART_MAIN);
-  lv_obj_align(controllerStatus, LV_ALIGN_TOP_RIGHT, -5, 30);
+  // controllerStatus = lv_label_create(screen);
+  // lv_label_set_text(controllerStatus, "No Receiver");
+  // lv_obj_set_style_text_color(controllerStatus, lv_color_hex(COLOR_STATUS),
+  //                             LV_PART_MAIN);
+  // lv_obj_align(controllerStatus, LV_ALIGN_TOP_RIGHT, -5, 30);
 
   // Initialize the Controller Menu component
   controllerMenuInstance = new ControllerMenu(screen);
   controllerMenuInstance->refreshList();
-
- 
 }
 
 void Display::UIRefresh() {
@@ -111,8 +108,6 @@ void Display::UIRefresh() {
   if (sleepTime > 10) sleepTime = 10;
   delay(sleepTime);
 }
-
-
 
 void displayFlush(lv_display_t* display, const lv_area_t* area,
                   uint8_t* px_map) {

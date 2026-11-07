@@ -82,7 +82,7 @@ void LvDisplayController::init(lv_obj_t* screen) {
                             LV_PART_MAIN);
 
   titleLabel_ = lv_label_create(screen_);
-  lv_label_set_text(titleLabel_, "MOTOR CONTROLS V6");
+  lv_label_set_text(titleLabel_, "MOTOR CONTROLS V7");
   lv_obj_set_style_text_color(titleLabel_, lv_color_hex(kColorText),
                               LV_PART_MAIN);
   lv_obj_set_style_text_font(titleLabel_, &lv_font_montserrat_16, LV_PART_MAIN);
@@ -161,6 +161,7 @@ void LvDisplayController::init(lv_obj_t* screen) {
       screen_, "AUTO", 110, 173, 100, 40,
       [this]() {
         app.setAutoState(!app.getAutoState());
+        app.setStatusLabelText("");
         sendStateToReceiver();
       },
       kColorButtonOff);
@@ -220,38 +221,42 @@ void LvDisplayController::updateStatusLabel() {
   if (statusLabel_ == nullptr) {
     return;
   }
-
-  if (app.getAutoState()) {
-    setWidgetText(statusLabel_, "AUTO ON");
+  if (!app.getStatusLabelText().equals("")) {
+    setWidgetText(statusLabel_, app.getStatusLabelText().c_str());
     return;
   }
 
-  if (app.getAudioState()) {
-    setWidgetText(statusLabel_, "AUDIO ON");
-    return;
-  }
+  // if (app.getAutoState()) {
+  //   setWidgetText(statusLabel_, "AUTO ON");
+  //   return;
+  // }
 
-  if (app.getLed1State()) {
-    setWidgetText(statusLabel_, "LED 1 ON");
-    return;
-  }
+  // if (app.getAudioState()) {
+  //   setWidgetText(statusLabel_, "AUDIO ON");
+  //   return;
+  // }
 
-  if (app.getLed2State()) {
-    setWidgetText(statusLabel_, "LED 2 ON");
-    return;
-  }
+  // if (app.getLed1State()) {
+  //   setWidgetText(statusLabel_, "LED 1 ON");
+  //   return;
+  // }
 
-  if (app.getUserSpeed() > 0) {
-    setWidgetText(statusLabel_, "FORWARD");
-    return;
-  }
+  // if (app.getLed2State()) {
+  //   setWidgetText(statusLabel_, "LED 2 ON");
+  //   return;
+  // }
 
-  if (app.getUserSpeed() < 0) {
-    setWidgetText(statusLabel_, "REVERSE");
-    return;
-  }
+  // if (app.getUserSpeed() > 0) {
+  //   setWidgetText(statusLabel_, "FORWARD");
+  //   return;
+  // }
 
-  setWidgetText(statusLabel_, "STOPPED");
+  // if (app.getUserSpeed() < 0) {
+  //   setWidgetText(statusLabel_, "REVERSE");
+  //   return;
+  // }
+
+  // setWidgetText(statusLabel_, "STOPPED");
 }
 
 // TODO check this is working on both sides
@@ -268,18 +273,16 @@ void LvDisplayController::getStateFromJsonDisplay(const char* json) {
     Serial.println(error.c_str());
     return;
   }
-  getStateFromJson(doc);
+  getStateFromCondensedJson(doc);
   // todo check if refeshing too much
   refresh();
 }
 
 void LvDisplayController::sendStateToReceiver() {
   JsonDocument outputDoc;
-  getJsonFromState(outputDoc);
+  getCondensedJsonFromState(outputDoc);
   String outputString;
   serializeJson(outputDoc, outputString);
-  // Serial.println("outputString");
-  // Serial.println(outputString);
   host_->sendJson(outputString.c_str());
 
   applyStateToUi();

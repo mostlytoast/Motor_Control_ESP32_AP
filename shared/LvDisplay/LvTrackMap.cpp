@@ -103,75 +103,74 @@ void LvTrackMap::setTrackMap(TrackMap* map) {
 
   map_ = map;
 
-  // Only do this if this function owns the test map.
-  // map_->clearMap();
 
-  Uid emptyUid;
 
-  Uid entrance0("AA:AA:AA:AA:AA:AA:AA");
-  Uid exit0("BB:BB:BB:BB:BB:BB:AA");
+  // Uid emptyUid;
 
-  Uid entrance1("AA:AA:AA:AA:AA:AA:11");
-  Uid exit1("BB:BB:BB:BB:BB:BB:11");
+  // Uid entrance0("AA:AA:AA:AA:AA:AA:AA");
+  // Uid exit0("BB:BB:BB:BB:BB:BB:AA");
 
-  Uid entrance2("AA:AA:AA:AA:AA:AA:22");
-  Uid exit2("BB:BB:BB:BB:BB:BB:22");
-  Uid entrance2B("AA:AA:AA:AA:AA:BB:22");
-  Uid exit2B("BB:BB:BB:BB:BB:CC:22");
+  // Uid entrance1("AA:AA:AA:AA:AA:AA:11");
+  // Uid exit1("BB:BB:BB:BB:BB:BB:11");
 
-  Uid entrance3("AA:AA:AA:AA:AA:AA:33");
-  Uid exit3("BB:BB:BB:BB:BB:BB:33");
+  // Uid entrance2("AA:AA:AA:AA:AA:AA:22");
+  // Uid exit2("BB:BB:BB:BB:BB:BB:22");
+  // Uid entrance2B("AA:AA:AA:AA:AA:BB:22");
+  // Uid exit2B("BB:BB:BB:BB:BB:CC:22");
 
-  // Create tracks first.
-  map_->createTrack(STRAIGHT, 10, 0, 0, 0, 0, true, entrance0, exit0, emptyUid,
-                    emptyUid);
+  // Uid entrance3("AA:AA:AA:AA:AA:AA:33");
+  // Uid exit3("BB:BB:BB:BB:BB:BB:33");
 
-  map_->createTrack(CURVED, 10, 10, 0, 0, 0, true, entrance1, exit1, emptyUid,
-                    emptyUid);
+  // // Create tracks first.
+  // map_->createTrack(STRAIGHT, 10, 0, 0, 0, 0, true, entrance0, exit0, emptyUid,
+  //                   emptyUid);
 
-  // flipped
-  map_->createTrack(SWITCH, 10, 0, 0, 10, 10, true, entrance2, exit2,
-                    entrance2B, exit2B);
+  // map_->createTrack(CURVED, 10, 10, 0, 0, 0, true, entrance1, exit1, emptyUid,
+  //                   emptyUid);
 
-  map_->createTrack(CROSS, 10, 0, 10, 10, 0, true, entrance3, exit3, entrance3,
-                    exit3);
+  // // flipped
+  // map_->createTrack(SWITCH, 10, 0, 0, 10, 10, true, entrance2, exit2,
+  //                   entrance2B, exit2B);
 
-  // Connect tracks after they have all been created.
-  // JsonDocument doc;
-  // map_->mapToJson(doc);
-  // serializeJsonPretty(doc, Serial);
-  // Serial.println("============= calc ==========");
-  auto connect = [&](const Uid& a, const Uid& b) {
-    Tag* tagA = map_->findTagByUid(a);
-    Tag* tagB = map_->findTagByUid(b);
-    const bool success = map_->connectTags(tagA, tagB);
-  };
+  // map_->createTrack(CROSS, 10, 0, 10, 10, 0, true, entrance3, exit3, entrance3,
+  //                   exit3);
 
-  // Create a continuous chain.
-  connect(entrance1, exit0);
-  connect(exit2, exit1);
-  connect(entrance3, entrance2);
+  // // Connect tracks after they have all been created.
+  // // JsonDocument doc;
+  // // map_->mapToJson(doc);
+  // // serializeJsonPretty(doc, Serial);
+  // // Serial.println("============= calc ==========");
+  // auto connect = [&](const Uid& a, const Uid& b) {
+  //   Tag* tagA = map_->findTagByUid(a);
+  //   Tag* tagB = map_->findTagByUid(b);
+  //   const bool success = map_->connectTags(tagA, tagB);
+  // };
 
-  // Position the map.
-  map_->calculateMap();
+  // // Create a continuous chain.
+  // connect(entrance1, exit0);
+  // connect(exit2, exit1);
+  // connect(entrance3, entrance2);
 
-  TrackPathFinder pathFinder(*map_);
+  // // Position the map.
+  // map_->calculateMap();
 
-  std::vector<Uid> path;
+  // TrackPathFinder pathFinder(*map_);
 
-  Uid startUid = entrance0;
-  Uid destinationUid = entrance3;
+  // std::vector<Uid> path;
 
-  if (pathFinder.findPath(startUid, destinationUid, path)) {
-    Serial.println("Path found:");
+  // Uid startUid = entrance0;
+  // Uid destinationUid = entrance3;
 
-    for (const Uid& uid : path) {
-      Serial.println(uid.toString());
-    }
+  // if (pathFinder.findPath(startUid, destinationUid, path)) {
+  //   Serial.println("Path found:");
 
-  } else {
-    Serial.println("No path exists.");
-  }
+  //   for (const Uid& uid : path) {
+  //     Serial.println(uid.toString());
+  //   }
+
+  // } else {
+  //   Serial.println("No path exists.");
+  // }
   // JsonDocument doc1;
   // map_->mapToJson(doc1);
   // serializeJsonPretty(doc1, Serial);
@@ -665,21 +664,10 @@ void LvTrackMap::drawConnections(lv_layer_t* layer) const {
       if (!otherTag) {
         continue;
       }
-      const Track* otherTrack = map_->findTrackByUid(otherTag->getUid());
-
-      if (!otherTrack || !otherTrack->getPositioned()) {
-        continue;
-      }
-
-      const int otherIndex = map_->trackIndex(otherTrack);
-
-      if (otherIndex < 0) {
-        continue;
-      }
 
       // Connection exists in both directions.
       // Only draw it once.
-      if (i > static_cast<uint8_t>(otherIndex)) {
+      if (!map_->doesTrackExist(otherTag->getUid())) {
         continue;
       }
 
@@ -728,8 +716,8 @@ void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
       break;
   }
 
-  drawTags(layer, track);
-  drawLabel(layer, track, index);
+  // drawTags(layer, track);
+  // drawLabel(layer, track, index);
 }
 
 void LvTrackMap::drawCurveOrStraight(lv_layer_t* layer, const Point entrance,
@@ -914,14 +902,14 @@ void LvTrackMap::resetButtonEvent(lv_event_t* e) {
 }
 
 void LvTrackMap::toggle() {
-  Serial.print("call toggle");
+  // Serial.print("call toggle");
 
   if (lv_obj_is_hidden(root_)) {
     lv_obj_set_hidden(root_, false);
     lv_obj_move_foreground(root_);
-    Serial.print("show");
+    // Serial.print("show");
   } else {
     lv_obj_set_hidden(root_, true);
-    Serial.print("hide");
+    // Serial.print("hide");
   }
 }
