@@ -2,18 +2,12 @@
 
 #include <Arduino.h>
 
-// #include "../SharedConfig.h"
-// #include "../communication/packets.h"
 #include "../track/map.h"
 
-enum AutoMode { AUTO_IDLE, AUTO_MOVING, AUTO_WAITING, AUTO_DEPARTING };
+// TODO all values should have a default state defined here maybe?? and not be
+// immediately overwrite by other code
 
-struct PairedController {
-  bool valid = false;
-  uint8_t mac[6] = {};
-  char name[24] = {};
-  unsigned long lastSeen = 0;
-};
+enum AutoMode { AUTO_IDLE, AUTO_MOVING, AUTO_WAITING, AUTO_DEPARTING };
 
 enum ScannerMode {
   REGISTER_TRACKS,
@@ -49,6 +43,9 @@ class AppState {
   void setScannerMode(ScannerMode mode);
 
   ScannerMode getPreviousScannerMode();
+
+  void setScannerStatusLabelText(String statusLabelText_);
+  String getScannerStatusLabelText();
 
   // Audio mode
 
@@ -119,8 +116,10 @@ class AppState {
   AutoMode autoMode = AUTO_IDLE;
 
   // Scanner
-  ScannerMode scannerMode = SCANNING_TRACKS;
-  ScannerMode previousScanMode = SCANNING_TRACKS;
+  ScannerMode scannerMode = REGISTER_TRACKS;
+  ScannerMode previousScanMode = REGISTER_TRACKS;
+
+  String ScannerStatusLabelText;
 
   // Audio
   bool ambianceAudioMode = false;

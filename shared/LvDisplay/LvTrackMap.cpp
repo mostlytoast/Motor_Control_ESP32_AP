@@ -103,8 +103,6 @@ void LvTrackMap::setTrackMap(TrackMap* map) {
 
   map_ = map;
 
-
-
   // Uid emptyUid;
 
   // Uid entrance0("AA:AA:AA:AA:AA:AA:AA");
@@ -122,17 +120,20 @@ void LvTrackMap::setTrackMap(TrackMap* map) {
   // Uid exit3("BB:BB:BB:BB:BB:BB:33");
 
   // // Create tracks first.
-  // map_->createTrack(STRAIGHT, 10, 0, 0, 0, 0, true, entrance0, exit0, emptyUid,
+  // map_->createTrack(STRAIGHT, 10, 0, 0, 0, 0, true, entrance0, exit0,
+  // emptyUid,
   //                   emptyUid);
 
-  // map_->createTrack(CURVED, 10, 10, 0, 0, 0, true, entrance1, exit1, emptyUid,
+  // map_->createTrack(CURVED, 10, 10, 0, 0, 0, true, entrance1, exit1,
+  // emptyUid,
   //                   emptyUid);
 
   // // flipped
   // map_->createTrack(SWITCH, 10, 0, 0, 10, 10, true, entrance2, exit2,
   //                   entrance2B, exit2B);
 
-  // map_->createTrack(CROSS, 10, 0, 10, 10, 0, true, entrance3, exit3, entrance3,
+  // map_->createTrack(CROSS, 10, 0, 10, 10, 0, true, entrance3, exit3,
+  // entrance3,
   //                   exit3);
 
   // // Connect tracks after they have all been created.
@@ -175,7 +176,6 @@ void LvTrackMap::setTrackMap(TrackMap* map) {
   // map_->mapToJson(doc1);
   // serializeJsonPretty(doc1, Serial);
 
-  transformDirty_ = true;
   refresh();
 }
 void LvTrackMap::clear() {
@@ -186,10 +186,10 @@ void LvTrackMap::clear() {
   refresh();
 }
 
-void LvTrackMap::invalidateMap() {
-  transformDirty_ = true;
-  refresh();
-}
+// void LvTrackMap::invalidateMap() {
+//   transformDirty_ = true;
+//   refresh();
+// }
 
 size_t LvTrackMap::trackCount() const {
   if (!map_) {
@@ -339,10 +339,7 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
   transform_.offsetY = padding + (availableHeight - scaledHeight) * 0.5f;
 }
 
-void LvTrackMap::resetView() {
-  calculateTransform();
-  refresh();
-}
+
 
 LvTrackMap::Point LvTrackMap::worldToMap(Point point) const {
   Point result;
@@ -362,6 +359,10 @@ LvTrackMap::Point LvTrackMap::worldToMap(Point point) const {
 // ============================================================
 
 void LvTrackMap::refresh() {
+
+  transformDirty_ = true;
+  calculateTransform();
+
   if (root_) {
     lv_obj_invalidate(root_);
   }
@@ -877,29 +878,29 @@ void LvTrackMap::drawLabel(lv_layer_t* layer, const Track& track,
 // BUTTON CALLBACKS
 // ============================================================
 
-void LvTrackMap::refreshButtonEvent(lv_event_t* e) {
-  if (!e) {
-    return;
-  }
+// void LvTrackMap::refreshButtonEvent(lv_event_t* e) {
+//   if (!e) {
+//     return;
+//   }
 
-  LvTrackMap* map = static_cast<LvTrackMap*>(lv_event_get_user_data(e));
+//   LvTrackMap* map = static_cast<LvTrackMap*>(lv_event_get_user_data(e));
 
-  if (map) {
-    map->refresh();
-  }
-}
+//   if (map) {
+//     map->refresh();
+//   }
+// }
 
-void LvTrackMap::resetButtonEvent(lv_event_t* e) {
-  if (!e) {
-    return;
-  }
+// void LvTrackMap::resetButtonEvent(lv_event_t* e) {
+//   if (!e) {
+//     return;
+//   }
 
-  LvTrackMap* map = static_cast<LvTrackMap*>(lv_event_get_user_data(e));
+//   LvTrackMap* map = static_cast<LvTrackMap*>(lv_event_get_user_data(e));
 
-  if (map) {
-    map->resetView();
-  }
-}
+//   if (map) {
+//     map->resetView();
+//   }
+// }
 
 void LvTrackMap::toggle() {
   // Serial.print("call toggle");

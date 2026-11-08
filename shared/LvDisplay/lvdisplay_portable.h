@@ -11,6 +11,7 @@
 #include "../SharedConfig.h"
 #include "../communication/packets.h"
 #include "../track/map.h"
+#include "../utils/Math.hpp"
 #include "../utils/StateJson.h"
 #include "LvTrackMap.h"
 #include "SharedDisplayCalls.h"
@@ -59,7 +60,6 @@ class LvDisplayController {
   explicit LvDisplayController(ILvDisplayHost* host);
 
   ~LvDisplayController() = default;
-
   void init(lv_obj_t* screen);
   void refresh();
 
@@ -123,14 +123,13 @@ class LvDisplayController {
   lv_obj_t* autoButton_ = nullptr;
   lv_obj_t* audioButton_ = nullptr;
   lv_obj_t* mapButton_ = nullptr;
-  lv_obj_t* trackScannerButton  = nullptr;
+  lv_obj_t* trackScannerButton = nullptr;
 
   lv_obj_t* trackMapContainer_ = nullptr;
   LvTrackMap* trackMapDisplay_ = nullptr;
   lv_obj_t* trackScanningContainer_ = nullptr;
   TrackScanningDisplay* trackScanningDisplay_ = nullptr;
 
-  bool mapVisible_ = false;
   // todo use app state instead
 };
 

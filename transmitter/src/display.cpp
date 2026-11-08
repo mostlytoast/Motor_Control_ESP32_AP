@@ -78,23 +78,17 @@ void Display::createUI() {
                             LV_PART_MAIN);
 
   // Main Button
-  controllerButton = display_.createActionButton(
-      screen, "CONTROLLERS", 215, 27, 100, 25,
-      [this]() { controllerMenuInstance->toggle(); }, COLOR_MENU_HEADER);
 
-  // Status Label
-  // controllerStatus = lv_label_create(screen);
-  // lv_label_set_text(controllerStatus, "No Receiver");
-  // lv_obj_set_style_text_color(controllerStatus, lv_color_hex(COLOR_STATUS),
-  //                             LV_PART_MAIN);
-  // lv_obj_align(controllerStatus, LV_ALIGN_TOP_RIGHT, -5, 30);
+  controllerButton = display_.createActionButton(
+      screen, "Peers", 215, 27, 100, 25,
+      [this]() { controllerMenuInstance->toggle(); }, COLOR_MENU_HEADER);
 
   // Initialize the Controller Menu component
   controllerMenuInstance = new ControllerMenu(screen);
   controllerMenuInstance->refreshList();
 }
 
-void Display::UIRefresh() {
+void Display::refresh() {
   gDisplayController->refresh();
 
   if (espnowController.getReceiverListNeedsRefresh()) {

@@ -70,91 +70,6 @@ void setMotor(int speed) {
   }
 }
 
-// Automatic stopping / Hall sensor
-
-static unsigned long lastSensorPrint = 0;
-void autoStop() {
-  // // sensorValue = analogRead(HALL_PIN);
-
-  // if (millis() - lastSensorPrint >= 100) {
-  //   lastSensorPrint = millis();
-  // }
-
-  // if (!app.getAutoState()) {
-  //   return;
-  // }
-
-  // unsigned long now = millis();
-
-  // // ===================================================
-  // // MOVING
-  // // ===================================================
-
-  // if (app.getAutoMode() == AUTO_MOVING) {
-  //   // Hall sensor detected
-
-  //   if (sensorValue > 2000) {
-  //     app.setTargetSpeed(0);
-
-  //     // app.setLastSensorDetect(now);
-
-  //     app.setAutoMode(AUTO_WAITING);
-
-  //     Serial.println("HALL DETECTED");
-
-  //     Serial.println("STOPPING");
-  //   }
-
-  //   // Hall sensor detected
-  //   // from the opposite direction
-
-  //   if (sensorValue < 1650) {
-  //     // app.setSpeedBeforeDetect(-app.getSpeedBeforeDetect());
-
-  //     app.setTargetSpeed(0);
-
-  //     // app.setLastSensorDetect(now);
-
-  //     app.setAutoMode(AUTO_WAITING);
-
-  //     Serial.println("HALL DETECTED");
-
-  //     Serial.println("STOPPING");
-  //   }
-  // }
-
-  // // ===================================================
-  // // WAITING
-  // // ===================================================
-
-  // else if (app.getAutoMode() == AUTO_WAITING) {
-  //   // if (now - app.getLastSensorDetect() >= 6000) {
-  //   //   // app.setTargetSpeed(app.getSpeedBeforeDetect());
-
-  //   //   app.setAutoMode(AUTO_DEPARTING);
-
-  //   //   Serial.println("Departing");
-
-  //   //   Serial.println(app.getTargetSpeed());
-  //   // }
-  // }
-
-  // // ===================================================
-  // // DEPARTING
-  // // ===================================================
-
-  // else if (app.getAutoMode() == AUTO_DEPARTING) {
-  //   // Ignore Hall sensor while departing.
-  //   // Move away for 8 seconds.
-
-  //   // if (now - app.getLastSensorDetect() >= 8000) {
-  //   //   app.setAutoMode(AUTO_MOVING);
-
-  //   //   Serial.println("SENSOR DETECTION ENABLED");
-  //   // }
-  // }
-}
-
 // Motor ramping
 
 void updateMotorRamp() {
@@ -258,40 +173,13 @@ void changeSpeedCommand(int speed) {
 }
 
 void changeRampCommand(unsigned long ramp) {
-  ramp = constrain(ramp, 0, 10000);
+  ramp = clampInt(ramp, 0, 10000);
 
   app.setRampTime(ramp);
 
   Serial.print("Ramp time: ");
   Serial.print(app.getRampTime() / 1000.0, 1);
   Serial.println(" seconds");
-}
-
-// ===================================================
-// Automatic mode
-// ===================================================
-
-bool setAutoStateCommand(bool state) {
-  app.setAutoState(state);
-
-  if (app.getAutoState()) {
-    app.setAutoMode(AUTO_MOVING);
-
-    // app.setLastSensorDetect(millis());
-
-    // app.setTargetSpeed(app.getSpeedBeforeDetect());
-
-    Serial.println("AUTO STARTED");
-
-  } else {
-    app.setTargetSpeed(0);
-
-    app.setAutoMode(AUTO_IDLE);
-
-    Serial.println("AUTO STOPPED");
-  }
-
-  return app.getAutoState();
 }
 
 // ===================================================
@@ -304,8 +192,6 @@ void motorStopCommand() {
   app.setUserSpeed(0);
 
   app.setAutoState(false);
-
-  app.setAutoMode(AUTO_IDLE);
 
   Serial.println("EMERGENCY STOP");
 }

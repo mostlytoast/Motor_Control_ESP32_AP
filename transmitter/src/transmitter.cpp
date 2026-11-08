@@ -1,4 +1,6 @@
 #include "transmitter.h"
+
+
 // TODO add usefull debug print lines througout code
 
 // =====================================================
@@ -21,15 +23,9 @@ void setup() {
 // =====================================================
 
 void loop() {
-  // ---------------------------------------------------
-  // Encoder
-  // ---------------------------------------------------
-
   updateEncoder();
 
-  // if (app.getServerStateChanged()) {
-  //  UIRefresh();
-  // }
+  display.refresh();
 
-  display.UIRefresh();
+
 }

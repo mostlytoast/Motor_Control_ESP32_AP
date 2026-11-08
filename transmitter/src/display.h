@@ -10,7 +10,6 @@
 #include "../../shared/LvDisplay/SharedDisplayCalls.h"
 #include "../../shared/LvDisplay/lvdisplay_portable.h"
 #include "../../shared/SharedConfig.h"
-#include "../../shared/communication/EspnowController.h"
 #include "../../shared/communication/packets.h"
 #include "../../shared/utils/AppState.h"
 #include "../../shared/utils/MacUtils.h"
@@ -43,7 +42,7 @@ extern lv_indev_t* touchIndev;
 class Display {
  public:
   void setupDisplay();
-  void UIRefresh();
+  void refresh();
 
  private:
   // DISPLAY UPDATE FUNCTIONS

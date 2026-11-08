@@ -3,12 +3,13 @@
 #include <Arduino.h>
 
 #include "../../../shared/utils/AppState.h"
+#include "../../../shared/utils/Math.hpp"
+
 #include "../Config.h"
 
 extern int sensorValue;
 void setupMotor();
 void setMotor(int speed);
-void autoStop();
 void updateMotorRamp();
 void setTargetSpeed(int speed);
 int getTargetSpeed();
@@ -26,9 +27,8 @@ void changeSpeedCommand(int speed);
 
 void changeRampCommand(unsigned long ramp);
 
-bool setAutoStateCommand(bool state);
 
 void motorStopCommand();
-bool getAutoState();
+
 
 // MOVE to audio section

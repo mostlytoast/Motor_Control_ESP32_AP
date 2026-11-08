@@ -15,9 +15,6 @@ void getStateFromJson(JsonDocument& doc) {
 
   if (state["scannerMode"].is<bool>()) {
     app.setScannerMode(state["scannerMode"].as<ScannerMode>());
-
-    // Serial.print("[API] LED1: ");
-    // Serial.println(state_.led1State ? "ON" : "OFF");
   }
   // ----------------------------------------------------
   // LED 1
@@ -25,9 +22,6 @@ void getStateFromJson(JsonDocument& doc) {
 
   if (state["led1"].is<bool>()) {
     app.setLed1State(state["led1"].as<bool>());
-
-    // Serial.print("[API] LED1: ");
-    // Serial.println(state_.led1State ? "ON" : "OFF");
   }
 
   // ----------------------------------------------------
@@ -36,9 +30,6 @@ void getStateFromJson(JsonDocument& doc) {
 
   if (state["led2"].is<bool>()) {
     app.setLed2State(state["led2"].as<bool>());
-
-    // Serial.print("[API] LED2: ");
-    // Serial.println(state_.led2State ? "ON" : "OFF");
   }
 
   // ----------------------------------------------------
@@ -47,9 +38,6 @@ void getStateFromJson(JsonDocument& doc) {
 
   if (state["auto"].is<bool>()) {
     app.setAutoState(state["auto"].as<bool>());
-
-    // Serial.print("[API] Auto: ");
-    // Serial.println(state_.autoState ? "ON" : "OFF");
   }
 
   // ----------------------------------------------------
@@ -59,9 +47,6 @@ void getStateFromJson(JsonDocument& doc) {
   if (state["speed"].is<int>() || state["speed"].is<long>() ||
       state["speed"].is<float>()) {
     app.setUserSpeed(state["speed"].as<int>());
-
-    // Serial.print("[API] Speed: ");
-    // Serial.println(state_.userSpeed);
   }
 
   // ----------------------------------------------------
@@ -80,10 +65,6 @@ void getStateFromJson(JsonDocument& doc) {
     }
 
     app.setRampTime(static_cast<int>(rampSeconds * 1000.0f));
-
-    // Serial.print("[API] Ramp: ");
-    // Serial.print(rampSeconds);
-    // Serial.println(" seconds");
   }
 
   // ----------------------------------------------------
@@ -92,9 +73,6 @@ void getStateFromJson(JsonDocument& doc) {
 
   if (state["audio"].is<bool>()) {
     app.setAudioState(state["audio"].as<bool>());
-
-    // Serial.print("[API] Audio: ");
-    // Serial.println(state_.audioState ? "ON" : "OFF");
   }
 }
 
@@ -121,26 +99,32 @@ void getJsonFromState(JsonDocument& doc) {
 
   // mapToJson() already creates the "tracks" property.
   doc["tracks"] = mapDoc["tracks"];
-  // Serial.println("=== getStateFromJson OUTPUT ===");
+
   // serializeJsonPretty(doc, Serial);
 }
 
 void getStateFromCondensedJson(JsonDocument& doc) {
-  Serial.println("=== getStateFromCondensedJson INPUT ===");
-  serializeJsonPretty(doc, Serial);
+  // Serial.println("=== getStateFromCondensedJson INPUT ===");
+  // serializeJsonPretty(doc, Serial);
   JsonObject state = doc["state"].as<JsonObject>();
   // TODO returning null? why
-  JsonArray tracks = doc["track"].as<JsonArray>();
+  JsonArray tracks = doc["tracks"].as<JsonArray>();
 
   if (!tracks.isNull()) {
-  trackMap.condensedJsonToMap(tracks);
+    trackMap.condensedJsonToMap(tracks);
   }
 
-  if (state["s"].is<bool>()) {
-    app.setScannerMode(state["s"].as<ScannerMode>());
+  if (state["ssl"]) {
+    // Use .as<const char*>() to get a pointer to the string
+    app.setScannerStatusLabelText(state["ssl"].as<const char*>());
+  }
+  if (state["sl"]) {
+    // Do the same here
+    app.setStatusLabelText(state["sl"].as<const char*>());
+  }
 
-    // Serial.print("[API] LED1: ");
-    // Serial.println(state_.led1State ? "ON" : "OFF");
+  if (state["s"]) {
+    app.setScannerMode(static_cast<ScannerMode>(state["s"]));
   }
   // ----------------------------------------------------
   // LED 1
@@ -148,9 +132,6 @@ void getStateFromCondensedJson(JsonDocument& doc) {
 
   if (state["1"].is<bool>()) {
     app.setLed1State(state["1"].as<bool>());
-
-    // Serial.print("[API] LED1: ");
-    // Serial.println(state_.led1State ? "ON" : "OFF");
   }
 
   // ----------------------------------------------------
@@ -159,9 +140,6 @@ void getStateFromCondensedJson(JsonDocument& doc) {
 
   if (state["2"].is<bool>()) {
     app.setLed2State(state["2"].as<bool>());
-
-    // Serial.print("[API] LED2: ");
-    // Serial.println(state_.led2State ? "ON" : "OFF");
   }
 
   // ----------------------------------------------------
@@ -170,9 +148,6 @@ void getStateFromCondensedJson(JsonDocument& doc) {
 
   if (state["a"].is<bool>()) {
     app.setAutoState(state["a"].as<bool>());
-
-    // Serial.print("[API] Auto: ");
-    // Serial.println(state_.autoState ? "ON" : "OFF");
   }
 
   // ----------------------------------------------------
@@ -181,9 +156,6 @@ void getStateFromCondensedJson(JsonDocument& doc) {
 
   if (state["p"].is<int>() || state["p"].is<long>() || state["p"].is<float>()) {
     app.setUserSpeed(state["p"].as<int>());
-
-    // Serial.print("[API] Speed: ");
-    // Serial.println(state_.userSpeed);
   }
 
   // ----------------------------------------------------
@@ -201,10 +173,6 @@ void getStateFromCondensedJson(JsonDocument& doc) {
     }
 
     app.setRampTime(static_cast<int>(rampSeconds * 1000.0f));
-
-    // Serial.print("[API] Ramp: ");
-    // Serial.print(rampSeconds);
-    // Serial.println(" seconds");
   }
 
   // ----------------------------------------------------
@@ -213,9 +181,6 @@ void getStateFromCondensedJson(JsonDocument& doc) {
 
   if (state["d"].is<bool>()) {
     app.setAudioState(state["d"].as<bool>());
-
-    // Serial.print("[API] Audio: ");
-    // Serial.println(state_.audioState ? "ON" : "OFF");
   }
 }
 
@@ -224,14 +189,16 @@ void getCondensedJsonFromState(JsonDocument& doc) {
   // STATE
   // ----------------------------------------------------
 
-  JsonObject stateDoc = doc["state"].to<JsonObject>();
-  stateDoc["s"] = app.getScannerMode();
-  stateDoc["1"] = app.getLed1State();
-  stateDoc["2"] = app.getLed2State();
-  stateDoc["a"] = app.getAutoState();
-  stateDoc["p"] = app.getUserSpeed();
-  stateDoc["r"] = app.getRampTime() / 1000.0f;
-  stateDoc["d"] = app.getAudioState();
+  JsonObject state = doc["state"].to<JsonObject>();
+  state["ssl"] = app.getScannerStatusLabelText();
+  state["sl"] = app.getStatusLabelText();
+  state["s"] = app.getScannerMode();
+  state["1"] = app.getLed1State();
+  state["2"] = app.getLed2State();
+  state["a"] = app.getAutoState();
+  state["p"] = app.getUserSpeed();
+  state["r"] = app.getRampTime() / 1000.0f;
+  state["d"] = app.getAudioState();
 
   // ----------------------------------------------------
   // TRACK MAP
@@ -240,10 +207,10 @@ void getCondensedJsonFromState(JsonDocument& doc) {
   // TODO returning null? why
 
   JsonDocument mapDoc;
-  
+
   trackMap.mapToCondensedJson(mapDoc);
 
-  doc["track"] = mapDoc["track"];
-  // Serial.println("=== getCondensedJsonFromState OUTPUT ===");
+  doc["tracks"] = mapDoc["tracks"];
+
   // serializeJsonPretty(doc, Serial);
 }

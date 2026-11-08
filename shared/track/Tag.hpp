@@ -9,12 +9,12 @@ class Tag {
  public:
   Tag() {}
 
-  Tag(const char* tagString) { fromString(tagString); }
-  Tag(bool& success, JsonDocument doc, bool condensedJson = false) {
+  // Tag(const char* tagString) { fromString(tagString); }
+  Tag(bool& success, JsonObject obj, bool condensedJson = false) {
     if (condensedJson) {
-      fromCondensedJson(success, doc);
+      success = fromCondensedJson(obj);
     } else {
-      fromJson(success, doc);
+      success = fromJson(obj);
     }
   }
 
@@ -37,7 +37,18 @@ class Tag {
   }
 
   void addInternalConnectedTagUid(Uid uid) {
-    internalConnectedTagUids.emplace_back(uid);
+    Serial.println("uid add contag");
+    if (!uid.isValid()) {
+      Serial.println("uid not valid");
+    } else {
+      for (const Uid& existing : internalConnectedTagUids) {
+        if (existing.equals(uid)) {
+          return;
+        }
+      }
+
+      internalConnectedTagUids.emplace_back(uid);
+    }
   }
 
   void setConnectedTagUid(Uid connectedTagUid_) {
@@ -62,30 +73,37 @@ class Tag {
     return true;
   }
 
-  void fromJson(bool& success, JsonDocument& doc) {
-    success = false;
+  bool fromJson(JsonObject& obj) {
+    // Reset existing state before loading.
+    internalConnectedTagUids.clear();
 
-    const char* uidString = doc["uid"].as<const char*>();
-
-    const char* connectedTagUidString =
-        doc["connectedTagUid"].as<const char*>();
-
-    const char* pointString = doc["point"].as<const char*>();
-
-    if (uidString == nullptr) {
-      uidString = "";
+    const char* uidString = obj["uid"] | "";
+    const char* connectedTagUidString = obj["connectedTagUid"] | "";
+    const char* pointString = obj["point"] | "";
+    if (strcmp(uidString, "") | strcmp(connectedTagUidString, "") |
+        strcmp(pointString, "")) {
+      return false;
     }
-
     uid.fromString(uidString);
     connectedTagUid.fromString(connectedTagUidString);
     point.fromString(pointString);
-    JsonArray array = doc["internalConnectedTagUids"].as<JsonArray>();
 
-    for (const char* internalTagUidString : array) {
-      internalConnectedTagUids.emplace_back(internalTagUidString);
+    if (!uid.isValid()) {
+      return false;
     }
-    success = true;
+    JsonArrayConst array = obj["internalConnectedTagUids"].as<JsonArrayConst>();
+
+    for (JsonVariantConst value : array) {
+      const char* internalTagUidString = value.as<const char*>();
+
+      if (internalTagUidString != nullptr && strlen(internalTagUidString) > 0) {
+        internalConnectedTagUids.emplace_back(internalTagUidString);
+      }
+    }
+
+    return true;
   }
+
   void toJson(JsonObject& obj) {
     if (obj.isNull()) {
       return;
@@ -94,47 +112,50 @@ class Tag {
     obj["uid"] = uid.toString();
     obj["connectedTagUid"] = connectedTagUid.toString();
     obj["point"] = point.toString();
+
     JsonArray connectionArray = obj["internalConnectedTagUids"].to<JsonArray>();
 
-    for (int i = 0; i < internalConnectedTagUids.size(); i++) {
-      JsonObject array = connectionArray.add<JsonObject>();
-
-      array[(std::to_string(i)).c_str()] =
-          internalConnectedTagUids[i].toString();
+    for (const Uid& internalUid : internalConnectedTagUids) {
+      connectionArray.add(internalUid.toString());
     }
   }
-  void fromCondensedJson(bool& success, JsonDocument& doc) {
-    success = false;
+  bool fromCondensedJson(JsonObject& obj) {
+    internalConnectedTagUids.clear();
 
-    const char* uidString = doc["uid"].as<const char*>();
-
-    if (uidString == nullptr) {
-      uidString = "";
+    const char* uidString = obj["uid"] | "";
+    if (strcmp(uidString, "")) {
+      return false;
     }
-
     uid.fromString(uidString);
-    JsonArray array = doc["internalConnectedTagUids"].as<JsonArray>();
-    for (const char* internalTagUidString : array) {
-      internalConnectedTagUids.emplace_back(internalTagUidString);
+    if (!uid.isValid()) {
+      return false;
     }
-    success = true;
+    JsonArrayConst array = obj["internalConnectedTagUids"].as<JsonArrayConst>();
+
+    for (JsonVariantConst value : array) {
+      const char* internalTagUidString = value.as<const char*>();
+
+      if (internalTagUidString != nullptr && strlen(internalTagUidString) > 0) {
+        internalConnectedTagUids.emplace_back(internalTagUidString);
+      }
+    }
+
+    return true;
   }
+
   void toCondensedJson(JsonObject& obj) {
     if (obj.isNull()) {
       return;
     }
 
     obj["uid"] = uid.toString();
+
     JsonArray connectionArray = obj["internalConnectedTagUids"].to<JsonArray>();
 
-    for (int i = 0; i < internalConnectedTagUids.size(); i++) {
-      JsonObject array = connectionArray.add<JsonObject>();
-
-      array[(std::to_string(i)).c_str()] =
-          internalConnectedTagUids[i].toString();
+    for (const Uid& internalUid : internalConnectedTagUids) {
+      connectionArray.add(internalUid.toString());
     }
   }
-
   String toString() {
     String result;
     JsonObject obj;
@@ -144,22 +165,24 @@ class Tag {
   }
 
   // Convert string to Point: x:y:heading
-  bool fromString(const char* tagString) {
-    // TODO convert to json function
+  // bool fromString(const char* tagString) {
+  //   if (tagString == nullptr) {
+  //     return false;
+  //   }
 
-    if (tagString == nullptr) return false;
+  //   JsonDocument doc;
 
-    JsonDocument doc;
+  //   DeserializationError error = deserializeJson(doc, tagString);
 
-    if (deserializeJson(doc, tagString, sizeof(tagString))) {
-      return false;
-    }
+  //   if (error) {
+  //     return false;
+  //   }
 
-    bool success;
-    fromJson(success, doc);
+  //   bool success = false;
+  //   fromJson(success, doc.to<JsonObject>());
 
-    return success;
-  }
+  //   return success;
+  // }
   bool operator!=(const Tag& other) const { return !(*this == other); }
 
  private:

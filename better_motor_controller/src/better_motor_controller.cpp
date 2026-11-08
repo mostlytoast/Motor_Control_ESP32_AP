@@ -88,7 +88,7 @@ void setup() {
 
   setupWifi();
 
-  if (espnowController.setupESPNow(getCondensedJsonFromState,
+  if (!espnowController.setupESPNow(getCondensedJsonFromState,
                                    getStateFromCondensedJson)) {
     app.setStatusLabelText("ESP-NOW ERROR");
   }
@@ -120,7 +120,7 @@ void loop() {
 
   // Automatic mode
 
-  autoStop();
+
 
   // track scanner
   // TODO find faster way to read maybe do shorter tag data? likely want to do

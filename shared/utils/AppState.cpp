@@ -45,6 +45,13 @@ void AppState::setScannerMode(ScannerMode newScannerMode) {
 }
 ScannerMode AppState::getPreviousScannerMode() { return previousScanMode; }
 
+void AppState::setScannerStatusLabelText(String ScannerStatusLabelText_) {
+  Serial.print("Scanner status ");
+  Serial.println(ScannerStatusLabelText_);
+  ScannerStatusLabelText = ScannerStatusLabelText_;
+}
+String AppState::getScannerStatusLabelText() { return ScannerStatusLabelText; }
+
 // Audio mode
 
 bool AppState::getAmbianceAudioMode() const { return ambianceAudioMode; }

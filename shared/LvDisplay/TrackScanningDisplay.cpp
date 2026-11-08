@@ -16,6 +16,9 @@ TrackScanningDisplay::TrackScanningDisplay(lv_obj_t* parent) {
   lv_obj_set_style_border_side(container_, LV_BORDER_SIDE_NONE, 0);
   lv_obj_set_scrolled(container_, LV_SCROLL_SNAP_NONE);
 
+  scan_status_label_ = display_.createLabel(container_, kColorStatus, -8, 53,
+                                            LV_PART_MAIN, LV_ALIGN_TOP_RIGHT);
+
   btn_register_ = display_.createActionButton(
       container_, "Register", 5, 78, 100, 45, [this]() { registerTracks(); },
       kColorForward);
@@ -43,30 +46,65 @@ TrackScanningDisplay::TrackScanningDisplay(lv_obj_t* parent) {
        [this]() { Serial.println("Cross"); }});
 
   lv_obj_set_hidden(container_, true);
+  refresh();
 }
 
 TrackScanningDisplay::~TrackScanningDisplay() { lv_obj_delete(container_); }
 
 // --- Logic Methods ---
 
+void TrackScanningDisplay::updateStatusLabel() {
+  if (scan_status_label_ == nullptr) {
+    return;
+  }
+  if (!app.getStatusLabelText().equals("")) {
+    // Todo use own vars for this? include trackscanner
+    display_.setLabelText(scan_status_label_,
+                          app.getScannerStatusLabelText().c_str());
+    return;
+  }
+}
+void TrackScanningDisplay::refresh() {
+  Serial.println("TrackScanningDisplay refresh");
+
+  display_.setButtonState(btn_register_,
+                          app.getScannerMode() == ScannerMode::REGISTER_TRACKS);
+  display_.setButtonState(btn_write_,
+                          app.getScannerMode() == ScannerMode::WRITING_TRACKS);
+  display_.setButtonState(btn_scan_,
+                          app.getScannerMode() == ScannerMode::SCANNING_TRACKS);
+  display_.setButtonState(btn_auto_,
+                          app.getScannerMode() == ScannerMode::PATH_FINDING);
+  updateStatusLabel();
+}
 void TrackScanningDisplay::registerTracks() {
   app.setScannerMode(REGISTER_TRACKS);
   Serial.println("set scan mode to REGISTER_TRACKS");
+  refresh();
+  sendStateToReceiver()
 }
 
 void TrackScanningDisplay::writeTracks() {
   app.setScannerMode(WRITING_TRACKS);
-  Serial.println("set scan mode toWRITING_TRACKS ");
+  Serial.println("set scan mode to WRITING_TRACKS ");
+  refresh();
+  sendStateToReceiver()
 }
 
 void TrackScanningDisplay::scanNewLayout() {
   app.setScannerMode(SCANNING_TRACKS);
   Serial.println("set scan mode to SCANNING_TRACKS");
+  refresh();
+  sendStateToReceiver()
 }
 
 void TrackScanningDisplay::pathFind() {
   app.setScannerMode(PATH_FINDING);
   Serial.println("set scan mode to PATH_FINDING");
+  refresh();
+  sendStateToReceiver()
+
+
 }
 
 void TrackScanningDisplay::toggle() {
@@ -77,4 +115,31 @@ void TrackScanningDisplay::toggle() {
   } else {
     lv_obj_set_hidden(container_, true);
   }
+}
+
+void TrackScanningDisplay::sendStateToReceiver() {
+  JsonDocument state;
+
+  getCondensedJsonFromState(state);
+  if (state.isNull()) {
+    return;
+  }
+
+  if (!previousStateUpdated) {
+    previousState = state;  // Ensure previousState is a JsonDocument type
+    previousStateUpdated = true;
+    return;  // Return  because nothing was sent yet
+  }
+
+  if (previousState == state) {
+    return;
+  }
+
+  previousState = state;
+
+  String outputString;
+  serializeJson(state, outputString);
+  host_->sendJson(outputString.c_str());
+
+  applyStateToUi();
 }

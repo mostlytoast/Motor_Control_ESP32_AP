@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 
+#include "../../shared/communication/EspnowController.h"
 #include "display.h"
 
 Display display;

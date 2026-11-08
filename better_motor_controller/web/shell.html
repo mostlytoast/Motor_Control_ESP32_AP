@@ -103,15 +103,6 @@
 
 <body>
     <div id="app">
-        <!-- <h1>Train Controller</h1>
-        <div class="row">
-            <label for="esp32-ip">ESP32 URL</label>
-            <input id="esp32-ip" value="http://192.168.4.1" />
-        </div>
-        <div class="row">
-            <button id="connect-btn" type="button">Connect</button>
-        </div>
-        <div id="status">Loading UI…</div> -->
         <canvas id="canvas" width="320" height="240"></canvas>
     </div>
 
@@ -122,82 +113,6 @@
     </script>
 
     {{{ SCRIPT }}}
-
-    <!-- <script>
-        (function () {
-            const statusEl = document.getElementById('status');
-            const ipInput = document.getElementById('esp32-ip');
-            const connectBtn = document.getElementById('connect-btn');
-
-            const paramUrl = new URLSearchParams(window.location.search).get('esp32');
-            if (paramUrl) {
-                ipInput.value = paramUrl;
-            }
-
-            function resolveBaseUrl() {
-                const value = (ipInput.value || '').trim();
-                if (!value) {
-                    return window.location.origin;
-                }
-
-                return value.endsWith('/') ? value.slice(0, -1) : value;
-            }
-
-            function updateStatus(text, isError) {
-                statusEl.textContent = text;
-                statusEl.style.color = isError ? '#ff8f8f' : '#9aa7b4';
-            }
-
-            async function probeController() {
-                const base = resolveBaseUrl();
-                try {
-                    const response = await fetch(base + '/state', { cache: 'no-store' });
-                    if (!response.ok) {
-                        throw new Error('ESP32 not reachable');
-                    }
-                    updateStatus('Connected to ESP32: ' + base);
-                } catch (error) {
-                    updateStatus('Waiting for ESP32 at ' + base + '…', true);
-                }
-            }
-
-            window.__trainUiEndpointBase = resolveBaseUrl();
-
-            window.__trainUiCommandHandler = function (command, value) {
-                const base = resolveBaseUrl();
-                // todo might remove?
-                const endpointMap = {
-                    FORWARD: () => fetch(base + '/slider?value=' + value, { method: 'GET' }),
-                    REVERSE: () => fetch(base + '/slider?value=' + value, { method: 'GET' }),
-                    STOP: () => fetch(base + '/slider?value=0', { method: 'GET' }),
-                    RAMP: () => fetch(base + '/ramp?ramp=' + (value / 1000), { method: 'GET' }),
-                    LED1: () => fetch(base + '/led1?state=' + (value ? 1 : 0), { method: 'GET' }),
-                    LED2: () => fetch(base + '/led2?state=' + (value ? 1 : 0), { method: 'GET' }),
-                    AUTO: () => fetch(base + '/auto?state=' + (value ? 1 : 0), { method: 'GET' }),
-                    AUDIO: () => fetch(base + '/audio', { method: 'GET' })
-                };
-
-                const handler = endpointMap[command];
-                if (typeof handler === 'function') {
-                    handler().catch((error) => {
-                        updateStatus('Command failed: ' + command, true);
-                        console.error('[train-ui-rest]', command, value, error);
-                    });
-                    return;
-                }
-
-                console.log('[train-ui]', command, value);
-            };
-
-            connectBtn.addEventListener('click', probeController);
-            ipInput.addEventListener('change', function () {
-                window.__trainUiEndpointBase = resolveBaseUrl();
-                probeController();
-            });
-
-            probeController();
-        })();
-    </script> -->
 </body>
 
 </html>

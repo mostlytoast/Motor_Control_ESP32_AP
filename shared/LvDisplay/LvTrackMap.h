@@ -67,16 +67,16 @@ class LvTrackMap {
 
   void clear();
   void refresh();
-  void invalidateMap();
+  // void invalidateMap();
 
   size_t trackCount() const;
 
   // Recalculate the display transform only.
   // This does NOT recalculate track geometry.
-  void resetView();
+  // void resetView();
 
-  static void refreshButtonEvent(lv_event_t* e);
-  static void resetButtonEvent(lv_event_t* e);
+  // static void refreshButtonEvent(lv_event_t* e);
+  // static void resetButtonEvent(lv_event_t* e);
 
   void toggle();
 

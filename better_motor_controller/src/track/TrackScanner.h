@@ -9,6 +9,8 @@
 #include "../../../shared/utils/AppState.h"
 #include "../../../shared/utils/uidLogic.h"
 #include "../hardware/NFC.h"
+
+
 class TrackScanner {
  public:
   TrackScanner(TrackMap& map);
@@ -45,14 +47,14 @@ class TrackScanner {
   TrackPathFinder pathFinder;
   Uid backwardsUid;
   Uid forwardsUid;
-  void pathFind(const Uid& uid, JsonObject& jsonTag);
+  void pathFind();
 
   // Write the track associated with a tag.
   //   todo rename
   bool writeTrackForTag(const Uid& uid, JsonObject& jsonTag);
   void addTrack(const Uid& uid, JsonObject& jsonTag);
   // Track creation.
-  void registerScannedTracks(const Uid& uid, Track* templateTrack);
+  void registerScannedTracks(const Uid& uid);
   void trackLocation(const Uid& uid, JsonObject& jsonTag);
 
   void writeTag(const Uid& uid, JsonObject& jsonTag);

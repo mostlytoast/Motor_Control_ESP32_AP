@@ -21,20 +21,17 @@ class Track {
   Track() = default;
   Track(bool& success, JsonObject doc, bool condensedJson = false) {
     if (condensedJson) {
-      fromCondensedJson(success, doc);
+      success = fromCondensedJson(doc);
     } else {
-      fromJson(success, doc);
+      success = fromJson(doc);
     }
   }
-  void fromJson(bool& success, JsonObject& obj) {
-    // ============================================================
+  bool fromJson(JsonObject& obj) {
     // Validate input
-    // ============================================================
-    success = false;
 
     if (obj.isNull()) {
       Serial.println("jsonToTrack: JSON object is null");
-      return;
+      return false;
     }
 
     length = obj["length"].is<float>() ? obj["length"].as<float>() : 0;
@@ -53,29 +50,31 @@ class Track {
     branchLength =
         obj["branchLength"].is<float>() ? obj["branchLength"].as<float>() : 0;
 
-    // ============================================================
     // Track type
-    // ============================================================
 
     trackType = obj["t"].as<TrackType>();
-    // ============================================================
     // UID objects
-    // ============================================================
-
     JsonArray tagsArray = obj["tags"].as<JsonArray>();
 
     if (!tagsArray.isNull()) {
       for (JsonObject tagObj : tagsArray) {
         bool success;
         tags.emplace_back(success, tagObj);
+        if (!success) {
+          return false;
+        }
       }
+    }
+
+    if (tags.size() == 0) {
+      return false;
     }
 
     // todo might need to find way to add back in pose and position marker
     // settings?  dont want stateJson to call calculateMap?
     setTagPositions();
 
-    success = true;
+    return true;
   }
 
   void toJson(JsonObject& obj) {
@@ -147,52 +146,58 @@ class Track {
     setTagPositions();
   }
 
-  void fromCondensedJson(bool& success, JsonObject& obj) {
-    // ============================================================
+  bool fromCondensedJson(JsonObject& obj) {
     // Validate input
-    // ============================================================
-    success = false;
 
-    if (obj.isNull()) {
-      Serial.println("jsonToTrack: JSON object is null");
-      return;
-    }
-
-    length = obj["l"].is<float>() ? obj["l"].as<float>() : 0;
-
-    radius = obj["r"].is<float>() ? obj["r"].as<float>() : 0;
-
-    direction = obj["d"].is<bool>() ? obj["d"].as<bool>() : false;
-
-    branchAngle = obj["a"].is<float>() ? obj["a"].as<float>() : 0;
-
-    branchRadius = obj["h"].is<float>() ? obj["h"].as<float>() : 0;
-
-    branchLength = obj["o"].is<float>() ? obj["o"].as<float>() : 0;
-
-    // ============================================================
-    // Track type
-    // ============================================================
-
-    trackType = obj["t"].as<TrackType>();
-    // ============================================================
-    // UID objects
-    // ============================================================
-
-    JsonArray tagsArray = obj["g"].as<JsonArray>();
-
-    if (!tagsArray.isNull()) {
-      for (JsonObject tagObj : tagsArray) {
-        bool success;
-        tags.emplace_back(success, tagObj, true);
+    try {
+      if (obj.isNull()) {
+        Serial.println("jsonToTrack: JSON object is null");
+        return false;
       }
+
+      length = obj["l"].is<float>() ? obj["l"].as<float>() : 0;
+
+      radius = obj["r"].is<float>() ? obj["r"].as<float>() : 0;
+
+      direction = obj["d"].is<bool>() ? obj["d"].as<bool>() : false;
+
+      branchAngle = obj["a"].is<float>() ? obj["a"].as<float>() : 0;
+
+      branchRadius = obj["h"].is<float>() ? obj["h"].as<float>() : 0;
+
+      branchLength = obj["o"].is<float>() ? obj["o"].as<float>() : 0;
+
+      // Track type
+
+      trackType = obj["t"].as<TrackType>();
+      // UID objects
+
+      JsonArray tagsArray = obj["g"].as<JsonArray>();
+
+      if (!tagsArray.isNull()) {
+        for (JsonObject tagObj : tagsArray) {
+          Tag tag;
+          if (tag.fromCondensedJson(tagObj)) {
+            tags.emplace_back(tag);
+          } else {
+            return false;
+          }
+        }
+      }
+      if (tags.size() == 0) {
+        return false;
+      }
+
+      // todo might need to find way to add back in pose and position marker
+      // settings?  dont want stateJson to call calculateMap?
+      setTagPositions();
+
+    } catch (const std::exception& e) {
+      std::cerr << e.what() << '\n';
+      return false;
     }
 
-    // todo might need to find way to add back in pose and position marker
-    // settings?  dont want stateJson to call calculateMap?
-    setTagPositions();
-
-    success = true;
+    return true;
   }
 
   void toCondensedJson(JsonObject& obj) {
@@ -381,7 +386,6 @@ class Track {
                               float radius_) {
     entranceTag.addInternalConnectedTagUid(exitTag.getUid());
     exitTag.addInternalConnectedTagUid(entranceTag.getUid());
-    ;
     if (radius_ == 0.0f) {
       entranceTag.setPoint(Point(0.0f, 0.0f, 180.0f));
       exitTag.setPoint(Point(length_, 0.0f, 0.0f));
@@ -389,8 +393,6 @@ class Track {
     }
 
     entranceTag.setPoint(Point(0.0f, 0.0f, 180.0f));
-    // entranceTag.setPoint(Point(0.0f, 0.0f, 0.0f));
-
     entranceTag.getPoint().normalizeHeading();
 
     float turn = direction ? -radiansToDegrees(length_ / radius_)

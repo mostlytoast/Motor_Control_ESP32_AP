@@ -38,7 +38,12 @@ class SharedDisplayCalls {
   void setPostActionCallback(std::function<void()> callback_) {
     postActionCallback_ = std::move(callback_);
   }
-  
+
+  lv_obj_t* createLabel(lv_obj_t* parent, uint32_t normalColor, int x, int y,
+                        lv_part_t part, lv_align_t align, const char *text="",
+                        const lv_font_t* value = &lv_font_montserrat_16,
+                        lv_style_selector_t selector = LV_PART_MAIN);
+  void setLabelText(lv_obj_t* label, const char* text);
   // Create a button with any callable action
   lv_obj_t* createActionButton(lv_obj_t* parent, const char* text, int x, int y,
                                int width, int height,
