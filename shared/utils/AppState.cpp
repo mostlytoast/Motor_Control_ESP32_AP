@@ -7,8 +7,61 @@ AppState app;
 // -------------------------
 
 AppState::AppState() {
-  scannerMode = SCANNING_TRACKS;
+  scannerMode = REGISTER_TRACKS;
   previousScanMode = scannerMode;
+}
+
+void AppState::reset()  { initDefaults(); }
+
+void AppState::initDefaults() {
+  // LEDs
+  led1State = false;
+  led2State = false;
+
+  // Automatic mode
+  autoState = false;
+  autoMode = AUTO_IDLE;
+
+  // Scanner
+  scannerMode = REGISTER_TRACKS;
+  previousScanMode = REGISTER_TRACKS;
+
+  ScannerStatusLabelText = "";
+
+  // Audio
+  ambianceAudioMode = false;
+  movementAudioMode = false;
+
+  movementAudioPitch = 0;
+  movementAudioSpeed = 0;
+
+  ambianceAudioPitch = 0;
+  ambianceAudioSpeed = 0;
+
+  // Speed
+  targetSpeed = 0;
+  userSpeed = 0;
+  currentSpeed = 0.0;
+
+  // Ramp
+  rampTime = 0;
+  rampStartTime = 0;
+  rampStartSpeed = 0;
+  lastTargetSpeed = 0;
+
+  // template track
+  Track templateTrack_;
+  hasTemplateTrack_ = false;
+
+  selectedTrackType = CURVED;
+  previousSelectedTrackType = CURVED;
+  // display status label
+  statusLabelText = "";
+
+  // location
+
+  destinationUid.clear();
+  currentUid.clear();
 }
 
 // -------------------------
@@ -127,14 +180,32 @@ int AppState::getLastTargetSpeed() const { return lastTargetSpeed; }
 
 void AppState::setLastTargetSpeed(int speed) { lastTargetSpeed = speed; }
 
+// template track
+void AppState::setTemplateTrack(const Track& track) {
+  templateTrack_ = track;
+  hasTemplateTrack_ = true;
+}
+
+Track* AppState::getTemplateTrack() {
+  return hasTemplateTrack_ ? &templateTrack_ : nullptr;
+}
+
+const Track* AppState::getTemplateTrack() const {
+  return hasTemplateTrack_ ? &templateTrack_ : nullptr;
+}
+
+TrackType AppState::getSelectedTrackType() { return selectedTrackType; }
+void AppState::setSelectedTrackType(TrackType selectedTrackType_) {
+  previousSelectedTrackType = selectedTrackType;
+  selectedTrackType = selectedTrackType_;
+}
+TrackType AppState::getPreviousSelectedTrackType() {
+  return previousSelectedTrackType;
+}
+
 // -------------------------
 // display
 // -------------------------
-
-Track* AppState::getTemplateTrack() { return templateTrack; }
-void AppState::setTemplateTrack(Track* templateTrack_) {
-  templateTrack = templateTrack_;
-}
 
 String AppState::getStatusLabelText() { return statusLabelText; }
 void AppState::setStatusLabelText(String statusLabelText_) {

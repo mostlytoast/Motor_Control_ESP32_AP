@@ -33,6 +33,8 @@ void LvDisplayController::init(lv_obj_t* screen) {
 
   rampLabel_ = display_.createLabel(screen_, kColorText, 0, 53, LV_PART_MAIN,
                                     LV_ALIGN_TOP_MID, "Ramp: 0");
+
+  // TODO make this show on top of everything
   statusLabel_ =
       display_.createLabel(screen_, kColorStatus, -8, 53, LV_PART_MAIN,
                            LV_ALIGN_TOP_RIGHT, "No Peer");
@@ -113,7 +115,8 @@ void LvDisplayController::init(lv_obj_t* screen) {
       screen_, "SCANNER", 110, 27, 100, 25,
       [this]() { trackScanningDisplay_->toggle(); }, COLOR_MENU_HEADER);
 
-  trackScanningDisplay_ = new TrackScanningDisplay(screen_);
+  trackScanningDisplay_ = new TrackScanningDisplay(
+      screen_, [this]() { this->sendStateToReceiver(); });
 
   lv_obj_t* info = display_.createLabel(
       screen_, kColorInfo, 0, -3, LV_PART_MAIN, LV_ALIGN_BOTTOM_MID, "ESP-NOW");
@@ -126,8 +129,8 @@ void LvDisplayController::init(lv_obj_t* screen) {
 }
 
 void LvDisplayController::refresh() {
-  Serial.println("port display refresh");
-  // sendStateToReceiver();
+  // Serial.println("port display refresh");
+
   applyStateToUi();
   if (trackMapDisplay_ != nullptr) {
     trackMapDisplay_->refresh();
@@ -190,6 +193,7 @@ void LvDisplayController::getStateFromJsonDisplay(const char* json) {
 }
 
 void LvDisplayController::sendStateToReceiver() {
+  // Serial.println("called sendStateToReceiver");
   JsonDocument state;
 
   getCondensedJsonFromState(state);
@@ -212,6 +216,7 @@ void LvDisplayController::sendStateToReceiver() {
   String outputString;
   serializeJson(state, outputString);
   host_->sendJson(outputString.c_str());
+  // Serial.println("state sent");
 
   applyStateToUi();
 }

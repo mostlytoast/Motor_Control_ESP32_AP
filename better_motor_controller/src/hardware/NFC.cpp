@@ -1,6 +1,5 @@
 #include "hardware/NFC.h"
 
-
 // ============================================================================
 // CONSTRUCTOR
 // ============================================================================
@@ -8,6 +7,9 @@
 NFC::NFC() {
   lastReadTagUid.clear();
   haveLastReadTag = false;
+
+  lastSuccessfulReadTagUid.clear();
+  haveLastSuccessfulReadTag = false;
 
   lastWrittenTagUid.clear();
   haveLastWrittenTag = false;
@@ -153,8 +155,8 @@ bool NFC::readNFCPage(uint8_t page, uint8_t* buffer) {
   uint8_t result = pn532.mifareultralight_ReadPage(page, buffer);
 
   if (!result) {
-    Serial.print("Failed to read NFC page ");
-    Serial.println(page);
+    // Serial.print("Failed to read NFC page ");
+    // Serial.println(page);
     return false;
   }
 
@@ -197,14 +199,14 @@ bool NFC::writeNFCPage(uint8_t page, const uint8_t* data) {
 size_t NFC::readNFCUserMemorySize() {
   uint8_t cc[4] = {0};
 
-  Serial.println();
-  Serial.println("Reading Capability Container...");
-  Serial.println("Reading NFC page 3...");
+  // Serial.println();
+  // Serial.println("Reading Capability Container...");
+  // Serial.println("Reading NFC page 3...");
 
   uint8_t result = pn532.mifareultralight_ReadPage(NFC_CC_PAGE, cc);
 
-  Serial.print("ReadPage result: ");
-  Serial.println(result);
+  // Serial.print("ReadPage result: ");
+  // Serial.println(result);
 
   if (!result) {
     Serial.println("FAILED to read Capability Container.");
@@ -250,8 +252,8 @@ bool NFC::readBlock(uint8_t block, uint8_t* buffer, const Uid& uid) {
 
   for (uint8_t i = 0; i < 4; i++) {
     if (!readNFCPage(firstPage + i, buffer + (i * 4))) {
-      Serial.print("Failed to read NFC page ");
-      Serial.println(firstPage + i);
+      // Serial.print("Failed to read NFC page ");
+      // Serial.println(firstPage + i);
 
       return false;
     }
@@ -313,6 +315,7 @@ bool NFC::writeMifareText(const String& messagePack, const Uid& uid) {
   Serial.print("Writing raw MessagePack bytes: ");
   Serial.print(messagePackLength);
   Serial.println(" bytes");
+  Serial.println(messagePack);
 
   // -------------------------------------------------------------------------
   // Determine NTAG capacity
@@ -589,9 +592,9 @@ String NFC::readMifareText(const Uid& uid) {
     uint8_t pageData[4] = {0, 0, 0, 0};
 
     if (!readNFCPage(page, pageData)) {
-      Serial.print("Failed to read page ");
+      // Serial.print("Failed to read page ");
 
-      Serial.println(page);
+      // Serial.println(page);
 
       free(memory);
 
@@ -789,13 +792,13 @@ String NFC::readMifareText(const Uid& uid) {
     // -----------------------------------------------------------------------
 
     if (tnf == 0x02 && recordType == "application/msgpack") {
-      Serial.println();
+      // Serial.println();
 
-      Serial.print("Raw MessagePack read: ");
+      // Serial.print("Raw MessagePack read: ");
 
-      Serial.print(payloadLength);
+      // Serial.print(payloadLength);
 
-      Serial.println(" bytes");
+      // Serial.println(" bytes");
 
       result = String((const char*)(memory + pos), payloadLength);
 
@@ -813,7 +816,7 @@ String NFC::readMifareText(const Uid& uid) {
 
   free(memory);
 
-  Serial.println("No MessagePack NDEF record found.");
+  // Serial.println("No MessagePack NDEF record found.");
 
   return result;
 }
@@ -907,7 +910,7 @@ NFCWriteResult NFC::writeNFC(JsonObject& json, const Uid& uid) {
   size_t size = measureMsgPack(json);
 
   if (size == 0) {
-    Serial.println("writeNFC: empty MessagePack.");
+    // Serial.println("writeNFC: empty MessagePack.");
 
     // Treat an empty MessagePack as a completed write attempt,
     // matching the behavior of the original function.
@@ -923,7 +926,7 @@ NFCWriteResult NFC::writeNFC(JsonObject& json, const Uid& uid) {
   uint8_t* buffer = (uint8_t*)malloc(size);
 
   if (buffer == nullptr) {
-    Serial.println("writeNFC: MessagePack allocation failed.");
+    // Serial.println("writeNFC: MessagePack allocation failed.");
 
     // Write failed, so allow the same UID to be retried.
     lastWrittenTagSucceeded = false;
@@ -938,7 +941,7 @@ NFCWriteResult NFC::writeNFC(JsonObject& json, const Uid& uid) {
   size_t written = serializeMsgPack(json, buffer, size);
 
   if (written == 0) {
-    Serial.println("writeNFC: MessagePack serialization failed.");
+    // Serial.println("writeNFC: MessagePack serialization failed.");
 
     free(buffer);
 
@@ -948,9 +951,9 @@ NFCWriteResult NFC::writeNFC(JsonObject& json, const Uid& uid) {
     return NFC_WRITE_MESSAGE_ERROR;
   }
 
-  Serial.print("MessagePack size: ");
-  Serial.print(written);
-  Serial.println(" bytes");
+  // Serial.print("MessagePack size: ");
+  // Serial.print(written);
+  // Serial.println(" bytes");
 
   // -------------------------------------------------------------------------
   // CONVERT BINARY MESSAGEPACK TO STRING
@@ -1015,7 +1018,7 @@ NFCReadResult NFC::readNFC(Uid& uid, JsonObject& tagJson) {
   uid.set(rawUid, rawUidLength);
 
   if (!uid.isValid()) {
-    Serial.println("Invalid UID.");
+    // Serial.println("Invalid UID.");
 
     lastReadTagSucceeded = false;
 
@@ -1033,9 +1036,9 @@ NFCReadResult NFC::readNFC(Uid& uid, JsonObject& tagJson) {
   //
   // If the previous read failed, allow the same tag to be retried.
   // -------------------------------------------------------------------------
-
-  if (haveLastReadTag && uid.equals(lastReadTagUid) && lastReadTagSucceeded) {
-    // Serial.println("Duplicate NFC tag detected.");
+  // TODO might want to think about this just checking if the last successful read matches this?
+  if (haveLastReadTag && uid.equals(lastSuccessfulReadTagUid) && haveLastSuccessfulReadTag) {
+    Serial.println("Duplicate NFC tag detected.");
 
     return NFC_READ_DUPLICATE;
   }
@@ -1046,6 +1049,8 @@ NFCReadResult NFC::readNFC(Uid& uid, JsonObject& tagJson) {
   //   - OR the same tag whose previous read failed
   //
   // In either case, remember this UID for this read attempt.
+  lastSuccessfulReadTagUid = uid;
+  lastReadTagSucceeded = true;
   lastReadTagUid = uid;
   haveLastReadTag = true;
 
@@ -1053,14 +1058,14 @@ NFCReadResult NFC::readNFC(Uid& uid, JsonObject& tagJson) {
   // PRINT UID
   // -------------------------------------------------------------------------
 
-  Serial.println();
-  Serial.println("NFC TAG DETECTED");
+  // Serial.println();
+  // Serial.println("NFC TAG DETECTED");
 
-  Serial.print("UID: ");
-  Serial.println(uid.toString());
+  // Serial.print("UID: ");
+  // Serial.println(uid.toString());
 
-  Serial.print("UID length: ");
-  Serial.println(uid.length());
+  // Serial.print("UID length: ");
+  // Serial.println(uid.length());
 
   // -------------------------------------------------------------------------
   // READ MESSAGEPACK
@@ -1069,7 +1074,7 @@ NFCReadResult NFC::readNFC(Uid& uid, JsonObject& tagJson) {
   String messagePack = readMifareText(uid);
 
   if (messagePack.length() == 0) {
-    Serial.println("No MessagePack found on tag.");
+    // Serial.println("No MessagePack found on tag.");
 
     // An empty tag is considered a successful read.
     // Therefore, the next detection of this same tag will be
@@ -1079,15 +1084,15 @@ NFCReadResult NFC::readNFC(Uid& uid, JsonObject& tagJson) {
     return NFC_READ_EMPTY;
   }
 
-  Serial.print("MessagePack bytes read: ");
-  Serial.println(messagePack.length());
+  // Serial.print("MessagePack bytes read: ");
+  // Serial.println(messagePack.length());
 
   // -------------------------------------------------------------------------
   // DESERIALIZE
   // -------------------------------------------------------------------------
 
   if (deserializeMessagePack(messagePack, tagJson)) {
-    Serial.println();
+    // Serial.println();
 
     // The entire read succeeded.
     // A subsequent detection of the same UID will be rejected.

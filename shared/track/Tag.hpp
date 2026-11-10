@@ -1,6 +1,6 @@
 #ifndef SHARED_TRACK_TAG_HPP
 #define SHARED_TRACK_TAG_HPP
-
+// TODO improve error checking especially with json conversion
 #include <ArduinoJson.h>
 #include <string.h>
 
@@ -37,9 +37,9 @@ class Tag {
   }
 
   void addInternalConnectedTagUid(Uid uid) {
-    Serial.println("uid add contag");
+    // Serial.println("uid add contag");
     if (!uid.isValid()) {
-      Serial.println("uid not valid");
+      // Serial.println("uid not valid");
     } else {
       for (const Uid& existing : internalConnectedTagUids) {
         if (existing.equals(uid)) {
@@ -122,15 +122,25 @@ class Tag {
   bool fromCondensedJson(JsonObject& obj) {
     internalConnectedTagUids.clear();
 
-    const char* uidString = obj["uid"] | "";
-    if (strcmp(uidString, "")) {
-      return false;
+    if (obj["uid"].is<const char*>()) {
+      const char* uidString = obj["uid"] | "";
+      uid.fromString(uidString);
+    } else {
+      return false; 
     }
-    uid.fromString(uidString);
+    if (obj["cu"].is<const char*>()) {
+      const char* connectedTagUidString = obj["cu"] | "";
+      connectedTagUid.fromString(connectedTagUidString);
+      // is optional 
+    }
+
     if (!uid.isValid()) {
       return false;
     }
-    JsonArrayConst array = obj["internalConnectedTagUids"].as<JsonArrayConst>();
+    if (!obj["internalConnectedTagUids"].is<JsonArrayConst>()) {
+      return false;
+    }
+    JsonArrayConst array = obj["int"].as<JsonArrayConst>();
 
     for (JsonVariantConst value : array) {
       const char* internalTagUidString = value.as<const char*>();
@@ -143,12 +153,15 @@ class Tag {
     return true;
   }
 
-  void toCondensedJson(JsonObject& obj) {
+  void toCondensedJson(JsonObject& obj) const {
     if (obj.isNull()) {
       return;
     }
 
     obj["uid"] = uid.toString();
+    if (connectedTagUid.isValid()) {
+      obj["cu"] = connectedTagUid.toString();
+    }
 
     JsonArray connectionArray = obj["internalConnectedTagUids"].to<JsonArray>();
 

@@ -105,6 +105,7 @@ class LvDisplayController {
   void buttonEventHandler(lv_event_t* event);
 
   void sendStateToReceiver();
+
   ILvDisplayHost* host_ = nullptr;
   lv_obj_t* screen_ = nullptr;
 

@@ -11,59 +11,59 @@ NFC nfc;
 TrackMap trackMap;
 TrackScanner trackScanner(trackMap);
 
-class WebSerial : public Print {
- public:
-  HardwareSerial& serial;
+// class WebSerial : public Print {
+//  public:
+//   HardwareSerial& serial;
 
-  WebSerial(HardwareSerial& s) : serial(s) {}
+//   WebSerial(HardwareSerial& s) : serial(s) {}
 
-  void begin(unsigned long baud) { serial.begin(baud); }
+//   void begin(unsigned long baud) { serial.begin(baud); }
 
-  size_t write(uint8_t c) override {
-    serial.write(c);
+//   size_t write(uint8_t c) override {
+//     serial.write(c);
 
-    if (serialBufferLength >= SERIAL_BUFFER_SIZE - 1) {
-      char* newline = strchr(serialBuffer, '\n');
+//     if (serialBufferLength >= SERIAL_BUFFER_SIZE - 1) {
+//       char* newline = strchr(serialBuffer, '\n');
 
-      if (newline != nullptr) {
-        size_t removeCount = (newline - serialBuffer) + 1;
+//       if (newline != nullptr) {
+//         size_t removeCount = (newline - serialBuffer) + 1;
 
-        memmove(serialBuffer, serialBuffer + removeCount,
-                serialBufferLength - removeCount);
+//         memmove(serialBuffer, serialBuffer + removeCount,
+//                 serialBufferLength - removeCount);
 
-        serialBufferLength -= removeCount;
+//         serialBufferLength -= removeCount;
 
-      }
+//       }
 
-      else {
-        size_t removeCount = SERIAL_BUFFER_SIZE / 2;
+//       else {
+//         size_t removeCount = SERIAL_BUFFER_SIZE / 2;
 
-        memmove(serialBuffer, serialBuffer + removeCount,
-                serialBufferLength - removeCount);
+//         memmove(serialBuffer, serialBuffer + removeCount,
+//                 serialBufferLength - removeCount);
 
-        serialBufferLength -= removeCount;
-      }
-    }
+//         serialBufferLength -= removeCount;
+//       }
+//     }
 
-    serialBuffer[serialBufferLength++] = c;
+//     serialBuffer[serialBufferLength++] = c;
 
-    serialBuffer[serialBufferLength] = '\0';
+//     serialBuffer[serialBufferLength] = '\0';
 
-    return 1;
-  }
+//     return 1;
+//   }
 
-  size_t write(const uint8_t* buffer, size_t size) override {
-    for (size_t i = 0; i < size; i++) {
-      write(buffer[i]);
-    }
+//   size_t write(const uint8_t* buffer, size_t size) override {
+//     for (size_t i = 0; i < size; i++) {
+//       write(buffer[i]);
+//     }
 
-    return size;
-  }
-};
+//     return size;
+//   }
+// };
 
-WebSerial WebSerialPort(Serial);
+// WebSerial WebSerialPort(Serial);
 
-#define Serial WebSerialPort
+// #define Serial WebSerialPort
 
 // =====================================================
 // SETUP
@@ -72,7 +72,7 @@ WebSerial WebSerialPort(Serial);
 void setup() {
   Serial.begin(115200);
 
-  Serial.println("Main setup");
+  // Serial.println("Main setup");
 
   if (!AudioPlayer_begin()) {
     CLOGE << "AudioPlayer initialization failed";
@@ -89,7 +89,8 @@ void setup() {
   setupWifi();
 
   if (!espnowController.setupESPNow(getCondensedJsonFromState,
-                                   getStateFromCondensedJson)) {
+                                    getStateFromCondensedJson,
+                                    []() { app.reset(); })) {
     app.setStatusLabelText("ESP-NOW ERROR");
   }
 
@@ -97,12 +98,6 @@ void setup() {
 
   trackScanner.begin();
   Uid emptyUid;
-
-  // trackMap.createTrack(CURVED, 10, 10, 0, 0, 0, true, emptyUid, emptyUid,
-  //                      emptyUid, emptyUid);
-  // Serial.print("track count at start ");
-  // Serial.println(trackMap.getTrackCount());
-  trackMap.calculateMap();
 
   audio.setupAudio();
 
@@ -119,8 +114,6 @@ void loop() {
   espnowController.espnowUpdate();
 
   // Automatic mode
-
-
 
   // track scanner
   // TODO find faster way to read maybe do shorter tag data? likely want to do

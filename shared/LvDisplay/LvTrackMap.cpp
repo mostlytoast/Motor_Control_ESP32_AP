@@ -102,6 +102,49 @@ void LvTrackMap::setTrackMap(TrackMap* map) {
   if (!map) return;
 
   map_ = map;
+  JsonDocument doc;
+  deserializeJson(doc,
+                  "{\"l\": 14.13717,\"r\": 18,\"d\": true,\"a\": 0,\"h\": "
+                  "0,\"o\": 0,\"t\": 1,\"g\": [{\"uid\": "
+                  "\"04:23:9B:9C:E4:2A:81\",\"internalConnectedTagUids\": "
+                  "[\"04:2E:9B:9C:E4:2A:81\"]},{\"uid\": "
+                  "\"04:2E:9B:9C:E4:2A:81\",\"internalConnectedTagUids\": "
+                  "[\"04:23:9B:9C:E4:2A:81\"]},{\"uid\": "
+                  "\"\",\"internalConnectedTagUids\": []},{\"uid\": "
+                  "\"\",\"internalConnectedTagUids\": []}]}");
+
+  bool success;
+  Track track = Track(success, doc.as<JsonObject>(), true);
+  Serial.println(success);
+  // JsonObject printDoc;
+  // track.toCondensedJson(printDoc);
+  // serializeJsonPretty(printDoc, Serial);
+  if (success) {
+    track.printTrack();
+  }
+  map->addTrack(track);
+  JsonDocument doc2;
+  deserializeJson(doc2,
+                  "{\"l\": 10,\"r\": 0,\"d\": true,\"a\": 0,\"h\": 0,\"o\": "
+                  "0,\"t\": 1,\"g\": [{\"uid\": "
+                  "\"04:E2:9A:9C:E4:2A:81\",\"internalConnectedTagUids\": "
+                  "[\"04:E1:9A:9C:E4:2A:81\"]},{\"uid\": "
+                  "\"04:E1:9A:9C:E4:2A:81\",\"internalConnectedTagUids\": "
+                  "[\"04:E2:9A:9C:E4:2A:81\"]},{\"uid\": "
+                  "\"\",\"internalConnectedTagUids\": []},{\"uid\": "
+                  "\"\",\"internalConnectedTagUids\": []}]}");
+
+  bool success2;
+  Track track2 = Track(success2, doc2.as<JsonObject>(), true);
+  map->addTrack(track2);
+
+  Serial.println(success2);
+  // JsonObject printDoc2;
+  // track2.toCondensedJson(printDoc2);
+  // serializeJsonPretty(printDoc2, Serial);
+  if (success2) {
+    track2.printTrack();
+  }
 
   // Uid emptyUid;
 
@@ -141,19 +184,19 @@ void LvTrackMap::setTrackMap(TrackMap* map) {
   // // map_->mapToJson(doc);
   // // serializeJsonPretty(doc, Serial);
   // // Serial.println("============= calc ==========");
-  // auto connect = [&](const Uid& a, const Uid& b) {
-  //   Tag* tagA = map_->findTagByUid(a);
-  //   Tag* tagB = map_->findTagByUid(b);
-  //   const bool success = map_->connectTags(tagA, tagB);
-  // };
+  auto connect = [&](const Uid& a, const Uid& b) {
+    Tag* tagA = map_->findTagByUid(a);
+    Tag* tagB = map_->findTagByUid(b);
+    const bool success = map_->connectTags(tagA, tagB);
+  };
 
   // // Create a continuous chain.
-  // connect(entrance1, exit0);
-  // connect(exit2, exit1);
-  // connect(entrance3, entrance2);
+  if (success2 && success) {
+    connect(track.getTags()[0].getUid(), track2.getTags()[0].getUid());
+  }
 
-  // // Position the map.
-  // map_->calculateMap();
+  // Position the map.
+  map_->calculateMap();
 
   // TrackPathFinder pathFinder(*map_);
 
@@ -204,6 +247,7 @@ size_t LvTrackMap::trackCount() const {
 // VIEW / TRANSFORM
 // ============================================================
 void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
+  Serial.println("calculateTransform");
   transform_ = {};
   transform_.scale = 1.0f;
 
@@ -273,6 +317,8 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
       continue;
     }
 
+    // if (tags.size() < 1) return;
+
     const Point& entrance = tags[0].getPoint();
 
     const float direction = track->getDirection() ? -1.0f : 1.0f;
@@ -339,8 +385,6 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
   transform_.offsetY = padding + (availableHeight - scaledHeight) * 0.5f;
 }
 
-
-
 LvTrackMap::Point LvTrackMap::worldToMap(Point point) const {
   Point result;
 
@@ -359,8 +403,8 @@ LvTrackMap::Point LvTrackMap::worldToMap(Point point) const {
 // ============================================================
 
 void LvTrackMap::refresh() {
-
   transformDirty_ = true;
+
   calculateTransform();
 
   if (root_) {
@@ -697,12 +741,15 @@ void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
       drawBumper(layer, track);
     case STRAIGHT:
     case CURVED:
+      // if (track.getTags().size() < 2) return;
       drawCurveOrStraight(layer, worldToMap(track.getTags()[0].getPoint()),
                           worldToMap(track.getTags()[1].getPoint()));
 
       break;
 
     case SWITCH:
+      // if (track.getTags().size() < 4) return;
+
       drawCurveOrStraight(layer, worldToMap(track.getTags()[0].getPoint()),
                           worldToMap(track.getTags()[1].getPoint()));
       drawCurveOrStraight(layer, worldToMap(track.getTags()[2].getPoint()),
@@ -710,6 +757,8 @@ void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
       break;
 
     case CROSS:
+      // if (track.getTags().size() < 4) return;
+
       drawCurveOrStraight(layer, worldToMap(track.getTags()[0].getPoint()),
                           worldToMap(track.getTags()[1].getPoint()));
       drawCurveOrStraight(layer, worldToMap(track.getTags()[2].getPoint()),
@@ -859,6 +908,8 @@ void LvTrackMap::drawTags(lv_layer_t* layer, const Track& track) const {
 
 void LvTrackMap::drawLabel(lv_layer_t* layer, const Track& track,
                            size_t index) const {
+  if (track.getTags().size() < 2) return;
+
   const Point a = worldToMap(track.getTags()[0].getPoint());
 
   const Point b = worldToMap(track.getTags()[1].getPoint());

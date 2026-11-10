@@ -60,8 +60,9 @@ void Display::setupDisplay() {
 
   createUI();
 
-  if (!espnowController.setupESPNow(getCondensedJsonFromState,
-                                    getStateFromCondensedJson, true)) {
+  if (!espnowController.setupESPNow(
+          getCondensedJsonFromState, getStateFromCondensedJson,
+          []() { app.reset(); }, true)) {
     app.setStatusLabelText("ESP-NOW ERROR");
   }
 }
@@ -89,8 +90,6 @@ void Display::createUI() {
 }
 
 void Display::refresh() {
-  gDisplayController->refresh();
-
   if (espnowController.getReceiverListNeedsRefresh()) {
     espnowController.setReceiverListNeedsRefresh(false);
     controllerMenuInstance->refreshList();
@@ -101,6 +100,8 @@ void Display::refresh() {
   uint32_t sleepTime = lv_timer_handler();
   if (sleepTime > 10) sleepTime = 10;
   delay(sleepTime);
+
+  gDisplayController->refresh();
 }
 
 void displayFlush(lv_display_t* display, const lv_area_t* area,

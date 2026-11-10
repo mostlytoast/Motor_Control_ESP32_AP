@@ -109,7 +109,7 @@ void ControllerMenu::refreshList() {
 void ControllerMenu::scanEvent(lv_event_t* event) {
   espnowController.resetDiscover();
 
-  app.setStatusLabelText("STOPPED");
+  app.setStatusLabelText("No Peer");
 
   Serial.println("Starting receiver discovery...");
 }

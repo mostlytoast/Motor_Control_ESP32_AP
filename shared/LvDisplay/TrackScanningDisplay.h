@@ -4,6 +4,7 @@
 
 #include <lvgl.h>
 
+#include <functional>
 #include <iostream>
 #include <vector>
 
@@ -11,17 +12,16 @@
 #include "LvTrackMap.h"
 #include "SharedDisplayCalls.h"
 
-class TrackScanningDisplay : public LvTrackMap {
+class TrackScanningDisplay {
  public:
-  explicit TrackScanningDisplay(lv_obj_t* parent = nullptr);
+  using SendStateToReceiverCallback = std::function<void()>;
+
+  TrackScanningDisplay(lv_obj_t* parent,
+                       std::function<void()> sendStateToReceiverCallback_);
+
   ~TrackScanningDisplay();
 
-  void updateStatusLabel();
   void refresh();
-  void registerTracks();
-  void writeTracks();
-  void scanNewLayout();
-  void pathFind();
 
   // Methods to toggle visibility
   void toggle();
@@ -34,15 +34,28 @@ class TrackScanningDisplay : public LvTrackMap {
   lv_obj_t* btn_scan_;
   lv_obj_t* btn_auto_;
   lv_obj_t* list_tracks_;
+  lv_obj_t* list_tracks_options_ = nullptr;
   lv_obj_t* hide_button_;
 
   lv_coord_t lastWidth_ = 0;
   lv_coord_t lastHeight_ = 0;
 
   // Helper to handle selection styling
-  void set_selected_button(lv_obj_t* selected_btn);
-  void sendStateToReceiver();
+  void setListAsCurved();
+  void setListAsStraight();
+  void setListAsNone();
+  void registerTracks();
+  void writeTracks();
+  void scanNewLayout();
+  void pathFind();
+  void refreshList();
+  void refreshAndSend();
+  void updateStatusLabel();
+
   SharedDisplayCalls display_;
+
+  SendStateToReceiverCallback sendStateToReceiverCallback = nullptr;
+  Track templateTrack;
 };
 
 #endif  // LVSHARED_LVDISPLAY_TRACK_SCANNING_DISPLAY_H

@@ -57,6 +57,7 @@ class TrackMap {
 
   void mapToCondensedJson(JsonDocument& doc);
   void condensedJsonToMap(JsonArray doc);
+  void clearMap();
 
  private:
   static constexpr uint8_t MAX_TRACKS = 100;
@@ -98,8 +99,6 @@ class TrackMap {
    * Cross geometry.
    */
   void calculateCrossPose(Track& track);
-
-  void clearMap();
 };
 
 extern TrackMap trackMap;

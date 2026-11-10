@@ -72,9 +72,8 @@ class Track {
 
     // todo might need to find way to add back in pose and position marker
     // settings?  dont want stateJson to call calculateMap?
-    setTagPositions();
 
-    return true;
+    return setTagPositions();
   }
 
   void toJson(JsonObject& obj) {
@@ -148,7 +147,7 @@ class Track {
 
   bool fromCondensedJson(JsonObject& obj) {
     // Validate input
-
+    Serial.println("track");
     try {
       if (obj.isNull()) {
         Serial.println("jsonToTrack: JSON object is null");
@@ -173,26 +172,30 @@ class Track {
       // UID objects
 
       JsonArray tagsArray = obj["g"].as<JsonArray>();
+      Serial.println("track1");
 
       if (!tagsArray.isNull()) {
         for (JsonObject tagObj : tagsArray) {
           Tag tag;
+          Serial.println("track2");
+
           if (tag.fromCondensedJson(tagObj)) {
             tags.emplace_back(tag);
-          } else {
-            return false;
           }
         }
       }
+      Serial.println("track3");
+
       if (tags.size() == 0) {
         return false;
       }
 
       // todo might need to find way to add back in pose and position marker
       // settings?  dont want stateJson to call calculateMap?
-      setTagPositions();
+      return setTagPositions();
 
     } catch (const std::exception& e) {
+      Serial.println("error");
       std::cerr << e.what() << '\n';
       return false;
     }
@@ -200,12 +203,8 @@ class Track {
     return true;
   }
 
-  void toCondensedJson(JsonObject& obj) {
-    if (obj.isNull()) {
-      Serial.println("jsonToTrack: JSON object is null");
-
-      return;
-    }
+  void toCondensedJson(JsonObject& obj) const {
+   
     obj["l"] = length;
 
     obj["r"] = radius;
@@ -218,7 +217,7 @@ class Track {
 
     obj["o"] = branchLength;
 
-    obj["t"] = trackTypeToString(trackType);
+    obj["t"] = trackType;
 
     JsonArray tagsArray = obj["g"].to<JsonArray>();
 
@@ -236,6 +235,11 @@ class Track {
 
   void setRadius(float radius_) { radius = radius_; }
   const float getRadius() const { return radius; }
+
+  void setSectionsAndRadius(float sections_, float radius_) {
+    radius = radius_;
+    length = (2 * radius_ * M_PI) / sections_;
+  }
 
   void setBranchAngle(float branchAngle_) { branchAngle = branchAngle_; }
   float getBranchAngle() { return branchAngle; }
@@ -421,19 +425,34 @@ class Track {
     exitTag.getPoint().normalizeHeading();
   }
 
-  void setTagPositions() {
+  bool setTagPositions() {
+    Serial.println("track5");
+
     switch (trackType) {
       case BUMPER:
       case STRAIGHT:
+
+        Serial.println("track6");
+
+        if (tags.size() < 2) return false;
+        Serial.println("track6a");
+
         setCurveOrStraightPose(tags[0], tags[1], length, 0);
         break;
       case CURVED:
+        Serial.println("track7");
+
+        if (tags.size() < 2) return false;
+        Serial.println("track7a");
+
         setCurveOrStraightPose(tags[0], tags[1], length, radius);
-        tags[2].getPoint().setHeading(0.0f);
+        // tags[2].getPoint().setHeading(0.0f);
 
         break;
 
       case SWITCH:
+        if (tags.size() < 4) return false;
+
         setCurveOrStraightPose(tags[0], tags[1], length, radius);
 
         setCurveOrStraightPose(tags[2], tags[3], branchLength, branchRadius);
@@ -442,6 +461,8 @@ class Track {
         break;
 
       case CROSS: {
+        if (tags.size() < 4) return false;
+
         setCurveOrStraightPose(tags[0], tags[1], length, radius);
         setCurveOrStraightPose(tags[2], tags[3], branchLength, 0);
 
@@ -465,8 +486,10 @@ class Track {
 
       default:
         Serial.println("wrong type");
-        break;
+
+        return false;
     }
+    return true;
   }
 
   // TOdo might want to have these included as offset values in points?

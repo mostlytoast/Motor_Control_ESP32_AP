@@ -4,8 +4,9 @@
 #define ENCODER_B 22
 
 #define ENCODER_DETENTS_TO_FULL_SPEED 20
+std::atomic<int> encoderTransitions{0};
 
-volatile int8_t encoderTransitions = 0;
+// volatile int8_t encoderTransitions = 0;
 volatile uint8_t encoderLastState = 0;
 
 void IRAM_ATTR encoderISR() {

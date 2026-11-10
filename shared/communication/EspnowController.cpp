@@ -11,9 +11,11 @@ bool previousStateUpdated = false;
 
 bool EspnowController::setupESPNow(
     GetJsonFromStateCallback getJsonFromStateCallback_,
-    GetStateFromJsonCallback getStateFromJsonCallback_, bool wifi) {
+    GetStateFromJsonCallback getStateFromJsonCallback_,
+    ResetStateCallback resetStateCallback_, bool wifi) {
   getJsonFromStateCallback = getJsonFromStateCallback_;
   getStateFromJsonCallback = getStateFromJsonCallback_;
+  resetStateCallback = resetStateCallback_;
 
   callbackInstance = this;
   Serial.println("Initializing ESP-NOW");
@@ -237,6 +239,8 @@ void EspnowController::processESPNowEvents() {
 
       if (event.sendStatus == ESP_NOW_SEND_FAIL && peer != nullptr) {
         Serial.printf("ESP-NOW send failed -> %s", macToString(event.mac));
+        Serial.print("free memory");
+        Serial.println(ESP.getFreeHeap());
         // Controller-side receiver
         // Todo put into a controller function
         app.setStatusLabelText("Fail");
@@ -245,10 +249,12 @@ void EspnowController::processESPNowEvents() {
         peer->setLastSeen(millis());
         discoveryActive = true;
         if (peer->getIsActivePeerReceiver()) {
+          ResetStateCallback();
           peer->setState(PeerState::TIMED_OUT);
           // TODO remove peer from list
         }
-
+        // todo have to set app states to defaults
+        // TODO probs dont wanna remove here only let failsafe remove stuff 
         peers.removePeer(peer->getMac());
         esp_now_del_peer(peer->getMac());
       }
@@ -283,6 +289,8 @@ void EspnowController::processDiscovery() {
     if (result != ESP_OK) {
       Serial.printf("Discovery send failed: %d / %s\n", result,
                     esp_err_to_name(result));
+      Serial.print("free memory");
+      Serial.println(ESP.getFreeHeap());
     }
   }
 }
@@ -290,7 +298,7 @@ void EspnowController::processDiscovery() {
 // PAIRING MODE TIMEOUT
 
 void EspnowController::ESPNowUpdatePairingMode() {
-  // TODO do i even need this maybe remove 
+  // TODO do i even need this maybe remove
   if (pairingMode && pairingModeStartedTime != 0 &&
       millis() - pairingModeStartedTime > DEFAULT_PAIRING_WINDOW_MS) {
     pairingMode = false;
@@ -307,6 +315,7 @@ void EspnowController::ESPNowCheckFailsafe() {
       Serial.println("ESP-NOW TIMEOUT - MOTOR STOP");
       peers.removePeer(&peer);
       esp_now_del_peer(peer.getMac());
+
       // TODO remove from espnow list
 
       // resetDiscover();
@@ -320,6 +329,7 @@ void EspnowController::ESPNowCheckFailsafe() {
 
       // espNowFailsafeActive = true;
     } else if (peers.getActiveControllerPeers().size() == 0) {
+      ResetStateCallback();
       resetDiscover();
       espNowFailsafeActive = true;
     }
@@ -549,7 +559,8 @@ void EspnowController::sendPairResponse(const uint8_t* mac, bool paired) {
     Serial.print(" / ");
 
     Serial.println(esp_err_to_name(result));
-
+    Serial.print("free memory");
+    Serial.println(ESP.getFreeHeap());
     return;
   }
   Serial.println("Pair response sent");
@@ -948,7 +959,8 @@ sendPairRequestState EspnowController::sendPairRequest(Peer* peer) {
     Serial.print(" / ");
 
     Serial.println(esp_err_to_name(result));
-
+    Serial.print("free memory");
+    Serial.println(ESP.getFreeHeap());
     return PAIR_ERROR;
   }
 

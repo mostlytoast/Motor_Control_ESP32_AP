@@ -10,7 +10,6 @@
 #include "../../../shared/utils/uidLogic.h"
 #include "../hardware/NFC.h"
 
-
 class TrackScanner {
  public:
   TrackScanner(TrackMap& map);
@@ -40,6 +39,10 @@ class TrackScanner {
 
   bool haveFirstTag;
 
+  Uid previousTagUid;
+
+  bool havePreviousTag;
+
   Uid connectionTagUid;
 
   bool haveConnectionTag;
@@ -48,7 +51,7 @@ class TrackScanner {
   Uid backwardsUid;
   Uid forwardsUid;
   void pathFind();
-
+  bool isDuplicate(const Uid& uid);
   // Write the track associated with a tag.
   //   todo rename
   bool writeTrackForTag(const Uid& uid, JsonObject& jsonTag);

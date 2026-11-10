@@ -109,61 +109,49 @@ void getStateFromCondensedJson(JsonDocument& doc) {
   JsonObject state = doc["state"].as<JsonObject>();
   // TODO returning null? why
   JsonArray tracks = doc["tracks"].as<JsonArray>();
+  JsonObject templateTrackDoc = doc["templateTrack"].as<JsonObject>();
 
   if (!tracks.isNull()) {
     trackMap.condensedJsonToMap(tracks);
   }
 
-  if (state["ssl"]) {
-    // Use .as<const char*>() to get a pointer to the string
+  if (!templateTrackDoc.isNull()) {
+    bool success = false;
+
+    Track temporaryTrack(success, templateTrackDoc, true);
+
+    if (success) {
+      app.setTemplateTrack(temporaryTrack);
+    }
+  }
+
+  if (state["ssl"].is<const char*>()) {
     app.setScannerStatusLabelText(state["ssl"].as<const char*>());
   }
-  if (state["sl"]) {
+  if (state["sl"].is<const char*>()) {
     // Do the same here
     app.setStatusLabelText(state["sl"].as<const char*>());
   }
 
-  if (state["s"]) {
-    app.setScannerMode(static_cast<ScannerMode>(state["s"]));
+  if (state["s"].is<int>()) {
+    app.setScannerMode(static_cast<ScannerMode>(state["s"].as<int>()));
   }
-  // ----------------------------------------------------
-  // LED 1
-  // ----------------------------------------------------
 
   if (state["1"].is<bool>()) {
     app.setLed1State(state["1"].as<bool>());
   }
 
-  // ----------------------------------------------------
-  // LED 2
-  // ----------------------------------------------------
-
   if (state["2"].is<bool>()) {
     app.setLed2State(state["2"].as<bool>());
   }
-
-  // ----------------------------------------------------
-  // AUTO MODE
-  // ----------------------------------------------------
 
   if (state["a"].is<bool>()) {
     app.setAutoState(state["a"].as<bool>());
   }
 
-  // ----------------------------------------------------
-  // MOTOR SPEED
-  // ----------------------------------------------------
-
   if (state["p"].is<int>() || state["p"].is<long>() || state["p"].is<float>()) {
     app.setUserSpeed(state["p"].as<int>());
   }
-
-  // ----------------------------------------------------
-  // RAMP
-  //
-  // JSON uses seconds.
-  // Internal command uses milliseconds.
-  // ----------------------------------------------------
 
   if (state["r"].is<int>() || state["r"].is<long>() || state["r"].is<float>()) {
     float rampSeconds = state["r"].as<float>();
@@ -175,20 +163,12 @@ void getStateFromCondensedJson(JsonDocument& doc) {
     app.setRampTime(static_cast<int>(rampSeconds * 1000.0f));
   }
 
-  // ----------------------------------------------------
-  // AUDIO
-  // ----------------------------------------------------
-
   if (state["d"].is<bool>()) {
     app.setAudioState(state["d"].as<bool>());
   }
 }
 
 void getCondensedJsonFromState(JsonDocument& doc) {
-  // ----------------------------------------------------
-  // STATE
-  // ----------------------------------------------------
-
   JsonObject state = doc["state"].to<JsonObject>();
   state["ssl"] = app.getScannerStatusLabelText();
   state["sl"] = app.getStatusLabelText();
@@ -200,17 +180,15 @@ void getCondensedJsonFromState(JsonDocument& doc) {
   state["r"] = app.getRampTime() / 1000.0f;
   state["d"] = app.getAudioState();
 
-  // ----------------------------------------------------
-  // TRACK MAP
-  // ----------------------------------------------------
-  // todo maybe store trackmap in appstate?
-  // TODO returning null? why
-
   JsonDocument mapDoc;
 
   trackMap.mapToCondensedJson(mapDoc);
 
   doc["tracks"] = mapDoc["tracks"];
 
-  // serializeJsonPretty(doc, Serial);
+  JsonObject templateTrackDoc = doc["templateTrack"].to<JsonObject>();
+
+  if (const Track* track = app.getTemplateTrack()) {
+    track->toCondensedJson(templateTrackDoc);
+  }
 }

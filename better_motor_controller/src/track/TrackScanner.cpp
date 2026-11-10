@@ -1,6 +1,7 @@
 
 #include "TrackScanner.h"
 
+TrackMap internalTrackMap;
 // TODO fix issue where if track is scanned it does not get sent to display
 // unless you connect to website
 
@@ -28,9 +29,9 @@ void TrackScanner::begin() {
   float length = (diameter * M_PI) / 8;
   Uid emptyUid;
 
-  app.setTemplateTrack(trackMap.createTrack(CURVED, length, diameter / 2, 0, 0,
-                                            0, true, emptyUid, emptyUid,
-                                            emptyUid, emptyUid, true));
+  app.setTemplateTrack(*internalTrackMap.createTrack(
+      CURVED, length, diameter / 2, 0, 0, 0, true, emptyUid, emptyUid, emptyUid,
+      emptyUid, true));
 
   // app.setScannerMode(REGISTER_TRACKS);
 
@@ -64,8 +65,6 @@ void TrackScanner::begin() {
 // ============================================================================
 
 void TrackScanner::processScans() {
-
-
   JsonDocument doc;
   JsonObject tagJson = doc.to<JsonObject>();
 
@@ -96,7 +95,7 @@ void TrackScanner::processScans() {
 
   if (app.getScannerMode() == REGISTER_TRACKS &&
       nfcReadResults != NFC_READ_DUPLICATE) {
-    app.setScannerStatusLabelText("Nfc tag read");
+    // app.setScannerStatusLabelText("Nfc tag read");
 
     Serial.println("registering track");
 
@@ -107,7 +106,7 @@ void TrackScanner::processScans() {
   }
 
   if (app.getScannerMode() == WRITING_TRACKS) {
-    app.setScannerStatusLabelText("Writing nfc tag");
+    // app.setScannerStatusLabelText("Writing nfc tag");
 
     writeTag(uid, tagJson);
     app.setTargetSpeed(app.getUserSpeed());
@@ -116,7 +115,7 @@ void TrackScanner::processScans() {
 
   if (app.getScannerMode() == SCANNING_TRACKS &&
       nfcReadResults == NFC_READ_SUCCESS) {
-    app.setScannerStatusLabelText("Nfc tag read");
+    // app.setScannerStatusLabelText("Nfc tag read");
 
     addTrack(uid, tagJson);
     app.setTargetSpeed(app.getUserSpeed());
@@ -205,19 +204,21 @@ void TrackScanner::trackLocation(const Uid& uid, JsonObject& jsonTag) {
 // ============================================================================
 
 void TrackScanner::writeTag(const Uid& uid, JsonObject& jsonTag) {
+  if (app.getPreviousScannerMode() != WRITING_TRACKS) {
+    app.setScannerStatusLabelText("switching back to writing");
+    app.setScannerMode(WRITING_TRACKS);
+    // Todo might cause error???
+  }
   if (haveFirstTag) {
-    Serial.println();
-    Serial.println("ERROR: You have only scanned one tag.");
-    Serial.println("Scan the second tag first.");
+    app.setScannerStatusLabelText("ERROR: Scan the second tag first.");
 
     app.setScannerMode(app.getPreviousScannerMode());
 
     return;
   }
 
-  if (trackMap.getTrackCount() == 0) {
-    // Serial.println();
-    // Serial.println("ERROR: No tracks have been created.");
+  if (internalTrackMap.getTrackCount() == 0) {
+    app.setScannerStatusLabelText("ERROR: No tracks have been created.");
 
     app.setScannerMode(app.getPreviousScannerMode());
 
@@ -225,6 +226,7 @@ void TrackScanner::writeTag(const Uid& uid, JsonObject& jsonTag) {
   }
 
   JsonDocument newDoc;
+
   JsonObject newTagJson = newDoc.to<JsonObject>();
 
   writeTrackForTag(uid, newTagJson);
@@ -234,7 +236,8 @@ void TrackScanner::writeTag(const Uid& uid, JsonObject& jsonTag) {
   NFCWriteResult nfcWriteResults = nfc.writeNFC(newTagJson, uid);
 
   if (nfcWriteResults == NFC_WRITE_SUCCESS) {
-    Serial.println("Track written successfully!");
+    app.setScannerStatusLabelText("Track written successfully!");
+
   } else if (nfcWriteResults != NFC_WRITE_DUPLICATE) {
     Serial.println("Failed to write track.");
   }
@@ -245,28 +248,35 @@ void TrackScanner::writeTag(const Uid& uid, JsonObject& jsonTag) {
 // ============================================================================
 
 void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
+  if (app.getPreviousScannerMode() != SCANNING_TRACKS) {
+    // Todo add a restart button for this
+    app.setScannerStatusLabelText("switching back to scanning");
+    internalTrackMap.clearMap();
+    // Todo might cause error???
+    firstTagUid.clear();
+    haveFirstTag = false;
+  }
   Serial.println("Scanning track");
 
   if (jsonTag.size() == 0) {
+    app.setScannerStatusLabelText("Track scanner failed to add track");
     Serial.println("json tag empty cant make track");
     return;
   }
 
   if (!trackMap.doesTrackExist(uid)) {
     Serial.println("creating track");
-    bool success;
-    // Track track;
-    // track.fromCondensedJson(success,jsonTag);
-    Track track = Track(success, jsonTag, true);
-    track.setInclude(false);
-    if (success) {
-      Serial.println("Adding Track");
+    serializeJsonPretty(jsonTag, Serial);
 
+    // Serial.println(jsonTag);
+    Track track;
+    if (track.fromCondensedJson(jsonTag)) {
       app.setScannerStatusLabelText("Adding Track");
 
       trackMap.addTrack(track);
     } else {
       app.setScannerStatusLabelText("Track scanner failed to add track");
+      return;
     }
   }
 
@@ -327,10 +337,27 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
 // ============================================================================
 // TRACK SCANNING
 // ============================================================================
-
+bool TrackScanner::isDuplicate(const Uid& uid) {
+  // nfc dup protection only works when past read was successful otherwise it
+  // resets and fails to detect anything
+  if (!havePreviousTag) {
+    havePreviousTag = true;
+    previousTagUid = uid;
+    return false;
+  }
+  if (!uid.equals(previousTagUid)) {
+    previousTagUid = uid;
+    return false;
+  }
+  previousTagUid = uid;
+  return true;
+}
 void TrackScanner::registerScannedTracks(const Uid& uid) {
   if (app.getPreviousScannerMode() != REGISTER_TRACKS) {
-    Serial.println("switching back to register");
+    // Todo add a restart button for this
+    app.setScannerStatusLabelText("switching back to register");
+    app.setScannerMode(REGISTER_TRACKS);
+    internalTrackMap.clearMap();
     // Todo might cause error???
     firstTagUid.clear();
     haveFirstTag = false;
@@ -341,12 +368,16 @@ void TrackScanner::registerScannedTracks(const Uid& uid) {
     Serial.println("ERROR: No template track.");
     return;
   }
-  app.setScannerStatusLabelText("Scanning");
+  // app.setScannerStatusLabelText("registerin");
 
   // ----------------------------------------------------------
   // First tag
   // ----------------------------------------------------------
-
+  if (isDuplicate(uid)) {
+    Serial.println("dup tag");
+    // Serial.println("Scan a different tag.");
+    return;
+  }
   if (!haveFirstTag) {
     firstTagUid = uid;
     haveFirstTag = true;
@@ -372,13 +403,11 @@ void TrackScanner::registerScannedTracks(const Uid& uid) {
     Serial.println();
     Serial.println("Same tag detected.");
     Serial.println("Scan a different tag.");
-    app.setScannerStatusLabelText("Dup: a different tag.");
+    // app.setScannerStatusLabelText("Dup: a different tag.");
 
     return;
   }
 
-  Serial.println();
-  Serial.println("Second tag detected.");
   app.setScannerStatusLabelText("Second tag detected.");
 
   // TODO:
@@ -389,6 +418,12 @@ void TrackScanner::registerScannedTracks(const Uid& uid) {
   // ----------------------------------------------------------
   // Reset temporary tag
   // ----------------------------------------------------------
+  Track* templateTrack = app.getTemplateTrack();
+  internalTrackMap.createTrack(
+      templateTrack->getTrackType(), templateTrack->getLength(),
+      templateTrack->getRadius(), templateTrack->getBranchAngle(),
+      templateTrack->getBranchLength(), templateTrack->getBranchRadius(),
+      templateTrack->getDirection(), firstTagUid, uid);
 
   firstTagUid.clear();
   haveFirstTag = false;
@@ -398,7 +433,7 @@ void TrackScanner::registerScannedTracks(const Uid& uid) {
 
   Serial.print("Total tracks: ");
 
-  Serial.println(trackMap.getTrackCount());
+  Serial.println(internalTrackMap.getTrackCount());
 
   Serial.println();
   Serial.println("Scan the first tag of the next track.");
@@ -410,7 +445,7 @@ void TrackScanner::registerScannedTracks(const Uid& uid) {
 // ============================================================================
 
 bool TrackScanner::writeTrackForTag(const Uid& uid, JsonObject& jsonTag) {
-  Track* track = trackMap.findTrackByUid(uid);
+  Track* track = internalTrackMap.findTrackByUid(uid);
 
   if (!track) {
     Serial.println();
@@ -436,7 +471,31 @@ void TrackScanner::processSerial() {
 
   char command = Serial.read();
 
-  if (command == 'G' || command == 'g') {
+  if (command == 'S' || command == 's') {
+    Serial.println("straight Track");
+    float length = 10;
+    Uid emptyUid;
+
+    app.setTemplateTrack(*internalTrackMap.createTrack(
+        CURVED, length, 0, 0, 0, 0, true, emptyUid, emptyUid, emptyUid,
+        emptyUid, true));
+
+  } else if (command == 'C' || command == 'c') {
+    Serial.println("curved Track");
+    float diameter = 36.0;
+    float length = (diameter * M_PI) / 8;
+    Uid emptyUid;
+
+    app.setTemplateTrack(*internalTrackMap.createTrack(
+        CURVED, length, diameter / 2, 0, 0, 0, true, emptyUid, emptyUid,
+        emptyUid, emptyUid, true));
+
+  } else if (command == 'R' || command == 'r') {
+    Serial.println("register mode");
+
+    app.setScannerMode(REGISTER_TRACKS);
+
+  } else if (command == 'G' || command == 'g') {
     Serial.println("scanning mode");
 
     app.setScannerMode(SCANNING_TRACKS);

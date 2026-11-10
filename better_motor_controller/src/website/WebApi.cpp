@@ -49,31 +49,13 @@ void registerStateRoutes() {
   // ----------------------------------------------------------
   // GET /state
   //
-  // Returns the current train state.
+  // Returns the current app state.
   // ----------------------------------------------------------
 
   server.on("/state", HTTP_GET, [](AsyncWebServerRequest* request) {
     // notifyLocalStateChanged();
     request->send(200, "application/json", getStateJSON());
   });
-
-  // ----------------------------------------------------------
-  // POST /state
-  //
-  // Accepts:
-  //
-  // {
-  //   "led1": true,
-  //   "led2": false,
-  //   "auto": true,
-  //   "speed": 50,
-  //   "ramp": 2,
-  //   "audio": false
-  // }
-  //
-  // Any field may be omitted. Only fields present in the
-  // request are changed.
-  // ----------------------------------------------------------
 
   server.on(
       "/state", HTTP_POST,
@@ -132,12 +114,10 @@ void registerStateRoutes() {
 // ============================================================
 
 String getStateJSON() {
-  // notifyLocalStateChanged();
   JsonDocument outputDoc;
   getCondensedJsonFromState(outputDoc);
   String outputString;
   serializeJson(outputDoc, outputString);
-  // Serial.print("new state");
-  // Serial.println(outputString);
+
   return outputString;
 }

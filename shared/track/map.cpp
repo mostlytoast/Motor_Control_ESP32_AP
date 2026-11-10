@@ -107,10 +107,15 @@ void TrackMap::addTrack(Track track) { tracks.emplace_back(track); }
 // ============================================================
 
 bool TrackMap::connectTags(Tag* a, Tag* b) {
+  Serial.print("connecting");
+
   if (!a || !b || a == b) {
     Serial.println("ERROR: Invalid tags");
     return false;
   }
+ 
+  Serial.print(a->getUid().toString());
+  Serial.print(b->getUid().toString());
 
   Track* trackA = findTrackByUid(a->getUid());
   Track* trackB = findTrackByUid(b->getUid());

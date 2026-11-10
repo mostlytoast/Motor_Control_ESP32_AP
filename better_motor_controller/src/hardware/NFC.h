@@ -8,8 +8,8 @@
 
 #include <vector>
 
-#include "../Config.h"
 #include "../../../shared/utils/uidLogic.h"
+#include "../Config.h"
 enum NFCReadResult {
   NFC_READ_FAILED,
   NFC_READ_DUPLICATE,
@@ -33,6 +33,9 @@ class NFC {
   NFCReadResult readNFC(Uid& uid, JsonObject& tagJson);
 
  private:
+  Uid lastSuccessfulReadTagUid;
+  bool haveLastSuccessfulReadTag;
+
   Uid lastReadTagUid;
 
   bool haveLastReadTag;

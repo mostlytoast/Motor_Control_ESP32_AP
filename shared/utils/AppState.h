@@ -93,9 +93,13 @@ class AppState {
   void setRampStartSpeed(int speed);
 
   // template track
+  void setTemplateTrack(const Track& track);
   Track* getTemplateTrack();
-  void setTemplateTrack(Track* templateTrack_);
+  const Track* getTemplateTrack() const;
+  TrackType getSelectedTrackType();
+  void setSelectedTrackType(TrackType selectedTrackType_);
 
+  TrackType getPreviousSelectedTrackType();
   // display
   String getStatusLabelText();
   void setStatusLabelText(String statusLabelText_);
@@ -105,46 +109,50 @@ class AppState {
   void setDestinationUid(Uid destinationUid_);
   Uid getCurrentUid();
   void setCurrentUid(Uid currentUid_);
-
+  void reset(); 
  private:
+  void initDefaults();
   // LEDs
-  bool led1State = false;
-  bool led2State = false;
+  bool led1State;
+  bool led2State;
 
   // Automatic mode
-  bool autoState = false;
-  AutoMode autoMode = AUTO_IDLE;
+  bool autoState;
+  AutoMode autoMode;
 
   // Scanner
-  ScannerMode scannerMode = REGISTER_TRACKS;
-  ScannerMode previousScanMode = REGISTER_TRACKS;
+  ScannerMode scannerMode;
+  ScannerMode previousScanMode;
 
   String ScannerStatusLabelText;
 
   // Audio
-  bool ambianceAudioMode = false;
-  bool movementAudioMode = false;
+  bool ambianceAudioMode;
+  bool movementAudioMode;
 
-  float movementAudioPitch = 0;
-  float movementAudioSpeed = 0;
+  float movementAudioPitch;
+  float movementAudioSpeed;
 
-  float ambianceAudioPitch = 0;
-  float ambianceAudioSpeed = 0;
+  float ambianceAudioPitch;
+  float ambianceAudioSpeed;
 
   // Speed
-  volatile int targetSpeed = 0;
-  volatile int userSpeed = 0;
-  float currentSpeed = 0.0;
+  volatile int targetSpeed;
+  volatile int userSpeed;
+  float currentSpeed;
 
   // Ramp
-  unsigned long rampTime = 0;
-  unsigned long rampStartTime = 0;
-  int rampStartSpeed = 0;
-  int lastTargetSpeed = 0;
+  unsigned long rampTime;
+  unsigned long rampStartTime;
+  int rampStartSpeed;
+  int lastTargetSpeed;
 
   // template track
-  Track* templateTrack = nullptr;
+  Track templateTrack_;
+  bool hasTemplateTrack_;
 
+  TrackType selectedTrackType;
+  TrackType previousSelectedTrackType;
   // display status label
   String statusLabelText;
 
