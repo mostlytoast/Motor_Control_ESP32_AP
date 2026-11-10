@@ -91,7 +91,7 @@ void setup() {
   if (!espnowController.setupESPNow(getCondensedJsonFromState,
                                     getStateFromCondensedJson,
                                     []() { app.reset(); })) {
-    app.setStatusLabelText("ESP-NOW ERROR");
+    app.setStatusLabelText("ERROR");
   }
 
   WebServer_begin();

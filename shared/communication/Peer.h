@@ -25,7 +25,7 @@ class Peer {
   // Peer.h
   Peer(const uint8_t* mac_, uint8_t channel_, const char* name_);
 
-  unsigned long getLastSeen();
+  const unsigned long getLastSeen() const;
   void setLastSeen(unsigned long time);
 
   const uint8_t* getMac() const;

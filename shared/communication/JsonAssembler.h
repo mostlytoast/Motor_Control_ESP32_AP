@@ -21,7 +21,7 @@ static_assert(sizeof(JsonFragmentHeader) == 6,
               "JsonFragmentHeader must be exactly 6 bytes");
 
 constexpr uint8_t JSON_FRAGMENT_MAGIC = 0xA5;
-constexpr size_t JSON_FRAGMENT_PACKET_SIZE = 250;
+constexpr size_t JSON_FRAGMENT_PACKET_SIZE = 218;
 constexpr size_t JSON_FRAGMENT_HEADER_SIZE = 6;
 constexpr size_t JSON_FRAGMENT_DATA_SIZE =
     JSON_FRAGMENT_PACKET_SIZE - JSON_FRAGMENT_HEADER_SIZE;

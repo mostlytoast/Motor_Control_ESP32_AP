@@ -101,22 +101,28 @@ void getJsonFromState(JsonDocument& doc) {
 
   // serializeJsonPretty(doc, Serial);
 }
-void getCondensedJsonFromStateTransmitter(JsonDocument& doc){
+void getCondensedJsonFromStateTransmitter(JsonDocument& doc) {
   getCondensedJsonFromState(doc);
-  doc["tracks"] = nullptr;
+  doc["addTracks"] = nullptr;
+  doc["removeUid"] = nullptr;
+
 }
 
+std::vector<Track> pastTracks;
 void getStateFromCondensedJson(JsonDocument& doc) {
   // Serial.println("=== getStateFromCondensedJson INPUT ===");
   // serializeJsonPretty(doc, Serial);
   JsonObject state = doc["state"].as<JsonObject>();
   // TODO returning null? why
-  JsonArray tracks = doc["tracks"].as<JsonArray>();
-  JsonObject templateTrackDoc = doc["templateTrack"].as<JsonObject>();
+  JsonArray addTracks = doc["addTracks"].as<JsonArray>();
+  JsonArray removeUid = doc["removeUid"].as<JsonArray>();
 
-  if (!tracks.isNull()) {
-    trackMap.condensedJsonToMap(tracks);
+  if (!addTracks.isNull()) {
+    trackMap.condensedJsonToMap(addTracks, removeUid);
   }
+  pastTracks = trackMap.getTracks();
+
+  JsonObject templateTrackDoc = doc["templateTrack"].as<JsonObject>();
 
   if (!templateTrackDoc.isNull()) {
     bool success = false;
@@ -171,7 +177,6 @@ void getStateFromCondensedJson(JsonDocument& doc) {
   }
 }
 
-
 void getCondensedJsonFromState(JsonDocument& doc) {
   JsonObject state = doc["state"].to<JsonObject>();
   state["ssl"] = app.getScannerStatusLabelText();
@@ -184,11 +189,10 @@ void getCondensedJsonFromState(JsonDocument& doc) {
   state["r"] = app.getRampTime() / 1000.0f;
   state["d"] = app.getAudioState();
 
-  JsonDocument mapDoc;
+  JsonArray addTracks = doc["addTracks"].as<JsonArray>();
+  JsonArray removeUid = doc["removeUid"].as<JsonArray>();
 
-  trackMap.mapToCondensedJson(mapDoc);
-
-  doc["tracks"] = mapDoc["tracks"];
+  trackMap.mapToCondensedJson(addTracks, removeUid, pastTracks);
 
   JsonObject templateTrackDoc = doc["templateTrack"].to<JsonObject>();
 

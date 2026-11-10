@@ -109,7 +109,7 @@ void ControllerMenu::refreshList() {
 void ControllerMenu::scanEvent(lv_event_t* event) {
   espnowController.resetDiscover();
 
-  app.setStatusLabelText("No Peer");
+  app.setStatusLabelText("NO PEER");
 
   Serial.println("Starting receiver discovery...");
 }
@@ -139,7 +139,7 @@ void ControllerMenu::selectReceiver(Peer* peer) {
     case ALREADY_SELECTED:
       return;
     case PEER_ERROR:
-      app.setStatusLabelText("PEER ERROR");
+      app.setStatusLabelText("ERROR");
       refreshList();
       return;
     default:
@@ -147,24 +147,21 @@ void ControllerMenu::selectReceiver(Peer* peer) {
   }
   updateStatus();
   app.setStatusLabelText("PAIRING...");
-  switch (espnowController.sendPairRequest(peer)) {
-    case PAIR_ERROR:
-      app.setStatusLabelText("PAIR FAILED");
-      refreshList();
-      return;
-    case PAIR_SUCCESS:
-      app.setStatusLabelText("PAIR SUCCESS");
-      toggle();
-      break;
-    default:
-      break;
+  if (espnowController.sendPairRequest(peer)) {
+    app.setStatusLabelText("PAIRED");
+    toggle();
+    return;
+  } else {
+    app.setStatusLabelText("FAILED");
+    refreshList();
+    return;
   }
 }
 
 void ControllerMenu::updateStatus() {
   if (!status_label) return;
   if (espnowController.hasActiveReceiver()) {
-    app.setStatusLabelText("No Receiver");
+    app.setStatusLabelText("NO PEER");
   } else {
     Peer* peer = espnowController.getActiveReceiverPeer();
     if (peer) {

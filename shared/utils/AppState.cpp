@@ -14,6 +14,7 @@ AppState::AppState() {
 void AppState::reset()  { initDefaults(); }
 
 void AppState::initDefaults() {
+  Serial.println("reset app");
   // LEDs
   led1State = false;
   led2State = false;

@@ -24,7 +24,7 @@
 #define HEARTBEAT_INTERVAL 350
 #define DISCOVERY_INTERVAL 2000
 #define DISCOVERY_TIMEOUT 5000
-#define MAX_RECEIVERS 5
+#define MAX_PEERS 5
 
 // =====================================================
 // RECEIVER STATE
@@ -50,8 +50,6 @@ enum validateSelectedPeerState {
   PASS_CHECK
 };
 
-enum sendPairRequestState { PAIR_ERROR, PAIR_SUCCESS };
-
 // =====================================================
 // ESP-NOW EVENT QUEUE
 // =====================================================
@@ -68,6 +66,7 @@ struct EspNowEvent {
   EspNowEventType type;
   // Peer peer;
   uint8_t mac[6];
+
   uint8_t data[ESPNOW_EVENT_DATA_MAX];
   uint16_t len;
   esp_now_send_status_t sendStatus;
@@ -94,14 +93,13 @@ class EspnowController {
   // Initialization
   bool setupESPNow(GetJsonFromStateCallback getJsonFromStateCallback_,
                    GetStateFromJsonCallback getStateFromJsonCallback_,
-                   ResetStateCallback resetStateCallback_,
-                   bool wifi = false);
+                   ResetStateCallback resetStateCallback_, bool wifi = false);
 
   // Periodic communication
   void espnowUpdate();
 
   // Pairing
-  sendPairRequestState sendPairRequest(Peer* peer);
+  bool sendPairRequest(Peer* peer);
 
   validateSelectedPeerState validateSelectedPeer(Peer* peer);
 
@@ -127,26 +125,23 @@ class EspnowController {
   void removePeer(const uint8_t* mac);
   // bool removeController(int slot);
 
-  bool addOrUpdateReceiver(const DiscoveryPacket* packet);
+  bool addOrUpdateDiscoveredPeer(Peer* peer, const ESPNowCommand* packet);
   // bool pairWithReceiver(int index);
 
-  bool claimPeer(Peer* peer);
+  bool claimPeerAsActiveController(Peer* peer);
   bool isActiveController(const uint8_t* mac);
 
   // JSON communication
-  bool sendJsonDocument(const Peer* peer, JsonDocument& doc);
-  bool processReceivedJsonFragment(const uint8_t* sourceMac,
-                                   const uint8_t* data, size_t len);
-  void processJsonCommand(const uint8_t* sourceMac, JsonDocument& doc);
+  
+  bool sendCommandToPeer(Peer* peer, ESPNowCommand command);
+  bool sendJsonDocument(Peer* peer, JsonDocument& doc);
 
-  bool sendServerState(const Peer& peer);
+  bool sendServerState(Peer* peer);
   // Discovery
 
   void processDiscovery();
 
-  void ESPNowUpdatePairingMode();
-
-  void sendDiscoveryPacket(const uint8_t* destination);
+  void sendDiscoveryResponse(Peer* peer);
 
   // Periodic communication
   void sendHeartbeat();
@@ -154,6 +149,8 @@ class EspnowController {
   // Incoming state
   void processServerState(JsonDocument& doc);
   void processESPNowEvents();
+
+  void NewFunction(Peer* peer, EspNowEvent& event);
 
   static void onESPNowReceive(const esp_now_recv_info_t* info,
                               const uint8_t* data, int len);
@@ -163,17 +160,19 @@ class EspnowController {
   static EspnowController* callbackInstance;
   void ESPNowCheckFailsafe();
 
-  void sendPairResponse(const uint8_t* mac, bool paired);
-  void sendControllerStatus(Peer* peer);
+  void sendPairResponse(Peer* peer);
+
   // Todo might wanna use peer over mac
-  bool processReceivedPeerBinaryPacket(const uint8_t* mac, const uint8_t* data,
+  bool processReceivedPeerBinaryPacket(Peer* peer, const uint8_t* data,
                                        int len);
 
-  bool processReceivedControllerBinaryPacket(const uint8_t* mac,
-                                             const uint8_t* data, int len);
+  bool processReceivedControllerBinaryPacket(Peer* peer, const uint8_t* data,
+                                             int len);
+  bool processReceivedJsonFragment(Peer* peer, const uint8_t* data, size_t len);
+
   void processStateChanges();
 
-  void handleUnkownPacket(const uint8_t* mac, const uint8_t* data, int len);
+  void handleUnkownPacket(Peer* peer, EspNowEvent& event);
   // =====================================================
   // LOCAL ESP-NOW STATE
   // =====================================================
@@ -188,12 +187,7 @@ class EspnowController {
   // CONTROLLER-SIDE RECEIVER LIST
   // =====================================================
 
-  // int receiverCount = 0;
-  // int activeReceiver = -1;
-
   volatile bool receiverListNeedsRefresh = false;
-
-  // ReceiverInfo receivers[MAX_RECEIVERS] = {};
 
   // =====================================================
   // DISCOVERY STATE
@@ -205,30 +199,15 @@ class EspnowController {
   unsigned long lastDiscoverySend = 0;
 
   // =====================================================
-  // CONTROLLER-SIDE SERVER STATE
-  // =====================================================
-
-  JsonDocument serverState;
-
-  // =====================================================
   // PERIODIC COMMUNICATION
   // =====================================================
 
   unsigned long lastHeartbeatSend = 0;
 
-  // ESP-NOW
-
-  bool espNowFailsafeActive = false;
-  volatile unsigned long lastESPNowPacket = 0;
-
-  // Pairing
-  bool pairingMode = true;
-  unsigned long pairingModeStartedTime = 0;
-
   // Json State Callbacks
   GetJsonFromStateCallback getJsonFromStateCallback = nullptr;
   GetStateFromJsonCallback getStateFromJsonCallback = nullptr;
-  ResetStateCallback resetStateCallback = nullptr; 
+  ResetStateCallback resetStateCallback = nullptr;
 };
 extern EspnowController espnowController;
 

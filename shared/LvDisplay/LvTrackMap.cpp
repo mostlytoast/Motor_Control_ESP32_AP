@@ -102,101 +102,101 @@ void LvTrackMap::setTrackMap(TrackMap* map) {
   if (!map) return;
 
   map_ = map;
-  JsonDocument doc;
-  deserializeJson(doc,
-                  "{\"l\": 14.13717,\"r\": 18,\"d\": true,\"a\": 0,\"h\": "
-                  "0,\"o\": 0,\"t\": 1,\"g\": [{\"uid\": "
-                  "\"04:23:9B:9C:E4:2A:81\",\"internalConnectedTagUids\": "
-                  "[\"04:2E:9B:9C:E4:2A:81\"]},{\"uid\": "
-                  "\"04:2E:9B:9C:E4:2A:81\",\"internalConnectedTagUids\": "
-                  "[\"04:23:9B:9C:E4:2A:81\"]},{\"uid\": "
-                  "\"\",\"internalConnectedTagUids\": []},{\"uid\": "
-                  "\"\",\"internalConnectedTagUids\": []}]}");
+  // JsonDocument doc;
+  // deserializeJson(doc,
+  //                 "{\"l\": 14.13717,\"r\": 18,\"d\": true,\"a\": 0,\"h\": "
+  //                 "0,\"o\": 0,\"t\": 1,\"g\": [{\"uid\": "
+  //                 "\"04:23:9B:9C:E4:2A:81\",\"internalConnectedTagUids\": "
+  //                 "[\"04:2E:9B:9C:E4:2A:81\"]},{\"uid\": "
+  //                 "\"04:2E:9B:9C:E4:2A:81\",\"internalConnectedTagUids\": "
+  //                 "[\"04:23:9B:9C:E4:2A:81\"]},{\"uid\": "
+  //                 "\"\",\"internalConnectedTagUids\": []},{\"uid\": "
+  //                 "\"\",\"internalConnectedTagUids\": []}]}");
 
-  bool success;
-  Track track = Track(success, doc.as<JsonObject>(), true);
-  Serial.println(success);
-  // JsonObject printDoc;
-  // track.toCondensedJson(printDoc);
-  // serializeJsonPretty(printDoc, Serial);
-  if (success) {
-    track.printTrack();
-  }
-  map->addTrack(track);
-  JsonDocument doc2;
-  deserializeJson(doc2,
-                  "{\"l\": 10,\"r\": 0,\"d\": true,\"a\": 0,\"h\": 0,\"o\": "
-                  "0,\"t\": 1,\"g\": [{\"uid\": "
-                  "\"04:E2:9A:9C:E4:2A:81\",\"internalConnectedTagUids\": "
-                  "[\"04:E1:9A:9C:E4:2A:81\"]},{\"uid\": "
-                  "\"04:E1:9A:9C:E4:2A:81\",\"internalConnectedTagUids\": "
-                  "[\"04:E2:9A:9C:E4:2A:81\"]},{\"uid\": "
-                  "\"\",\"internalConnectedTagUids\": []},{\"uid\": "
-                  "\"\",\"internalConnectedTagUids\": []}]}");
+  // bool success;
+  // Track track = Track(success, doc.as<JsonObject>(), true);
+  // Serial.println(success);
+  // // JsonObject printDoc;
+  // // track.toCondensedJson(printDoc);
+  // // serializeJsonPretty(printDoc, Serial);
+  // if (success) {
+  //   track.printTrack();
+  // }
+  // map->addTrack(track);
+  // JsonDocument doc2;
+  // deserializeJson(doc2,
+  //                 "{\"l\": 10,\"r\": 0,\"d\": true,\"a\": 0,\"h\": 0,\"o\": "
+  //                 "0,\"t\": 1,\"g\": [{\"uid\": "
+  //                 "\"04:E2:9A:9C:E4:2A:81\",\"internalConnectedTagUids\": "
+  //                 "[\"04:E1:9A:9C:E4:2A:81\"]},{\"uid\": "
+  //                 "\"04:E1:9A:9C:E4:2A:81\",\"internalConnectedTagUids\": "
+  //                 "[\"04:E2:9A:9C:E4:2A:81\"]},{\"uid\": "
+  //                 "\"\",\"internalConnectedTagUids\": []},{\"uid\": "
+  //                 "\"\",\"internalConnectedTagUids\": []}]}");
 
-  bool success2;
-  Track track2 = Track(success2, doc2.as<JsonObject>(), true);
-  map->addTrack(track2);
+  // bool success2;
+  // Track track2 = Track(success2, doc2.as<JsonObject>(), true);
+  // map->addTrack(track2);
 
-  Serial.println(success2);
-  // JsonObject printDoc2;
-  // track2.toCondensedJson(printDoc2);
-  // serializeJsonPretty(printDoc2, Serial);
-  if (success2) {
-    track2.printTrack();
-  }
+  // Serial.println(success2);
+  // // JsonObject printDoc2;
+  // // track2.toCondensedJson(printDoc2);
+  // // serializeJsonPretty(printDoc2, Serial);
+  // if (success2) {
+  //   track2.printTrack();
+  // }
 
-  // Uid emptyUid;
+  // // Uid emptyUid;
 
-  // Uid entrance0("AA:AA:AA:AA:AA:AA:AA");
-  // Uid exit0("BB:BB:BB:BB:BB:BB:AA");
+  // // Uid entrance0("AA:AA:AA:AA:AA:AA:AA");
+  // // Uid exit0("BB:BB:BB:BB:BB:BB:AA");
 
-  // Uid entrance1("AA:AA:AA:AA:AA:AA:11");
-  // Uid exit1("BB:BB:BB:BB:BB:BB:11");
+  // // Uid entrance1("AA:AA:AA:AA:AA:AA:11");
+  // // Uid exit1("BB:BB:BB:BB:BB:BB:11");
 
-  // Uid entrance2("AA:AA:AA:AA:AA:AA:22");
-  // Uid exit2("BB:BB:BB:BB:BB:BB:22");
-  // Uid entrance2B("AA:AA:AA:AA:AA:BB:22");
-  // Uid exit2B("BB:BB:BB:BB:BB:CC:22");
+  // // Uid entrance2("AA:AA:AA:AA:AA:AA:22");
+  // // Uid exit2("BB:BB:BB:BB:BB:BB:22");
+  // // Uid entrance2B("AA:AA:AA:AA:AA:BB:22");
+  // // Uid exit2B("BB:BB:BB:BB:BB:CC:22");
 
-  // Uid entrance3("AA:AA:AA:AA:AA:AA:33");
-  // Uid exit3("BB:BB:BB:BB:BB:BB:33");
+  // // Uid entrance3("AA:AA:AA:AA:AA:AA:33");
+  // // Uid exit3("BB:BB:BB:BB:BB:BB:33");
 
-  // // Create tracks first.
-  // map_->createTrack(STRAIGHT, 10, 0, 0, 0, 0, true, entrance0, exit0,
-  // emptyUid,
-  //                   emptyUid);
+  // // // Create tracks first.
+  // // map_->createTrack(STRAIGHT, 10, 0, 0, 0, 0, true, entrance0, exit0,
+  // // emptyUid,
+  // //                   emptyUid);
 
-  // map_->createTrack(CURVED, 10, 10, 0, 0, 0, true, entrance1, exit1,
-  // emptyUid,
-  //                   emptyUid);
+  // // map_->createTrack(CURVED, 10, 10, 0, 0, 0, true, entrance1, exit1,
+  // // emptyUid,
+  // //                   emptyUid);
 
-  // // flipped
-  // map_->createTrack(SWITCH, 10, 0, 0, 10, 10, true, entrance2, exit2,
-  //                   entrance2B, exit2B);
+  // // // flipped
+  // // map_->createTrack(SWITCH, 10, 0, 0, 10, 10, true, entrance2, exit2,
+  // //                   entrance2B, exit2B);
 
-  // map_->createTrack(CROSS, 10, 0, 10, 10, 0, true, entrance3, exit3,
-  // entrance3,
-  //                   exit3);
+  // // map_->createTrack(CROSS, 10, 0, 10, 10, 0, true, entrance3, exit3,
+  // // entrance3,
+  // //                   exit3);
 
-  // // Connect tracks after they have all been created.
-  // // JsonDocument doc;
-  // // map_->mapToJson(doc);
-  // // serializeJsonPretty(doc, Serial);
-  // // Serial.println("============= calc ==========");
-  auto connect = [&](const Uid& a, const Uid& b) {
-    Tag* tagA = map_->findTagByUid(a);
-    Tag* tagB = map_->findTagByUid(b);
-    const bool success = map_->connectTags(tagA, tagB);
-  };
+  // // // Connect tracks after they have all been created.
+  // // // JsonDocument doc;
+  // // // map_->mapToJson(doc);
+  // // // serializeJsonPretty(doc, Serial);
+  // // // Serial.println("============= calc ==========");
+  // auto connect = [&](const Uid& a, const Uid& b) {
+  //   Tag* tagA = map_->findTagByUid(a);
+  //   Tag* tagB = map_->findTagByUid(b);
+  //   const bool success = map_->connectTags(tagA, tagB);
+  // };
 
-  // // Create a continuous chain.
-  if (success2 && success) {
-    connect(track.getTags()[0].getUid(), track2.getTags()[0].getUid());
-  }
+  // // // Create a continuous chain.
+  // if (success2 && success) {
+  //   connect(track.getTags()[0].getUid(), track2.getTags()[0].getUid());
+  // }
 
-  // Position the map.
-  map_->calculateMap();
+  // // Position the map.
+  // map_->calculateMap();
 
   // TrackPathFinder pathFinder(*map_);
 

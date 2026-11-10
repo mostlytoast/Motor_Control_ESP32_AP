@@ -8,7 +8,7 @@ Peer::Peer(const uint8_t* mac_, uint8_t channel_, const char* name_) {
   setName(name_);
 }
 
-unsigned long Peer::getLastSeen() { return lastSeen; }
+const unsigned long Peer::getLastSeen() const { return lastSeen; }
 
 void Peer::setLastSeen(unsigned long time) { lastSeen = time; }
 

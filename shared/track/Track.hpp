@@ -147,7 +147,7 @@ class Track {
 
   bool fromCondensedJson(JsonObject& obj) {
     // Validate input
-    Serial.println("track");
+    // Serial.println("track");
     try {
       if (obj.isNull()) {
         Serial.println("jsonToTrack: JSON object is null");
@@ -172,19 +172,19 @@ class Track {
       // UID objects
 
       JsonArray tagsArray = obj["g"].as<JsonArray>();
-      Serial.println("track1");
+      // Serial.println("track1");
 
       if (!tagsArray.isNull()) {
         for (JsonObject tagObj : tagsArray) {
           Tag tag;
-          Serial.println("track2");
+          // Serial.println("track2");
 
           if (tag.fromCondensedJson(tagObj)) {
             tags.emplace_back(tag);
           }
         }
       }
-      Serial.println("track3");
+      // Serial.println("track3");
 
       if (tags.size() == 0) {
         return false;
@@ -426,24 +426,24 @@ class Track {
   }
 
   bool setTagPositions() {
-    Serial.println("track5");
+    // Serial.println("track5");
 
     switch (trackType) {
       case BUMPER:
       case STRAIGHT:
 
-        Serial.println("track6");
+        // Serial.println("track6");
 
         if (tags.size() < 2) return false;
-        Serial.println("track6a");
+        // Serial.println("track6a");
 
         setCurveOrStraightPose(tags[0], tags[1], length, 0);
         break;
       case CURVED:
-        Serial.println("track7");
+        // Serial.println("track7");
 
         if (tags.size() < 2) return false;
-        Serial.println("track7a");
+        // Serial.println("track7a");
 
         setCurveOrStraightPose(tags[0], tags[1], length, radius);
         // tags[2].getPoint().setHeading(0.0f);

@@ -9,8 +9,9 @@ constexpr uint8_t WIFI_CHANNEL = 6;
 constexpr int MAX_CONTROLLERS = 8;
 constexpr unsigned long DEFAULT_PAIRING_WINDOW_MS = 60000UL;
 constexpr unsigned long ESPNOW_TIMEOUT = 500;
-// TODO have a way for this to be located in the local depending which is being compiled???
-constexpr char RECEIVER_NAME[] = "steam train";
+// TODO have a way for this to be located in the local depending which is being
+// compiled???
+constexpr char NAME[] = "steam train";
 
 // #define RAMP_STEP 1000
 // #define RAMP_MIN 0
@@ -20,7 +21,7 @@ constexpr int kRampStep = 1000;
 constexpr int kRampMin = 0;
 constexpr int kRampMax = 10000;
 
-// TODO standardize color names 
+// TODO standardize color names
 constexpr uint32_t kColorBackground = 0x101820;
 constexpr uint32_t kColorButtonOff = 0x444444;
 constexpr uint32_t kColorButtonOn = 0x00AA55;

@@ -113,7 +113,7 @@ bool TrackMap::connectTags(Tag* a, Tag* b) {
     Serial.println("ERROR: Invalid tags");
     return false;
   }
- 
+
   Serial.print(a->getUid().toString());
   Serial.print(b->getUid().toString());
 
@@ -272,42 +272,92 @@ void TrackMap::JsonToMap(JsonArray doc) {
   trackMap.calculateMap();
 }
 
-void TrackMap::mapToCondensedJson(JsonDocument& doc) {
-  JsonArray tracksJson = doc["tracks"].to<JsonArray>();
-  int count = 0;
-  for (uint8_t i = 0; i < tracks.size(); i++) {
-    JsonObject obj = tracksJson.add<JsonObject>();
+void TrackMap::mapToCondensedJson(JsonArray& addTracksJson,
+                                  JsonArray& removeUidsFromMap,
+                                  std::vector<Track> pastTracks) {
+  // Use a vector to track which UIDs are present in the current update
+  std::vector<Uid> currentTracksUids;
 
-    Track& track = tracks[i];
+  // 1. Build the current map and populate IDs
+  // 2. Identify Additions (In currentTracksUids but not in pastTracks)
+  for (Track& currentTrack : tracks) {
+    currentTracksUids.emplace_back(currentTrack.getTags()[0].getUid());
 
-    if (track.getInclude()) {
-      obj["id"] = count;
+    if (currentTrack.getInclude()) {
+      bool existsInPast = false;
+      for (Track& pastTrack : pastTracks) {
+        if (pastTrack.getTags()[0].getUid().equals(
+                currentTrack.getTags()[0].getUid())) {
+          existsInPast = true;
+        }
+      }
+      if (!existsInPast) {
+        JsonObject obj = addTracksJson.add<JsonObject>();
+        currentTrack.toCondensedJson(obj);
+      }
+    }
+  }
+  // 2. Identify Removals (In pastTracks but not in currentTracksUids)
 
-      track.toCondensedJson(obj);
-      count++;
+  for (Track& pastTrack : pastTracks) {
+    Uid pastUid = pastTrack.getTags()[0].getUid();
+    bool existsInCurrent = false;
+
+    for (Uid currentUid : currentTracksUids) {
+      if (pastUid.equals(currentUid)) {
+        existsInCurrent = true;
+      }
+    }
+
+    if (!existsInCurrent) {
+      JsonObject obj = removeUidsFromMap.add<JsonObject>();
+      obj["uid"] = pastUid.toString();
     }
   }
 }
 
-void TrackMap::condensedJsonToMap(JsonArray doc) {
+bool TrackMap::removeTrack(const Track* track) {
+  auto it = std::find_if(tracks.begin(), tracks.end(),
+                         [track](Track& p) { return p == *track; });
+
+  if (it != tracks.end()) {
+    tracks.erase(it);
+    return true;
+  }
+  return false;
+}
+
+void TrackMap::condensedJsonToMap(JsonArray& addTracksJson,
+                                  JsonArray& removeUidsFromMap) {
   // todo find better way to prevent it creating multiple of same track
-  // if (tracks.size() ==1 ) return;
-  clearMap();
-  if (doc.isNull()) {
+
+  if (addTracksJson.isNull()) {
     Serial.println("JsonToMap: no tracks array found");
     return;
   }
 
-  for (uint8_t i = 0; i < doc.size(); i++) {
+  for (const JsonObject& addTrackJson : addTracksJson) {
     if (tracks.size() >= MAX_TRACKS) {
       continue;
     } else {
-      // Add to the tracks array
+      // Add to the tracks
       bool success;
-      Track track = Track(success, doc[i].as<JsonObject>(), true);
+      Track track = Track(success, addTrackJson, true);
       if (success) tracks.emplace_back(track);
     }
   }
+
+  for (const JsonObject& removeUid : removeUidsFromMap) {
+    if (tracks.size() >= MAX_TRACKS) {
+      continue;
+    } else if (removeUid["uid"].is<const char*>()) {
+      // Remove track from tracks
+      Uid uid(removeUid["uid"].as<const char*>());
+      const Track* track = findTrackByUid(uid);
+      removeTrack(track);
+    }
+  }
+
   trackMap.calculateMap();
 }
 

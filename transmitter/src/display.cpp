@@ -63,7 +63,7 @@ void Display::setupDisplay() {
   if (!espnowController.setupESPNow(
           getCondensedJsonFromStateTransmitter, getStateFromCondensedJson,
           []() { app.reset(); }, true)) {
-    app.setStatusLabelText("ESP-NOW ERROR");
+    app.setStatusLabelText("ERROR");
   }
 }
 

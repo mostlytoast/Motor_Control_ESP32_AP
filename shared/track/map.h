@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <string>
+#include <vector>
+
 #include "../utils/Math.hpp"
 #include "../utils/uidLogic.h"
 #include "Arduino.h"
@@ -55,9 +58,13 @@ class TrackMap {
 
   void JsonToMap(JsonArray doc);
 
-  void mapToCondensedJson(JsonDocument& doc);
-  void condensedJsonToMap(JsonArray doc);
+  void mapToCondensedJson(JsonArray& addTracksJson,
+                          JsonArray& removeUidsFromMap,
+                          std::vector<Track> pastTracks);
+  void condensedJsonToMap(JsonArray& addTracksJson,
+                          JsonArray& removeUidsFromMap);
   void clearMap();
+  bool removeTrack(const Track* track);
 
  private:
   static constexpr uint8_t MAX_TRACKS = 100;

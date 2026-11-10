@@ -134,27 +134,27 @@ void TrackScanningDisplay::setListAsCurved() {
   list_tracks_options_ = display_.createActionDropdown(
       container_, "O31\nO36\nO48\nO60\nO72\nO84\nO96\n", 215, 128, 100, 40,
       {[this]() {
-         app.getTemplateTrack()->setSectionsAndRadius(8.0, 31.0);
+         app.getTemplateTrack()->setSectionsAndRadius(8.0, 31.0 / 2.0);
          refreshAndSend();
        },
        [this]() {
-         app.getTemplateTrack()->setSectionsAndRadius(8.0, 36.0);
+         app.getTemplateTrack()->setSectionsAndRadius(8.0, 36.0 / 2.0);
          refreshAndSend();
        },
        [this]() {
-         app.getTemplateTrack()->setSectionsAndRadius(12.0, 48.0);
+         app.getTemplateTrack()->setSectionsAndRadius(12.0, 48.0 / 2.0);
          refreshAndSend();
        },
        [this]() {
-         app.getTemplateTrack()->setSectionsAndRadius(16.0, 60.0);
+         app.getTemplateTrack()->setSectionsAndRadius(16.0, 60.0 / 2.0);
          refreshAndSend();
        },
        [this]() {
-         app.getTemplateTrack()->setSectionsAndRadius(16.0, 72.0);
+         app.getTemplateTrack()->setSectionsAndRadius(16.0, 72.0 / 2.0);
          refreshAndSend();
        },
        [this]() {
-         app.getTemplateTrack()->setSectionsAndRadius(32.0, 84.0);
+         app.getTemplateTrack()->setSectionsAndRadius(32.0, 84.0 / 2.0);
          refreshAndSend();
        },
        [this]() { app.getTemplateTrack()->setSectionsAndRadius(32.0, 96.0); }});

@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <stdint.h>
+#include "JsonAssembler.h"
 enum ESPNowCommandType : uint8_t {
   CMD_HEARTBEAT = 8,
 
@@ -20,7 +21,6 @@ enum ESPNowCommandType : uint8_t {
 };
 // TODO do we want to get rid of failsafe and active controller to put into data
 
-
 struct ServerStatePacket {
   uint8_t type;
 
@@ -28,20 +28,22 @@ struct ServerStatePacket {
 };
 struct __attribute__((packed)) ESPNowCommand {
   uint8_t type;
-  int16_t value;
-  uint8_t data[32];
+  uint8_t mac[6];
+  char name[24];
+  uint8_t channel;
+  uint8_t data[JSON_FRAGMENT_PACKET_SIZE];
 };
 
 struct __attribute__((packed)) DiscoveryPacket {
   uint8_t type;
   int16_t value;
 
-  uint8_t receiverMac[6];
+  uint8_t mac[6];
 
   uint8_t pairedCount;
   uint8_t pairingMode;
 
-  char receiverName[24];
+  char name[24];
 
   uint8_t channel;
 };
@@ -50,22 +52,22 @@ struct __attribute__((packed)) PairPacket {
   uint8_t type;
   int16_t value;
 
-  uint8_t receiverMac[6];
+  uint8_t mac[6];
 
   uint8_t paired;
 
-  char receiverName[24];
+  char name[24];
 };
 
 struct __attribute__((packed)) PairResponse {
   uint8_t type;
   int16_t value;
 
-  uint8_t receiverMac[6];
+  uint8_t mac[6];
 
   uint8_t paired;
 
-  char receiverName[24];
+  char name[24];
 };
 
 #endif
