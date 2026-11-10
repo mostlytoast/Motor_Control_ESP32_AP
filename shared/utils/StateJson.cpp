@@ -1,6 +1,5 @@
 #include "StateJson.h"
 
-#include "../track/map.h"
 // TODO have special json funcitons that only output track when somethings
 // change?
 void getStateFromJson(JsonDocument& doc) {
@@ -102,6 +101,10 @@ void getJsonFromState(JsonDocument& doc) {
 
   // serializeJsonPretty(doc, Serial);
 }
+void getCondensedJsonFromStateTransmitter(JsonDocument& doc){
+  getCondensedJsonFromState(doc);
+  doc["tracks"] = nullptr;
+}
 
 void getStateFromCondensedJson(JsonDocument& doc) {
   // Serial.println("=== getStateFromCondensedJson INPUT ===");
@@ -167,6 +170,7 @@ void getStateFromCondensedJson(JsonDocument& doc) {
     app.setAudioState(state["d"].as<bool>());
   }
 }
+
 
 void getCondensedJsonFromState(JsonDocument& doc) {
   JsonObject state = doc["state"].to<JsonObject>();

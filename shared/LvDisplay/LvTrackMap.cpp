@@ -405,7 +405,7 @@ LvTrackMap::Point LvTrackMap::worldToMap(Point point) const {
 void LvTrackMap::refresh() {
   transformDirty_ = true;
 
-  calculateTransform();
+  // calculateTransform();
 
   if (root_) {
     lv_obj_invalidate(root_);

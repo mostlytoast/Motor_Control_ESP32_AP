@@ -59,9 +59,9 @@ void Display::setupDisplay() {
   lv_indev_set_read_cb(touchIndev, touchRead);
 
   createUI();
-
+  // TODO need to make it so it does not overwrite the track state of the train, need to do that by not including track for the getCondensedJsonFromState make custoom one
   if (!espnowController.setupESPNow(
-          getCondensedJsonFromState, getStateFromCondensedJson,
+          getCondensedJsonFromStateTransmitter, getStateFromCondensedJson,
           []() { app.reset(); }, true)) {
     app.setStatusLabelText("ESP-NOW ERROR");
   }
