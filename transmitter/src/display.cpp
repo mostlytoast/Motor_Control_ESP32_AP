@@ -59,14 +59,24 @@ void Display::setupDisplay() {
   lv_indev_set_read_cb(touchIndev, touchRead);
 
   createUI();
-  // TODO need to make it so it does not overwrite the track state of the train, need to do that by not including track for the getCondensedJsonFromState make custoom one
+  // TODO need to make it so it does not overwrite the track state of the train,
+  // need to do that by not including track for the getCondensedJsonFromState
+  // make custoom one
+
   if (!espnowController.setupESPNow(
           getCondensedJsonFromStateTransmitter, getStateFromCondensedJson,
-          []() { app.reset(); }, true)) {
+          [this]() { this->reset(); }, true)) {
     app.setStatusLabelText("ERROR");
   }
 }
 
+// TODO should just be able to only call app.reset() and everything gets reset
+void Display::reset() {
+  app.reset();
+  // gDisplayController->reset();
+  // refresh();
+  
+}
 void Display::createUI() {
   lv_obj_t* screen = lv_screen_active();
 

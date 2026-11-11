@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "../utils/uidLogic.h"
+#include "Point.hpp"
 class Tag {
  public:
   Tag() {}
@@ -104,7 +105,7 @@ class Tag {
     return true;
   }
 
-  void toJson(JsonObject& obj) {
+  void toJson(JsonObject& obj) const {
     if (obj.isNull()) {
       return;
     }
@@ -126,12 +127,12 @@ class Tag {
       const char* uidString = obj["uid"] | "";
       uid.fromString(uidString);
     } else {
-      return false; 
+      return false;
     }
     if (obj["cu"].is<const char*>()) {
       const char* connectedTagUidString = obj["cu"] | "";
       connectedTagUid.fromString(connectedTagUidString);
-      // is optional 
+      // is optional
     }
 
     if (!uid.isValid()) {

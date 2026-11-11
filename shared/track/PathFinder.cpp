@@ -1,6 +1,6 @@
 #include "PathFinder.h"
 
- TrackPathFinder::TrackPathFinder(const TrackMap& map) : map_(map) {}
+TrackPathFinder::TrackPathFinder(const TrackMap& map) : map_(map) {}
 
 // Find the shortest path between two tags.
 // Returns true if a path exists.
@@ -8,7 +8,7 @@ bool TrackPathFinder::findPath(const Uid& startUid, const Uid& destinationUid,
                                std::vector<Uid>& path) const {
   path.clear();
 
-  const auto& tracks = map_.getTracks();
+  const std::vector<Track>* tracks = map_.getTracks();
 
   // --------------------------------------------------
   // Collect every tag in the map.
@@ -16,7 +16,7 @@ bool TrackPathFinder::findPath(const Uid& startUid, const Uid& destinationUid,
 
   std::vector<const Tag*> nodes;
 
-  for (const Track& track : tracks) {
+  for (const Track& track : *tracks) {
     for (const Tag& tag : track.getTags()) {
       nodes.emplace_back(&tag);
     }
@@ -119,7 +119,7 @@ bool TrackPathFinder::findPath(const Uid& startUid, const Uid& destinationUid,
 
 size_t TrackPathFinder::findNode(const std::vector<const Tag*>& nodes,
                                  const Uid& uid) const {
-                                    // todo make this use track functions directly? 
+  // todo make this use track functions directly?
   for (size_t i = 0; i < nodes.size(); ++i) {
     if (nodes[i]->getUid().equals(uid)) {
       return i;

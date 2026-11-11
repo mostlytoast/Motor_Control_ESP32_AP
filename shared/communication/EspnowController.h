@@ -76,7 +76,7 @@ class EspnowController {
  public:
   using GetJsonFromStateCallback = void (*)(JsonDocument&);
   using GetStateFromJsonCallback = void (*)(JsonDocument&);
-  using ResetStateCallback = void (*)();
+  using ResetStateCallback = std::function<void()>;
 
   // Event Queue
   void queueEspNowEvent(EspNowEventType type, const uint8_t* mac,
@@ -128,7 +128,6 @@ class EspnowController {
   bool addOrUpdateDiscoveredPeer(Peer* peer, const ESPNowCommand* packet);
   // bool pairWithReceiver(int index);
 
-  bool claimPeerAsActiveController(Peer* peer);
   bool isActiveController(const uint8_t* mac);
 
   // JSON communication

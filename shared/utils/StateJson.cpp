@@ -12,6 +12,17 @@ void getStateFromJson(JsonDocument& doc) {
     trackMap.JsonToMap(tracks);
   }
 
+  JsonObject templateTrackDoc = doc["templateTrack"].as<JsonObject>();
+
+  if (!templateTrackDoc.isNull()) {
+    bool success = false;
+
+    Track temporaryTrack(success, templateTrackDoc);
+
+    if (success) {
+      app.setTemplateTrack(temporaryTrack);
+    }
+  }
   if (state["scannerMode"].is<bool>()) {
     app.setScannerMode(state["scannerMode"].as<ScannerMode>());
   }
@@ -99,28 +110,28 @@ void getJsonFromState(JsonDocument& doc) {
   // mapToJson() already creates the "tracks" property.
   doc["tracks"] = mapDoc["tracks"];
 
+  JsonObject templateTrackDoc = doc["templateTrack"].to<JsonObject>();
+
+  if (const Track* track = app.getTemplateTrack()) {
+    track->toJson(templateTrackDoc);
+  }
+
   // serializeJsonPretty(doc, Serial);
 }
-void getCondensedJsonFromStateTransmitter(JsonDocument& doc) {
-  getCondensedJsonFromState(doc);
-  doc["addTracks"] = nullptr;
-  doc["removeUid"] = nullptr;
 
-}
-
-std::vector<Track> pastTracks;
 void getStateFromCondensedJson(JsonDocument& doc) {
-  // Serial.println("=== getStateFromCondensedJson INPUT ===");
-  // serializeJsonPretty(doc, Serial);
+  Serial.println("=== getStateFromCondensedJson INPUT ===");
+  serializeJsonPretty(doc, Serial);
   JsonObject state = doc["state"].as<JsonObject>();
   // TODO returning null? why
   JsonArray addTracks = doc["addTracks"].as<JsonArray>();
   JsonArray removeUid = doc["removeUid"].as<JsonArray>();
 
   if (!addTracks.isNull()) {
+    Serial.println("convert to map ");
+
     trackMap.condensedJsonToMap(addTracks, removeUid);
   }
-  pastTracks = trackMap.getTracks();
 
   JsonObject templateTrackDoc = doc["templateTrack"].as<JsonObject>();
 
@@ -176,6 +187,11 @@ void getStateFromCondensedJson(JsonDocument& doc) {
     app.setAudioState(state["d"].as<bool>());
   }
 }
+void getCondensedJsonFromStateTransmitter(JsonDocument& doc) {
+  getCondensedJsonFromState(doc);
+  // doc["addTracks"] = nullptr;
+  // doc["removeUid"] = nullptr;
+}
 
 void getCondensedJsonFromState(JsonDocument& doc) {
   JsonObject state = doc["state"].to<JsonObject>();
@@ -189,10 +205,11 @@ void getCondensedJsonFromState(JsonDocument& doc) {
   state["r"] = app.getRampTime() / 1000.0f;
   state["d"] = app.getAudioState();
 
-  JsonArray addTracks = doc["addTracks"].as<JsonArray>();
-  JsonArray removeUid = doc["removeUid"].as<JsonArray>();
+  JsonArray addTracks = doc["addTracks"].to<JsonArray>();
+  JsonArray removeUid = doc["removeUid"].to<JsonArray>();
 
-  trackMap.mapToCondensedJson(addTracks, removeUid, pastTracks);
+  trackMap.mapToCondensedJson(addTracks, removeUid);
+  // pastTracks = trackMap.getTracks();
 
   JsonObject templateTrackDoc = doc["templateTrack"].to<JsonObject>();
 

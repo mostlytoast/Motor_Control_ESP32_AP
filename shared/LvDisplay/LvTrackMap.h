@@ -5,10 +5,11 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "../SharedConfig.h"
 #include "../track/PathFinder.h"
 #include "../track/map.h"
+#include "../utils/AppState.h"
 #include "SharedDisplayCalls.h"
-#include "../SharedConfig.h"
 
 /*
  * LVGL renderer for the application's TrackMap.
@@ -65,7 +66,8 @@ class LvTrackMap {
 
   TrackMap* trackMap() const { return map_; }
 
-  void clear();
+  void reset();
+
   void refresh();
   // void invalidateMap();
 
@@ -104,13 +106,15 @@ class LvTrackMap {
 
   // The actual application map.
   TrackMap* map_ = nullptr;
+  int currentTrackCount_ = 0;
+
+  int lastTrackCount_ = 0;
 
   Transform transform_;
 
   void installCallbacks();
 
   SharedDisplayCalls display_;
-
 
   static void drawEvent(lv_event_t* e);
 

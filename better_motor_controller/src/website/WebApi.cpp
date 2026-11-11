@@ -99,7 +99,7 @@ void registerStateRoutes() {
           return;
         }
 
-        getStateFromCondensedJson(doc);
+        getStateFromJson(doc);
 
         // ----------------------------------------------------
         // Return the actual state after applying the request.
@@ -115,7 +115,7 @@ void registerStateRoutes() {
 
 String getStateJSON() {
   JsonDocument outputDoc;
-  getCondensedJsonFromState(outputDoc);
+  getJsonFromState(outputDoc);
   String outputString;
   serializeJson(outputDoc, outputString);
 

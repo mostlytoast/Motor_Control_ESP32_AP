@@ -76,7 +76,7 @@ class Track {
     return setTagPositions();
   }
 
-  void toJson(JsonObject& obj) {
+  void toJson(JsonObject& obj) const {
     if (obj.isNull()) {
       Serial.println("jsonToTrack: JSON object is null");
 
@@ -97,6 +97,7 @@ class Track {
     obj["type"] = trackTypeToString(trackType);
 
     obj["positioned"] = positioned;
+    
 
     JsonArray tagsArray = obj["tags"].to<JsonArray>();
 
@@ -147,7 +148,7 @@ class Track {
 
   bool fromCondensedJson(JsonObject& obj) {
     // Validate input
-    // Serial.println("track");
+    Serial.println("track");
     try {
       if (obj.isNull()) {
         Serial.println("jsonToTrack: JSON object is null");

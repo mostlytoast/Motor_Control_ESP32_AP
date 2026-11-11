@@ -43,8 +43,10 @@ class Display {
  public:
   void setupDisplay();
   void refresh();
+  void reset();
 
  private:
+
   // DISPLAY UPDATE FUNCTIONS
 
   void toggleControllerMenu();

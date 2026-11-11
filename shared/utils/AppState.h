@@ -2,7 +2,12 @@
 
 #include <Arduino.h>
 
-#include "../track/map.h"
+#include <vector>
+
+#include "../track/Track.hpp"
+#include "../track/Point.hpp"
+#include "../track/Tag.hpp"
+#include "uidLogic.h"
 
 // TODO all values should have a default state defined here maybe?? and not be
 // immediately overwrite by other code
@@ -100,6 +105,11 @@ class AppState {
   void setSelectedTrackType(TrackType selectedTrackType_);
 
   TrackType getPreviousSelectedTrackType();
+
+  void setPastTracks(std::vector<Track> pastTracks_);
+  std::vector<Track> getPastTracks();
+  // void setCurrentTracks(std::vector<Track> currentTracks_);
+  std::vector<Track>* getCurrentTracks();
   // display
   String getStatusLabelText();
   void setStatusLabelText(String statusLabelText_);
@@ -109,7 +119,8 @@ class AppState {
   void setDestinationUid(Uid destinationUid_);
   Uid getCurrentUid();
   void setCurrentUid(Uid currentUid_);
-  void reset(); 
+  void reset();
+
  private:
   void initDefaults();
   // LEDs
@@ -153,6 +164,11 @@ class AppState {
 
   TrackType selectedTrackType;
   TrackType previousSelectedTrackType;
+
+  std::vector<Track> pastTracks;
+
+  std::vector<Track> currentTracks;
+
   // display status label
   String statusLabelText;
 

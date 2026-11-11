@@ -23,22 +23,23 @@ bool TrackMap::positionConnectedTrack(Track& source, Tag& sourceTag) {
 // CALCULATE ENTIRE MAP
 // ============================================================
 void TrackMap::calculateMap() {
-  if (tracks.empty()) {
+  std::vector<Track>* tracks = app.getCurrentTracks();
+
+  if (tracks == nullptr || tracks->empty()) {
     return;
   }
 
-  for (Track& track : tracks) {
+  for (Track& track : *tracks) {
     track.setPositioned(false);
   }
-
-  tracks[0].setPositioned(true);
+  (*tracks)[0].setPositioned(true);
 
   bool changed;
 
   do {
     changed = false;
 
-    for (Track& source : tracks) {
+    for (Track& source : *tracks) {
       if (!source.getPositioned()) {
         continue;
       }
@@ -55,9 +56,10 @@ void TrackMap::calculateMap() {
 
   } while (changed);
 
-  for (size_t i = 0; i < tracks.size(); ++i) {
-    Serial.printf("Track %u: %s\n", static_cast<unsigned>(i),
-                  tracks[i].getPositioned() ? "POSITIONED" : "NOT POSITIONED");
+  for (size_t i = 0; i < tracks->size(); ++i) {
+    Serial.printf(
+        "Track %u: %s\n", static_cast<unsigned>(i),
+        (*tracks)[i].getPositioned() ? "POSITIONED" : "NOT POSITIONED");
   }
 }
 // ============================================================
@@ -72,27 +74,36 @@ Track* TrackMap::createTrack(TrackType type, float length, float radius,
                              Uid connectEntranceAUid, Uid connectExitAUid,
                              Uid connectEntranceBUid, Uid connectExitBUid) {
   // cleanup call structure for this function
+  std::vector<Track>* tracks = app.getCurrentTracks();
+
   Track track = Track(type, length, radius, branchAngle, branchRadius,
                       branchLength, direction, entranceAUid, exitAUid,
                       entranceBUid, exitBUid, dontAdd, connectEntranceAUid,
                       connectExitAUid, connectEntranceBUid, connectExitBUid);
   if (dontAdd) {
-    // Use temporary storage without changing tracks.size()
+    // Use temporary storage without changing tracks->size()
+
     tempTrack = track;
 
     return &tempTrack;
 
-  } else if (tracks.size() >= MAX_TRACKS && !dontAdd) {
+  } else if (tracks == nullptr || tracks->size() >= MAX_TRACKS && !dontAdd) {
     return nullptr;
   } else {
+    trackModified = true;
+
     // Add to the tracks array
-    tracks.emplace_back(track);
+    tracks->emplace_back(track);
     Serial.println("added tracks");
-    return &tracks.back();
+    return &tracks->back();
   }
 }
 
-void TrackMap::addTrack(Track track) { tracks.emplace_back(track); }
+void TrackMap::addTrack(Track track) {
+  trackModified = true;
+
+  (*app.getCurrentTracks()).emplace_back(track);
+}
 
 // Station* TrackMap::createStation(Track* track, Uid stationUID, bool dontAdd)
 // { Station* station; station->tag->uid = stationUID; station->tag->track =
@@ -131,22 +142,19 @@ bool TrackMap::connectTags(Tag* a, Tag* b) {
 
   trackA->setPositioned(false);
   trackB->setPositioned(false);
-
+  trackModified = true;
   Serial.println("Tags connected");
 
   return true;
 }
 
-const std::vector<Track>& TrackMap::getTracks() const { return tracks; }
+const std::vector<Track>* TrackMap::getTracks() const {
+  return app.getCurrentTracks();
+}
 // ============================================================
 // GET TRACK
 // ============================================================
-
-Track* TrackMap::getTrack(uint8_t index) {
-  if (index >= tracks.size()) return nullptr;
-
-  return &tracks[index];
-}
+// TODO remove
 
 // ============================================================
 // FIND TRACK
@@ -157,7 +165,7 @@ Track* TrackMap::findTrackByUid(Uid uid) {
     return nullptr;
   }
 
-  for (Track& track : tracks) {
+  for (Track& track : (*app.getCurrentTracks())) {
     for (Tag& tag : track.getTags()) {
       if (tag.getUid().isValid() && tag.getUid().equals(uid)) {
         return &track;
@@ -177,7 +185,7 @@ Tag* TrackMap::findTagByUid(Uid uid) {
     return nullptr;
   }
 
-  for (Track& track : tracks) {
+  for (Track& track : (*app.getCurrentTracks())) {
     for (Tag& tag : track.getTags()) {
       if (tag.getUid().isValid() && tag.getUid().equals(uid)) {
         return &tag;
@@ -212,34 +220,20 @@ bool TrackMap::doesTrackExist(Uid uid) { return findTagByUid(uid) != nullptr; }
 // GET TRACK COUNT
 // ============================================================
 
-uint8_t TrackMap::getTrackCount() const { return tracks.size(); }
-
-// TODO remove
-int TrackMap::trackIndex(const Track* track) const {
-  if (!track) {
-    return -1;
-  }
-  // todo use vector operations
-  const uint8_t count = getTrackCount();
-
-  for (uint8_t i = 0; i < count; ++i) {
-    const Track current = tracks.at(i);
-
-    if (current == *track) {
-      return static_cast<int>(i);
-    }
-  }
-
-  return -1;
+uint8_t TrackMap::getTrackCount() const {
+  return (*app.getCurrentTracks()).size();
 }
 
 void TrackMap::mapToJson(JsonDocument& doc) {
+  trackModified = true;
+  std::vector<Track>* tracks = app.getCurrentTracks();
+
   JsonArray tracksJson = doc["tracks"].to<JsonArray>();
   int count = 0;
-  for (uint8_t i = 0; i < tracks.size(); i++) {
+  for (uint8_t i = 0; i < tracks->size(); i++) {
     JsonObject obj = tracksJson.add<JsonObject>();
 
-    Track& track = tracks[i];
+    Track& track = (*tracks)[i];
 
     if (track.getInclude()) {
       obj["id"] = count;
@@ -251,36 +245,40 @@ void TrackMap::mapToJson(JsonDocument& doc) {
 }
 
 void TrackMap::JsonToMap(JsonArray doc) {
+  trackModified = true;
   // todo find better way to prevent it creating multiple of same track
-  // if (tracks.size() ==1 ) return;
+  // if (tracks->size() ==1 ) return;
   clearMap();
+  std::vector<Track>* tracks = app.getCurrentTracks();
+
   if (doc.isNull()) {
     Serial.println("JsonToMap: no tracks array found");
     return;
   }
 
   for (uint8_t i = 0; i < doc.size(); i++) {
-    if (tracks.size() >= MAX_TRACKS) {
+    if (tracks->size() >= MAX_TRACKS) {
       continue;
     } else {
       // Add to the tracks array
       bool success;
       Track track = Track(success, doc[i].as<JsonObject>());
-      if (success) tracks.emplace_back(track);
+      if (success) tracks->emplace_back(track);
     }
   }
   trackMap.calculateMap();
 }
 
 void TrackMap::mapToCondensedJson(JsonArray& addTracksJson,
-                                  JsonArray& removeUidsFromMap,
-                                  std::vector<Track> pastTracks) {
+                                  JsonArray& removeUidsFromMap) {
   // Use a vector to track which UIDs are present in the current update
+  std::vector<Track>* tracks = app.getCurrentTracks();
+  std::vector<Track> pastTracks = app.getPastTracks();
   std::vector<Uid> currentTracksUids;
 
   // 1. Build the current map and populate IDs
   // 2. Identify Additions (In currentTracksUids but not in pastTracks)
-  for (Track& currentTrack : tracks) {
+  for (Track& currentTrack : *tracks) {
     currentTracksUids.emplace_back(currentTrack.getTags()[0].getUid());
 
     if (currentTrack.getInclude()) {
@@ -292,6 +290,7 @@ void TrackMap::mapToCondensedJson(JsonArray& addTracksJson,
         }
       }
       if (!existsInPast) {
+        Serial.println("found tracks to add");
         JsonObject obj = addTracksJson.add<JsonObject>();
         currentTrack.toCondensedJson(obj);
       }
@@ -310,6 +309,8 @@ void TrackMap::mapToCondensedJson(JsonArray& addTracksJson,
     }
 
     if (!existsInCurrent) {
+      Serial.println("found tracks to remove");
+
       JsonObject obj = removeUidsFromMap.add<JsonObject>();
       obj["uid"] = pastUid.toString();
     }
@@ -317,18 +318,37 @@ void TrackMap::mapToCondensedJson(JsonArray& addTracksJson,
 }
 
 bool TrackMap::removeTrack(const Track* track) {
-  auto it = std::find_if(tracks.begin(), tracks.end(),
+  trackModified = true;
+  std::vector<Track>* tracks = app.getCurrentTracks();
+
+  auto it = std::find_if(tracks->begin(), tracks->end(),
                          [track](Track& p) { return p == *track; });
 
-  if (it != tracks.end()) {
-    tracks.erase(it);
+  if (it != tracks->end()) {
+    tracks->erase(it);
     return true;
   }
   return false;
 }
 
+void TrackMap::connectTrack(Track* track) {
+  if (track == nullptr || track->getTags().size() == 0) {
+    return;
+  }
+  for (Tag& tag : track->getTags()) {
+    if (tag.getConnectedTagUid().isValid() &&
+        findTagByUid(tag.getConnectedTagUid()) != nullptr) {
+      connectTags(&tag, findTagByUid(tag.getConnectedTagUid()));
+      Serial.println("connected tag");
+    }
+  }
+}
+
 void TrackMap::condensedJsonToMap(JsonArray& addTracksJson,
                                   JsonArray& removeUidsFromMap) {
+  std::vector<Track>* tracks = app.getCurrentTracks();
+  app.setPastTracks(*tracks);
+
   // todo find better way to prevent it creating multiple of same track
 
   if (addTracksJson.isNull()) {
@@ -337,20 +357,28 @@ void TrackMap::condensedJsonToMap(JsonArray& addTracksJson,
   }
 
   for (const JsonObject& addTrackJson : addTracksJson) {
-    if (tracks.size() >= MAX_TRACKS) {
+    if (tracks->size() >= MAX_TRACKS) {
       continue;
     } else {
+      Serial.println("adding tracks");
+
       // Add to the tracks
+
       bool success;
       Track track = Track(success, addTrackJson, true);
-      if (success) tracks.emplace_back(track);
+      if (success) {
+        trackModified = true;
+        tracks->emplace_back(track);
+        Serial.println("successfully added tracks");
+      }
     }
   }
 
   for (const JsonObject& removeUid : removeUidsFromMap) {
-    if (tracks.size() >= MAX_TRACKS) {
+    if (tracks->size() >= MAX_TRACKS) {
       continue;
     } else if (removeUid["uid"].is<const char*>()) {
+      trackModified = true;
       // Remove track from tracks
       Uid uid(removeUid["uid"].as<const char*>());
       const Track* track = findTrackByUid(uid);
@@ -361,4 +389,12 @@ void TrackMap::condensedJsonToMap(JsonArray& addTracksJson,
   trackMap.calculateMap();
 }
 
-void TrackMap::clearMap() { tracks.clear(); }
+void TrackMap::clearMap() {
+  trackModified = true;
+  (*app.getCurrentTracks()).clear();
+}
+
+bool TrackMap::getTracksModified() { return trackModified; }
+void TrackMap::setTracksModified(bool trackModified_) {
+  trackModified = trackModified_;
+}

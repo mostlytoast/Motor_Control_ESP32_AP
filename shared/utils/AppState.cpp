@@ -9,9 +9,11 @@ AppState app;
 AppState::AppState() {
   scannerMode = REGISTER_TRACKS;
   previousScanMode = scannerMode;
+  currentTracks = {};
+  // initDefaults();
 }
 
-void AppState::reset()  { initDefaults(); }
+void AppState::reset() { initDefaults(); }
 
 void AppState::initDefaults() {
   Serial.println("reset app");
@@ -56,6 +58,11 @@ void AppState::initDefaults() {
 
   selectedTrackType = CURVED;
   previousSelectedTrackType = CURVED;
+
+  pastTracks.clear();
+  currentTracks.clear();
+  currentTracks = {};
+
   // display status label
   statusLabelText = "";
 
@@ -204,6 +211,15 @@ TrackType AppState::getPreviousSelectedTrackType() {
   return previousSelectedTrackType;
 }
 
+void AppState::setPastTracks(std::vector<Track> pastTracks_) {
+  pastTracks = pastTracks_;
+}
+std::vector<Track> AppState::getPastTracks() { return pastTracks; }
+
+// void AppState::setCurrentTracks(std::vector<Track> currentTracks_) {
+//   currentTracks = currentTracks_;
+// }
+std::vector<Track>* AppState::getCurrentTracks() { return &currentTracks; }
 // -------------------------
 // display
 // -------------------------

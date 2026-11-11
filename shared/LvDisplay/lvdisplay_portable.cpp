@@ -127,10 +127,20 @@ void LvDisplayController::init(lv_obj_t* screen) {
 
   applyStateToUi();
 }
+void LvDisplayController::reset() {
+ if (trackMapDisplay_ != nullptr) {
+    trackMapDisplay_->reset();
+  }
+  // if (trackScanningDisplay_ != nullptr) {
+  //   trackScanningDisplay_->reset();
+  // }
+  refresh();
+}
 
 void LvDisplayController::refresh() {
   // Serial.println("port display refresh");
 
+  
   applyStateToUi();
   if (trackMapDisplay_ != nullptr) {
     trackMapDisplay_->refresh();

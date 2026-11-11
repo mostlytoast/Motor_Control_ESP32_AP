@@ -8,7 +8,7 @@
 constexpr uint8_t WIFI_CHANNEL = 6;
 constexpr int MAX_CONTROLLERS = 8;
 constexpr unsigned long DEFAULT_PAIRING_WINDOW_MS = 60000UL;
-constexpr unsigned long ESPNOW_TIMEOUT = 500;
+constexpr unsigned long ESPNOW_TIMEOUT = 1000;
 // TODO have a way for this to be located in the local depending which is being
 // compiled???
 constexpr char NAME[] = "steam train";

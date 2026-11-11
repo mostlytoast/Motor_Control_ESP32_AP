@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "../utils/AppState.h"
 #include "../utils/Math.hpp"
 #include "../utils/uidLogic.h"
 #include "Arduino.h"
@@ -35,9 +36,8 @@ class TrackMap {
   void calculateMap();
 
   bool connectTags(Tag* a, Tag* b);
-  const std::vector<Track>& getTracks() const;
+  const std::vector<Track>* getTracks() const;
 
-  Track* getTrack(uint8_t index);
 
   bool doUidsBelongToSameTrack(const Uid& uidA, const Uid& uidB);
 
@@ -52,24 +52,27 @@ class TrackMap {
 
   uint8_t getTrackCount() const;
 
-  int trackIndex(const Track* track) const;
+
 
   void mapToJson(JsonDocument& doc);
 
   void JsonToMap(JsonArray doc);
 
   void mapToCondensedJson(JsonArray& addTracksJson,
-                          JsonArray& removeUidsFromMap,
-                          std::vector<Track> pastTracks);
+                          JsonArray& removeUidsFromMap);
+  void connectTrack(Track* track);
   void condensedJsonToMap(JsonArray& addTracksJson,
                           JsonArray& removeUidsFromMap);
   void clearMap();
   bool removeTrack(const Track* track);
 
+  bool getTracksModified();
+  void setTracksModified(bool trackModified_);
  private:
+ bool trackModified = false;
   static constexpr uint8_t MAX_TRACKS = 100;
 
-  std::vector<Track> tracks;
+  // std::vector<Track> tracks;
 
   //  used when creating track that should not be added
   Track tempTrack;

@@ -61,6 +61,7 @@ class LvDisplayController {
 
   ~LvDisplayController() = default;
   void init(lv_obj_t* screen);
+  void reset();
   void refresh();
 
   // const LvDisplayState& state() const { return state_; }

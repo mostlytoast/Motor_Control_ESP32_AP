@@ -234,7 +234,6 @@ void EspnowController::processESPNowEvents() {
       if (event.sendStatus == ESP_NOW_SEND_FAIL && peer != nullptr) {
         Serial.println("esp now fail");
 
-
         // Controller-side receiver
         // Todo put into a controller function
         app.setStatusLabelText("FAIL");
@@ -244,6 +243,7 @@ void EspnowController::processESPNowEvents() {
         discoveryActive = true;
         peers.removePeer(peer->getMac());
         esp_now_del_peer(peer->getMac());
+        if (resetStateCallback) resetStateCallback();
       }
 
       // SEND SUCCESS
@@ -448,20 +448,6 @@ bool EspnowController::addOrUpdateDiscoveredPeer(Peer* peer,
   return true;
 }
 
-// PAIR CONTROLLER
-
-bool EspnowController::claimPeerAsActiveController(Peer* peer) {
-  peer->setState(PeerState::ACTIVE);
-  peer->setRole(PeerRole::CONTROLLER);
-
-  peer->setLastSeen(millis());
-
-  Serial.print("ACTIVE PEER -> ");
-
-  Serial.println(peer->getName());
-  return true;
-}
-
 // BINARY DISCOVERY RESPONSE
 
 void EspnowController::sendDiscoveryResponse(Peer* peer) {
@@ -546,6 +532,7 @@ bool EspnowController::sendJsonDocument(Peer* peer, JsonDocument& doc) {
       memcpy(command.data, packet, JSON_FRAGMENT_PACKET_SIZE);
       if (!sendCommandToPeer(peer, command)) {
         free(packets);
+        return false;
       }
       // Give the ESP-NOW driver time to process the transmission.
       delay(5);
@@ -619,7 +606,7 @@ bool EspnowController::processReceivedPeerBinaryPacket(Peer* peer,
 
       peer->setState(PeerState::ACTIVE);
       peer->setRole(PeerRole::CONTROLLER);
-
+      peer->setName(command.name);
       peer->setLastSeen(millis());
 
       Serial.print("ACTIVE PEER -> ");
@@ -647,6 +634,9 @@ bool EspnowController::sendControllerClaim(Peer* peer) {
 
   ESPNowCommand command = {};
   command.type = CMD_CONTROLLER_CLAIM;
+  // TODO does not copy full name
+  memcpy(&command.name, peer->getName(),
+         min(sizeof(command.name), sizeof(peer->getName())));
   // command.value = 0;
   return sendCommandToPeer(peer, command);
 }

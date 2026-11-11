@@ -146,57 +146,61 @@ void LvTrackMap::setTrackMap(TrackMap* map) {
   //   track2.printTrack();
   // }
 
-  // // Uid emptyUid;
+  Uid emptyUid;
 
-  // // Uid entrance0("AA:AA:AA:AA:AA:AA:AA");
-  // // Uid exit0("BB:BB:BB:BB:BB:BB:AA");
+  Uid entrance0("AA:AA:AA:AA:AA:AA:AA");
+  Uid exit0("BB:BB:BB:BB:BB:BB:AA");
 
-  // // Uid entrance1("AA:AA:AA:AA:AA:AA:11");
-  // // Uid exit1("BB:BB:BB:BB:BB:BB:11");
+  Uid entrance1("AA:AA:AA:AA:AA:AA:11");
+  Uid exit1("BB:BB:BB:BB:BB:BB:11");
 
-  // // Uid entrance2("AA:AA:AA:AA:AA:AA:22");
-  // // Uid exit2("BB:BB:BB:BB:BB:BB:22");
-  // // Uid entrance2B("AA:AA:AA:AA:AA:BB:22");
-  // // Uid exit2B("BB:BB:BB:BB:BB:CC:22");
+  Uid entrance2("AA:AA:AA:AA:AA:AA:22");
+  Uid exit2("BB:BB:BB:BB:BB:BB:22");
+  Uid entrance2B("AA:AA:AA:AA:AA:BB:22");
+  Uid exit2B("BB:BB:BB:BB:BB:CC:22");
 
-  // // Uid entrance3("AA:AA:AA:AA:AA:AA:33");
-  // // Uid exit3("BB:BB:BB:BB:BB:BB:33");
+  Uid entrance3("AA:AA:AA:AA:AA:AA:33");
+  Uid exit3("BB:BB:BB:BB:BB:BB:33");
+  Serial.println("starting tracks setup");
 
-  // // // Create tracks first.
-  // // map_->createTrack(STRAIGHT, 10, 0, 0, 0, 0, true, entrance0, exit0,
-  // // emptyUid,
-  // //                   emptyUid);
+  // Create tracks first.
+  map_->createTrack(STRAIGHT, 10, 0, 0, 0, 0, true, entrance0, exit0, emptyUid,
+                    emptyUid);
 
-  // // map_->createTrack(CURVED, 10, 10, 0, 0, 0, true, entrance1, exit1,
-  // // emptyUid,
-  // //                   emptyUid);
+  map_->createTrack(CURVED, 10, 10, 0, 0, 0, true, entrance1, exit1, emptyUid,
+                    emptyUid);
 
-  // // // flipped
-  // // map_->createTrack(SWITCH, 10, 0, 0, 10, 10, true, entrance2, exit2,
-  // //                   entrance2B, exit2B);
+  // flipped
+  map_->createTrack(SWITCH, 10, 0, 0, 10, 10, true, entrance2, exit2,
+                    entrance2B, exit2B);
 
-  // // map_->createTrack(CROSS, 10, 0, 10, 10, 0, true, entrance3, exit3,
-  // // entrance3,
-  // //                   exit3);
+  map_->createTrack(CROSS, 10, 0, 10, 10, 0, true, entrance3, exit3, entrance3,
+                    exit3);
 
-  // // // Connect tracks after they have all been created.
-  // // // JsonDocument doc;
-  // // // map_->mapToJson(doc);
-  // // // serializeJsonPretty(doc, Serial);
-  // // // Serial.println("============= calc ==========");
-  // auto connect = [&](const Uid& a, const Uid& b) {
-  //   Tag* tagA = map_->findTagByUid(a);
-  //   Tag* tagB = map_->findTagByUid(b);
-  //   const bool success = map_->connectTags(tagA, tagB);
-  // };
+  // // Connect tracks after they have all been created.
+  // // JsonDocument doc;
+  // // map_->mapToJson(doc);
+  // // serializeJsonPretty(doc, Serial);
+  // // Serial.println("============= calc ==========");
+  auto connect = [&](const Uid& a, const Uid& b) {
+    Tag* tagA = map_->findTagByUid(a);
+    Tag* tagB = map_->findTagByUid(b);
+    const bool success = map_->connectTags(tagA, tagB);
+    if (!success) {
+      Serial.println("failed to connect");
+    }
+  };
 
-  // // // Create a continuous chain.
+  // // Create a continuous chain.
   // if (success2 && success) {
   //   connect(track.getTags()[0].getUid(), track2.getTags()[0].getUid());
   // }
+  connect(entrance0, exit1);
+  connect(entrance1, exit2);
+  connect(entrance2, exit3);
 
-  // // Position the map.
-  // map_->calculateMap();
+  // Position the map.
+  map_->calculateMap();
 
   // TrackPathFinder pathFinder(*map_);
 
@@ -215,24 +219,19 @@ void LvTrackMap::setTrackMap(TrackMap* map) {
   // } else {
   //   Serial.println("No path exists.");
   // }
-  // JsonDocument doc1;
-  // map_->mapToJson(doc1);
-  // serializeJsonPretty(doc1, Serial);
+  JsonDocument doc1;
+  map_->mapToJson(doc1);
+  serializeJsonPretty(doc1, Serial);
 
   refresh();
 }
-void LvTrackMap::clear() {
+void LvTrackMap::reset() {
   map_ = nullptr;
 
   transform_ = {};
 
   refresh();
 }
-
-// void LvTrackMap::invalidateMap() {
-//   transformDirty_ = true;
-//   refresh();
-// }
 
 size_t LvTrackMap::trackCount() const {
   if (!map_) {
@@ -290,15 +289,14 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
   constexpr int CURVE_SEGMENTS = 48;
 
   const uint8_t count = map_->getTrackCount();
+  const std::vector<Track>* tracks = map_->getTracks();
 
-  for (uint8_t i = 0; i < count; ++i) {
-    const Track* track = map_->getTrack(i);
-
-    if (!track || !track->getPositioned()) {
+  for (const Track& track : *tracks) {
+    if (!track.getPositioned()) {
       continue;
     }
 
-    const auto& tags = track->getTags();
+    const auto& tags = track.getTags();
 
     // Include all calculated track points.
     for (const Tag& tag : tags) {
@@ -306,12 +304,12 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
     }
 
     // Include the actual geometry of curved tracks.
-    if (track->getTrackType() != CURVED || tags.empty()) {
+    if (track.getTrackType() != CURVED || tags.empty()) {
       continue;
     }
 
-    const float radius = track->getRadius();
-    const float length = track->getLength();
+    const float radius = track.getRadius();
+    const float length = track.getLength();
 
     if (radius <= 0.0f || length <= 0.0f) {
       continue;
@@ -321,7 +319,7 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
 
     const Point& entrance = tags[0].getPoint();
 
-    const float direction = track->getDirection() ? -1.0f : 1.0f;
+    const float direction = track.getDirection() ? -1.0f : 1.0f;
 
     const float heading = entrance.getHeading() * DEG_TO_RAD_F;
 
@@ -403,9 +401,9 @@ LvTrackMap::Point LvTrackMap::worldToMap(Point point) const {
 // ============================================================
 
 void LvTrackMap::refresh() {
-  transformDirty_ = true;
+  // transformDirty_ = true;
 
-  // calculateTransform();
+  calculateTransform();
 
   if (root_) {
     lv_obj_invalidate(root_);
@@ -444,12 +442,16 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
     return;
   }
 
+  if (self->map_) {
+    self->currentTrackCount_ = self->map_->getTrackCount();
+  }
+  const bool resized = width != self->lastWidth_ || height != self->lastHeight_;
+  const bool tracksModified = self->lastTrackCount_ != self->currentTrackCount_;
+
   // IMPORTANT:
   // Recalculate after LVGL has established the
   // real size of the object.
-  const bool resized = width != self->lastWidth_ || height != self->lastHeight_;
-
-  if (self->transformDirty_ || resized) {
+  if (self->transformDirty_ || resized || tracksModified) {
     self->calculateTransform(width, height);
 
     self->lastWidth_ = width;
@@ -460,18 +462,15 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
   self->drawBackground(layer, area);
 
   self->drawConnections(layer);
-
+  int i = 0;
   if (self->map_) {
-    const uint8_t count = self->map_->getTrackCount();
-
-    for (uint8_t i = 0; i < count; ++i) {
-      const Track* track = self->map_->getTrack(i);
-
-      if (!track) {
-        continue;
-      }
-
-      self->drawTrack(layer, *track, i);
+    const std::vector<Track>* tracks = self->map_->getTracks();
+    for (const Track& track : *tracks) {
+      self->drawTrack(layer, track, i);
+      self->lastTrackCount_++;
+      i++;
+      // self->transformDirty_ = true;
+      Serial.println("update");
     }
   }
 
@@ -691,14 +690,13 @@ void LvTrackMap::drawConnections(lv_layer_t* layer) const {
 
   const uint8_t count = map_->getTrackCount();
 
-  for (uint8_t i = 0; i < count; ++i) {
-    const Track* track = map_->getTrack(i);
-
-    if (!track || !track->getPositioned()) {
+  const std::vector<Track>* tracks = map_->getTracks();
+  for (const Track& track : *tracks) {
+    if (!track.getPositioned()) {
       continue;
     }
 
-    for (const Tag& tag : track->getTags()) {
+    for (const Tag& tag : track.getTags()) {
       // No connection stored.
       if (!tag.getConnectedTagUid().isValid()) {
         continue;
@@ -712,7 +710,7 @@ void LvTrackMap::drawConnections(lv_layer_t* layer) const {
 
       // Connection exists in both directions.
       // Only draw it once.
-      if (!map_->doesTrackExist(otherTag->getUid())) {
+      if (!map_->doesObjectExist(otherTag->getUid())) {
         continue;
       }
 
@@ -924,34 +922,6 @@ void LvTrackMap::drawLabel(lv_layer_t* layer, const Track& track,
 
   drawText(layer, center, text, config_.label, true);
 }
-
-// ============================================================
-// BUTTON CALLBACKS
-// ============================================================
-
-// void LvTrackMap::refreshButtonEvent(lv_event_t* e) {
-//   if (!e) {
-//     return;
-//   }
-
-//   LvTrackMap* map = static_cast<LvTrackMap*>(lv_event_get_user_data(e));
-
-//   if (map) {
-//     map->refresh();
-//   }
-// }
-
-// void LvTrackMap::resetButtonEvent(lv_event_t* e) {
-//   if (!e) {
-//     return;
-//   }
-
-//   LvTrackMap* map = static_cast<LvTrackMap*>(lv_event_get_user_data(e));
-
-//   if (map) {
-//     map->resetView();
-//   }
-// }
 
 void LvTrackMap::toggle() {
   // Serial.print("call toggle");
