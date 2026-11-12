@@ -28,8 +28,9 @@ class TrackMap {
                      Uid connectEntranceBUid = Uid(),
                      Uid connectExitBUid = Uid());
   void addTrack(Track track);
-
-  // Station* createStation(Track* track, Uid stationUID, bool dontAdd = false);
+  void addStation(Station station);
+  // Station* createStation(Track* track, Uid stationUID, bool dontAdd =
+  // false);
   /*
    * Calculate the complete map.
    */
@@ -38,21 +39,18 @@ class TrackMap {
   bool connectTags(Tag* a, Tag* b);
   const std::vector<Track>* getTracks() const;
 
-
   bool doUidsBelongToSameTrack(const Uid& uidA, const Uid& uidB);
 
   /*
    * returns true if track with associated uid is in track file
    */
-  bool doesTrackExist(Uid uid);
+  bool doesObjectExist(Uid uid);
 
   Track* findTrackByUid(Uid uid);
 
   Tag* findTagByUid(Uid uid);
 
   uint8_t getTrackCount() const;
-
-
 
   void mapToJson(JsonDocument& doc);
 
@@ -66,10 +64,11 @@ class TrackMap {
   void clearMap();
   bool removeTrack(const Track* track);
 
-  bool getTracksModified();
-  void setTracksModified(bool trackModified_);
+  bool getMapModified();
+  void setMapModified(bool mapModified_);
+
  private:
- bool trackModified = false;
+  bool mapModified = false;
   static constexpr uint8_t MAX_TRACKS = 100;
 
   // std::vector<Track> tracks;

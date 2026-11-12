@@ -62,7 +62,7 @@ void TrackMap::calculateMap() {
         (*tracks)[i].getPositioned() ? "POSITIONED" : "NOT POSITIONED");
   }
 }
-// ============================================================
+// ==x==========================================================
 // CREATE TRACK
 // ============================================================
 
@@ -90,7 +90,7 @@ Track* TrackMap::createTrack(TrackType type, float length, float radius,
   } else if (tracks == nullptr || tracks->size() >= MAX_TRACKS && !dontAdd) {
     return nullptr;
   } else {
-    trackModified = true;
+    mapModified = true;
 
     // Add to the tracks array
     tracks->emplace_back(track);
@@ -100,9 +100,15 @@ Track* TrackMap::createTrack(TrackType type, float length, float radius,
 }
 
 void TrackMap::addTrack(Track track) {
-  trackModified = true;
+  mapModified = true;
 
   (*app.getCurrentTracks()).emplace_back(track);
+}
+
+void TrackMap::addStation(Station station) {
+  mapModified = true;
+
+  (*app.getCurrentStations()).emplace_back(station);
 }
 
 // Station* TrackMap::createStation(Track* track, Uid stationUID, bool dontAdd)
@@ -142,7 +148,7 @@ bool TrackMap::connectTags(Tag* a, Tag* b) {
 
   trackA->setPositioned(false);
   trackB->setPositioned(false);
-  trackModified = true;
+  mapModified = true;
   Serial.println("Tags connected");
 
   return true;
@@ -193,6 +199,13 @@ Tag* TrackMap::findTagByUid(Uid uid) {
     }
   }
 
+  for (Station& station : (*app.getCurrentStations())) {
+    if (station.getTag().getUid().isValid() &&
+        station.getTag().getUid().equals(uid)) {
+      return &station.getTag();
+    }
+  }
+
   return nullptr;
 }
 // ============================================================
@@ -214,7 +227,7 @@ bool TrackMap::doUidsBelongToSameTrack(const Uid& uidA, const Uid& uidB) {
   return false;
 }
 
-bool TrackMap::doesTrackExist(Uid uid) { return findTagByUid(uid) != nullptr; }
+bool TrackMap::doesObjectExist(Uid uid) { return findTagByUid(uid) != nullptr; }
 
 // ============================================================
 // GET TRACK COUNT
@@ -225,7 +238,7 @@ uint8_t TrackMap::getTrackCount() const {
 }
 
 void TrackMap::mapToJson(JsonDocument& doc) {
-  trackModified = true;
+  mapModified = true;
   std::vector<Track>* tracks = app.getCurrentTracks();
 
   JsonArray tracksJson = doc["tracks"].to<JsonArray>();
@@ -245,7 +258,7 @@ void TrackMap::mapToJson(JsonDocument& doc) {
 }
 
 void TrackMap::JsonToMap(JsonArray doc) {
-  trackModified = true;
+  mapModified = true;
   // todo find better way to prevent it creating multiple of same track
   // if (tracks->size() ==1 ) return;
   clearMap();
@@ -271,6 +284,7 @@ void TrackMap::JsonToMap(JsonArray doc) {
 
 void TrackMap::mapToCondensedJson(JsonArray& addTracksJson,
                                   JsonArray& removeUidsFromMap) {
+  // TODO need to add stations to this
   // Use a vector to track which UIDs are present in the current update
   std::vector<Track>* tracks = app.getCurrentTracks();
   std::vector<Track> pastTracks = app.getPastTracks();
@@ -318,7 +332,7 @@ void TrackMap::mapToCondensedJson(JsonArray& addTracksJson,
 }
 
 bool TrackMap::removeTrack(const Track* track) {
-  trackModified = true;
+  mapModified = true;
   std::vector<Track>* tracks = app.getCurrentTracks();
 
   auto it = std::find_if(tracks->begin(), tracks->end(),
@@ -367,7 +381,7 @@ void TrackMap::condensedJsonToMap(JsonArray& addTracksJson,
       bool success;
       Track track = Track(success, addTrackJson, true);
       if (success) {
-        trackModified = true;
+        mapModified = true;
         tracks->emplace_back(track);
         Serial.println("successfully added tracks");
       }
@@ -378,7 +392,7 @@ void TrackMap::condensedJsonToMap(JsonArray& addTracksJson,
     if (tracks->size() >= MAX_TRACKS) {
       continue;
     } else if (removeUid["uid"].is<const char*>()) {
-      trackModified = true;
+      mapModified = true;
       // Remove track from tracks
       Uid uid(removeUid["uid"].as<const char*>());
       const Track* track = findTrackByUid(uid);
@@ -390,11 +404,10 @@ void TrackMap::condensedJsonToMap(JsonArray& addTracksJson,
 }
 
 void TrackMap::clearMap() {
-  trackModified = true;
+  mapModified = true;
   (*app.getCurrentTracks()).clear();
+  (*app.getCurrentStations()).clear();
 }
 
-bool TrackMap::getTracksModified() { return trackModified; }
-void TrackMap::setTracksModified(bool trackModified_) {
-  trackModified = trackModified_;
-}
+bool TrackMap::getMapModified() { return mapModified; }
+void TrackMap::setMapModified(bool mapModified_) { mapModified = mapModified_; }

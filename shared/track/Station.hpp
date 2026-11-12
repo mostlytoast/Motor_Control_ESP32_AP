@@ -7,12 +7,13 @@
 class Station {
  public:
  public:  // Constructor
-  Station(Tag* tag) { this->tag = tag; }
+  Station() = default;
+  Station(Tag tag_) { this->tag = tag_; }
   // Getter for tag
-  Tag* getTag() const { return tag; }
+  Tag& getTag() { return tag; }
 
   // Setter for tag
-  void setTag(Tag* newTag) { tag = newTag; }
+  void setTag(Tag newTag) { tag = newTag; }
 
   // Getter for positioned
   bool isPositioned() const { return positioned; }
@@ -20,17 +21,40 @@ class Station {
   // Setter for positioned
   void setPositioned(bool newStatus) { positioned = newStatus; }
 
-  // Getter for point
-  Point getPoint() const { return point; }
+  bool fromCondensedJson(JsonObject& obj) {
+    // Validate input
+    try {
+      if (obj.isNull()) {
+        Serial.println("jsonToTrack: JSON object is null");
+        return false;
+      }
 
-  // Setter for point
-  void setPoint(Point newPoint) { point = newPoint; }
+      // Track type
+
+      // UID objects
+      if (obj["tag"].is<JsonObject>()) {
+        JsonObject tagObj = obj["uid"];
+        tag.fromCondensedJson(tagObj);
+      } else {
+        return false;
+      }
+
+    } catch (const std::exception& e) {
+      Serial.println("error");
+      std::cerr << e.what() << '\n';
+      return false;
+    }
+
+    return true;
+  }
+  void toCondensedJson(JsonObject& obj) const {
+    JsonObject tagObj = obj["tag"].to<JsonObject>();
+    tag.toCondensedJson(tagObj);
+  }
 
  private:
- 
-  Tag* tag;                 // pointer to a Tag object
+  Tag tag;                  // pointer to a Tag object
   bool positioned = false;  // boolean to indicate if the station is positioned
-  Point point;              // the coordinate of the station
 };
 
 #endif  // STATION_HPP

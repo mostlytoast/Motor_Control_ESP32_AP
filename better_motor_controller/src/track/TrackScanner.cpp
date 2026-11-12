@@ -246,8 +246,7 @@ void TrackScanner::writeTag(const Uid& uid, JsonObject& jsonTag) {
 // ============================================================================
 // ADD TRACK
 // ============================================================================
-
-void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
+void TrackScanner::addObject(const Uid& uid, JsonObject& jsonTag) {
   if (app.getPreviousScannerMode() != SCANNING_TRACKS) {
     // Todo add a restart button for this
     app.setScannerStatusLabelText("switching back to scanning");
@@ -263,21 +262,24 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
     Serial.println("json tag empty cant make track");
     return;
   }
+  Track track;
+  Station station;
 
-  if (!trackMap.doesTrackExist(uid)) {
-    Serial.println("creating track");
-    serializeJsonPretty(jsonTag, Serial);
+  if (track.fromCondensedJson(jsonTag) && !trackMap.doesObjectExist(uid)) {
+    app.setScannerStatusLabelText("Adding Track");
 
+    trackMap.addTrack(track);
+  } else if (station.fromCondensedJson(jsonTag) &&
+             !trackMap.doesObjectExist(uid)) {
+    app.setScannerStatusLabelText("Adding Station");
+
+    trackMap.addStation(station);
+  }
+}
+
+void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
+  if (!trackMap.doesObjectExist(uid)) {
     // Serial.println(jsonTag);
-    Track track;
-    if (track.fromCondensedJson(jsonTag)) {
-      app.setScannerStatusLabelText("Adding Track");
-
-      trackMap.addTrack(track);
-    } else {
-      app.setScannerStatusLabelText("Track scanner failed to add track");
-      return;
-    }
   }
 
   // ============================================================

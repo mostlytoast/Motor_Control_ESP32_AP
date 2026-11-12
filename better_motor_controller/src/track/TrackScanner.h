@@ -55,6 +55,8 @@ class TrackScanner {
   // Write the track associated with a tag.
   //   todo rename
   bool writeTrackForTag(const Uid& uid, JsonObject& jsonTag);
+  void addObject(const Uid& uid, JsonObject& jsonTag);
+
   void addTrack(const Uid& uid, JsonObject& jsonTag);
   // Track creation.
   void registerScannedTracks(const Uid& uid);

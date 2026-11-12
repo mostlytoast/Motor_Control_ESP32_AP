@@ -220,6 +220,14 @@ std::vector<Track> AppState::getPastTracks() { return pastTracks; }
 //   currentTracks = currentTracks_;
 // }
 std::vector<Track>* AppState::getCurrentTracks() { return &currentTracks; }
+
+void AppState::setPastStations(std::vector<Station> pastStations_) {
+  pastStations = pastStations_;
+}
+std::vector<Station> AppState::getPastStations() { return pastStations; }
+std::vector<Station>* AppState::getCurrentStations() {
+  return &currentStations;
+}
 // -------------------------
 // display
 // -------------------------
