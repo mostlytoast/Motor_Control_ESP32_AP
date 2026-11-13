@@ -11,7 +11,7 @@
 #include "Point.hpp"
 #include "Tag.hpp"
 
-enum TrackType { STRAIGHT, CURVED, SWITCH, BUMPER, CROSS };
+enum TrackType { STRAIGHT, CURVED, SWITCH, BUMPER, CROSS, STATION };
 
 // TODO make it so there is only Straight, Curved, and bumper then when creating
 // things like a switch or cross you just combine the concepts into one (do
@@ -97,7 +97,6 @@ class Track {
     obj["type"] = trackTypeToString(trackType);
 
     obj["positioned"] = positioned;
-    
 
     JsonArray tagsArray = obj["tags"].to<JsonArray>();
 
@@ -205,7 +204,6 @@ class Track {
   }
 
   void toCondensedJson(JsonObject& obj) const {
-   
     obj["l"] = length;
 
     obj["r"] = radius;
@@ -311,6 +309,9 @@ class Track {
     } else if (strcmp(type, "CROSS") == 0) {
       trackType = CROSS;
 
+    } else if (strcmp(type, "STATION") == 0) {
+      trackType = STATION;
+
     } else {
       Serial.print("jsonToTrack: Unknown track type: ");
 
@@ -351,6 +352,8 @@ class Track {
 
       case CROSS:
         return "CROSS";
+      case STATION:
+        return "STATION";
 
       default:
         return "UNKNOWN";
@@ -365,6 +368,7 @@ class Track {
    * @param destinationTag
    */
   void calculatePoseFromSourceTag(Tag& sourceTag, Tag* destinationTag) {
+    // TODO find way to make station be positioned relative to track?
     if (destinationTag == nullptr) return;
 
     const Point originalDestination = destinationTag->getPoint();
@@ -484,6 +488,11 @@ class Track {
 
         break;
       }
+
+      case STATION:
+        if (tags.size() < 1) return false;
+        tags[0].setPoint(Point(0.0f, 0.0f, 180.0f));
+        break;
 
       default:
         Serial.println("wrong type");

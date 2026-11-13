@@ -59,6 +59,9 @@ void ControllerMenu::createMenu(lv_obj_t* screen) {
 }
 
 void ControllerMenu::refreshList() {
+  if (lv_obj_is_hidden(menu_obj)) {
+    return;
+  }
   lv_obj_clean(list_obj);
 
   // Scan button
@@ -71,29 +74,19 @@ void ControllerMenu::refreshList() {
     // Copy MAC address while the peer is valid.
     uint8_t mac[6];
     memcpy(mac, peer.getMac(), sizeof(mac));
-
-    lv_obj_t* button = display_.createActionButton(
-        list_obj, "", 280, 36, 100, 40,
-        [this, mac]() { this->selectReceiverByMac(mac); }, COLOR_SCAN);
+    char text[64];
 
     bool selected = peer.getState() == PeerState::ACTIVE;
+    snprintf(text, sizeof(text), "%s%s", selected ? "> " : "", peer.getName());
+
+    lv_obj_t* button = display_.createActionButton(
+        list_obj, text, 280, 36, 100, 40,
+        [this, mac]() { this->selectReceiverByMac(mac); }, COLOR_SCAN);
 
     lv_obj_set_style_bg_color(button,
                               selected ? lv_color_hex(COLOR_SELECTED)
                                        : lv_color_hex(COLOR_BUTTON_OFF),
                               LV_PART_MAIN);
-
-    char text[64];
-
-    snprintf(text, sizeof(text), "%s%s", selected ? "> " : "", peer.getName());
-
-    lv_obj_t* label = lv_label_create(button);
-
-    lv_label_set_text(label, text);
-
-    lv_obj_set_style_text_color(label, lv_color_hex(COLOR_TEXT), LV_PART_MAIN);
-
-    lv_obj_center(label);
   }
 
   if (espnowController.getNumberOfReceivers() == 0) {

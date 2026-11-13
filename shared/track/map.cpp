@@ -105,23 +105,54 @@ void TrackMap::addTrack(Track track) {
   (*app.getCurrentTracks()).emplace_back(track);
 }
 
-void TrackMap::addStation(Station station) {
-  mapModified = true;
+// void TrackMap::addStation(Station station) {
+//   mapModified = true;
 
-  (*app.getCurrentStations()).emplace_back(station);
-}
-
-// Station* TrackMap::createStation(Track* track, Uid stationUID, bool dontAdd)
-// { Station* station; station->tag->uid = stationUID; station->tag->track =
-// track; if (dontAdd) {
-//   return station;
-// } else {
-//   track->station.tag->uid = stationUID;
+//   (*app.getCurrentStations()).emplace_back(station);
 // }
+
+// Station* TrackMap::createStation(Uid stationUid, bool dontAdd) {
+//   std::vector<Station>* stations = app.getCurrentStations();
+
+//   Station station = Station(stationUid, dontAdd);
+
+//   if (dontAdd) {
+//     return &station;
+//   } else {
+//     stations->emplace_back(station);
+//   }
 // }
 // ============================================================
 // CONNECT TAGS
 // ============================================================
+
+// bool TrackMap::connectStationToTag(Station* a, Tag* b) {
+//   Serial.print("connecting");
+
+//   if (!a || !b || a->getTag() == (*b)) {
+//     Serial.println("ERROR: Invalid Station or tag");
+//     return false;
+//   }
+
+//   // Serial.print(a->getUid().toString());
+//   // Serial.print(b->getUid().toString());
+
+//   Track* trackA = findTrackByUid(b->getUid());
+
+//   if (!trackA) {
+//     Serial.println("ERROR: Could not find owning tracks");
+//     return false;
+//   }
+
+//   // Store the connection in both directions.
+//   a->getTag().setConnectedTagUid(b->getUid());
+
+//   trackA->setPositioned(false);
+//   mapModified = true;
+//   Serial.println("Station and Tag connected");
+
+//   return true;
+// }
 
 bool TrackMap::connectTags(Tag* a, Tag* b) {
   Serial.print("connecting");
@@ -165,7 +196,15 @@ const std::vector<Track>* TrackMap::getTracks() const {
 // ============================================================
 // FIND TRACK
 // ============================================================
+// auto* TrackMap::findObjectByUid(Uid uid) {
+//   if (findTrackByUid(uid) != nullptr) {
+//     return findTrackByUid(uid);
+//   }
 
+//   if (findStationByUid(uid) != nullptr) {
+//     return findStationByUid(uid);
+//   }
+// }
 Track* TrackMap::findTrackByUid(Uid uid) {
   if (!uid.isValid()) {
     return nullptr;
@@ -181,6 +220,21 @@ Track* TrackMap::findTrackByUid(Uid uid) {
 
   return nullptr;
 }
+
+// Station* TrackMap::findStationByUid(Uid uid) {
+//   if (!uid.isValid()) {
+//     return nullptr;
+//   }
+
+//   for (Station& Station : (*app.getCurrentStations())) {
+//     if (Station.getTag().getUid().isValid() &&
+//         Station.getTag().getUid().equals(uid)) {
+//       return &Station;
+//     }
+//   }
+
+//   return nullptr;
+// }
 
 // ============================================================
 // FIND TAG BY UID
@@ -199,12 +253,12 @@ Tag* TrackMap::findTagByUid(Uid uid) {
     }
   }
 
-  for (Station& station : (*app.getCurrentStations())) {
-    if (station.getTag().getUid().isValid() &&
-        station.getTag().getUid().equals(uid)) {
-      return &station.getTag();
-    }
-  }
+  // for (Station& station : (*app.getCurrentStations())) {
+  //   if (station.getTag().getUid().isValid() &&
+  //       station.getTag().getUid().equals(uid)) {
+  //     return &station.getTag();
+  //   }
+  // }
 
   return nullptr;
 }
@@ -227,7 +281,7 @@ bool TrackMap::doUidsBelongToSameTrack(const Uid& uidA, const Uid& uidB) {
   return false;
 }
 
-bool TrackMap::doesObjectExist(Uid uid) { return findTagByUid(uid) != nullptr; }
+bool TrackMap::doesTrackExist(Uid uid) { return findTagByUid(uid) != nullptr; }
 
 // ============================================================
 // GET TRACK COUNT
@@ -283,9 +337,8 @@ void TrackMap::JsonToMap(JsonArray doc) {
 }
 
 void TrackMap::mapToCondensedJson(JsonArray& addTracksJson,
+
                                   JsonArray& removeUidsFromMap) {
-  // TODO need to add stations to this
-  // Use a vector to track which UIDs are present in the current update
   std::vector<Track>* tracks = app.getCurrentTracks();
   std::vector<Track> pastTracks = app.getPastTracks();
   std::vector<Uid> currentTracksUids;
@@ -304,7 +357,7 @@ void TrackMap::mapToCondensedJson(JsonArray& addTracksJson,
         }
       }
       if (!existsInPast) {
-        Serial.println("found tracks to add");
+        // Serial.println("found tracks to add");
         JsonObject obj = addTracksJson.add<JsonObject>();
         currentTrack.toCondensedJson(obj);
       }
@@ -329,6 +382,50 @@ void TrackMap::mapToCondensedJson(JsonArray& addTracksJson,
       obj["uid"] = pastUid.toString();
     }
   }
+  // std::vector<Station>* stations = app.getCurrentStations();
+  // std::vector<Station> pastStations = app.getPastStations();
+  // std::vector<Uid> currentStationsUids;
+
+  // // 1. Build the current map and populate IDs
+  // // 2. Identify Additions (In currentStationsUids but not in pastStations)
+  // for (Station& currentStation : *stations) {
+  //   currentStationsUids.emplace_back(currentStation.getTag().getUid());
+
+  //   if (currentStation.getInclude()) {
+  //     bool existsInPast = false;
+  //     for (Station& pastStation : pastStations) {
+  //       if (pastStation.getTag().getUid().equals(
+  //               currentStation.getTag().getUid())) {
+  //         existsInPast = true;
+  //       }
+  //     }
+  //     if (!existsInPast) {
+  //       Serial.println("found stations to add");
+  //       JsonObject obj = addStationsJson.add<JsonObject>();
+  //       currentStation.toCondensedJson(obj);
+  //     }
+  //   }
+  // }
+  // // 2. Identify Removals (In pastStations but not in currentStationsUids)
+
+  // for (Station& pastStation : pastStations) {
+  //   Uid pastUid = pastStation.getTag().getUid();
+  //   bool existsInCurrent = false;
+
+  //   for (Uid currentUid : currentStationsUids) {
+  //     if (pastUid.equals(currentUid)) {
+  //       existsInCurrent = true;
+  //     }
+  //   }
+
+  //   if (!existsInCurrent) {
+  //     Serial.println("found stations to remove");
+
+  //     JsonObject obj = removeUidsFromMap.add<JsonObject>();
+  //     obj["uid"] = pastUid.toString();
+  //   }
+  // }
+  // Serial.println("map done");
 }
 
 bool TrackMap::removeTrack(const Track* track) {
@@ -345,20 +442,22 @@ bool TrackMap::removeTrack(const Track* track) {
   return false;
 }
 
-void TrackMap::connectTrack(Track* track) {
-  if (track == nullptr || track->getTags().size() == 0) {
-    return;
-  }
-  for (Tag& tag : track->getTags()) {
-    if (tag.getConnectedTagUid().isValid() &&
-        findTagByUid(tag.getConnectedTagUid()) != nullptr) {
-      connectTags(&tag, findTagByUid(tag.getConnectedTagUid()));
-      Serial.println("connected tag");
-    }
-  }
-}
+// bool TrackMap::removeStation(const Station* station) {
+//   mapModified = true;
+//   std::vector<Station>* stations = app.getCurrentStations();
+
+//   auto it = std::find_if(stations->begin(), stations->end(),
+//                          [station](Station& p) { return p == *station; });
+
+//   if (it != stations->end()) {
+//     stations->erase(it);
+//     return true;
+//   }
+//   return false;
+// }
 
 void TrackMap::condensedJsonToMap(JsonArray& addTracksJson,
+                                  // JsonArray& addStationsJson,
                                   JsonArray& removeUidsFromMap) {
   std::vector<Track>* tracks = app.getCurrentTracks();
   app.setPastTracks(*tracks);
@@ -400,13 +499,17 @@ void TrackMap::condensedJsonToMap(JsonArray& addTracksJson,
     }
   }
 
+  // Serial.println("map done");
+
   trackMap.calculateMap();
 }
 
 void TrackMap::clearMap() {
+  Serial.println("map clear");
+
   mapModified = true;
   (*app.getCurrentTracks()).clear();
-  (*app.getCurrentStations()).clear();
+  // (*app.getCurrentStations()).clear();
 }
 
 bool TrackMap::getMapModified() { return mapModified; }

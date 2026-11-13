@@ -7,6 +7,8 @@
 #include <functional>
 #include <memory>
 #include <vector>
+#include <algorithm>
+
 
 class SharedDisplayCalls;
 // Non-templated button binding
@@ -40,7 +42,7 @@ class SharedDisplayCalls {
   }
 
   lv_obj_t* createLabel(lv_obj_t* parent, uint32_t normalColor, int x, int y,
-                        lv_part_t part, lv_align_t align, const char *text="",
+                        lv_part_t part, lv_align_t align, const char* text = "",
                         const lv_font_t* value = &lv_font_montserrat_16,
                         lv_style_selector_t selector = LV_PART_MAIN);
   void setLabelText(lv_obj_t* label, const char* text);
@@ -59,6 +61,10 @@ class SharedDisplayCalls {
   lv_obj_t* createActionDropdown(lv_obj_t* parent, const char* options, int x,
                                  int y, int width, int height,
                                  std::vector<std::function<void()>> actions);
+
+  lv_obj_t* createTagHitbox(lv_obj_t* parent, int x, int y, int hitboxRadius,
+                            std::function<void()> action);
+  static void bindingDeleteHandler(lv_event_t* event);
 
  private:
   std::vector<ActionBindingPtr> bindings_;

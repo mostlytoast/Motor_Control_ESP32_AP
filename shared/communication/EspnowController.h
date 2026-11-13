@@ -131,7 +131,7 @@ class EspnowController {
   bool isActiveController(const uint8_t* mac);
 
   // JSON communication
-  
+
   bool sendCommandToPeer(Peer* peer, ESPNowCommand command);
   bool sendJsonDocument(Peer* peer, JsonDocument& doc);
 
@@ -148,8 +148,6 @@ class EspnowController {
   // Incoming state
   void processServerState(JsonDocument& doc);
   void processESPNowEvents();
-
-  void NewFunction(Peer* peer, EspNowEvent& event);
 
   static void onESPNowReceive(const esp_now_recv_info_t* info,
                               const uint8_t* data, int len);

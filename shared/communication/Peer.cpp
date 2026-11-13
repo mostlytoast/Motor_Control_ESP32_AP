@@ -76,13 +76,17 @@ const char* peerStateToString(PeerState state_) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Peer& p) {
-  os << "Peer: mac: " << macToString(p.getMac()).c_str() << ", name: " << p.name
-     << ", last seen:" << p.lastSeen << ", channel: " << (int)p.channel
+  char macBuffer[18];
+
+  formatMac(p.getMac(), macBuffer, sizeof(macBuffer));
+
+  os << "Peer: mac: " << macBuffer << ", name: " << p.name
+     << ", last seen: " << p.lastSeen
+     << ", channel: " << static_cast<int>(p.channel)
      << ", role: " << peerRoleToString(p.role)
      << ", state: " << peerStateToString(p.state) << "\n";
 
-  return os;  // Return the stream reference to allow chaining (e.g., std::cout
-              // << a << b;)
+  return os;
 }
 
 // template <>

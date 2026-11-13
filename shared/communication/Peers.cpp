@@ -10,7 +10,6 @@ std::ostream& operator<<(std::ostream& os, const Peers& p) {
 
 int Peers::getNumberOfPeers() { return static_cast<int>(peersList.size()); }
 
-// Peer* Peers::findPeer(int index_) { return &peersList.at(index_); }
 
 Peer* Peers::findPeer(const uint8_t* mac_) {
   if (mac_ == nullptr) {
@@ -38,6 +37,7 @@ Peer* Peers::addPeer(Peer* peer_) {
   std::cout << "Adding peer: " << *peer_ << "\n";
 
   peersList.emplace_back(*peer_);
+  Serial.println("added peer");
 
   // peersList.emplace_back(mac_, channel_, name_);
   return &peersList.back();

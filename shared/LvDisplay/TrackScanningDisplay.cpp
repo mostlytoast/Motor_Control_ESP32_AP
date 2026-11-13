@@ -43,10 +43,9 @@ TrackScanningDisplay::TrackScanningDisplay(
       kColorForward);
 
   list_tracks_ = display_.createActionDropdown(
-      container_, "Curved\nStraight\nCross", 110, 128, 100, 40,
+      container_, "Curved\nStraight\nCross\nStation", 110, 128, 100, 40,
       {[this]() {
-         app.setSelectedTrackType(
-             CURVED);  // Ensure this method exists in your app class
+         app.setSelectedTrackType(CURVED);
          refresh();
        },
        [this]() {
@@ -54,7 +53,11 @@ TrackScanningDisplay::TrackScanningDisplay(
          refresh();
        },
        [this]() {
-         app.setSelectedTrackType(CROSS);  // Or whatever your "Cross" type is
+         app.setSelectedTrackType(CROSS);
+         refresh();
+       },
+       [this]() {
+         app.setSelectedTrackType(STATION);
          refresh();
        }});
 
@@ -123,9 +126,13 @@ void TrackScanningDisplay::refreshList() {
     } else if (app.getSelectedTrackType() == CROSS) {
       app.setSelectedTrackType(CROSS);
       setListAsNone();
+    } else if (app.getSelectedTrackType() == STATION) {
+      app.setSelectedTrackType(STATION);
+      setListAsNone();
     }
   }
 }
+
 
 void TrackScanningDisplay::setListAsCurved() {
   Serial.println("set track as curved");

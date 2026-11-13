@@ -246,7 +246,8 @@ void TrackScanner::writeTag(const Uid& uid, JsonObject& jsonTag) {
 // ============================================================================
 // ADD TRACK
 // ============================================================================
-void TrackScanner::addObject(const Uid& uid, JsonObject& jsonTag) {
+
+void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
   if (app.getPreviousScannerMode() != SCANNING_TRACKS) {
     // Todo add a restart button for this
     app.setScannerStatusLabelText("switching back to scanning");
@@ -263,23 +264,20 @@ void TrackScanner::addObject(const Uid& uid, JsonObject& jsonTag) {
     return;
   }
   Track track;
-  Station station;
+  if (!trackMap.doesTrackExist(uid)) {
+    Serial.println("creating track");
+    serializeJsonPretty(jsonTag, Serial);
 
-  if (track.fromCondensedJson(jsonTag) && !trackMap.doesObjectExist(uid)) {
-    app.setScannerStatusLabelText("Adding Track");
-
-    trackMap.addTrack(track);
-  } else if (station.fromCondensedJson(jsonTag) &&
-             !trackMap.doesObjectExist(uid)) {
-    app.setScannerStatusLabelText("Adding Station");
-
-    trackMap.addStation(station);
-  }
-}
-
-void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
-  if (!trackMap.doesObjectExist(uid)) {
     // Serial.println(jsonTag);
+
+    if (track.fromCondensedJson(jsonTag)) {
+      app.setScannerStatusLabelText("Adding Track");
+
+      trackMap.addTrack(track);
+    } else {
+      app.setScannerStatusLabelText("Track scanner failed to add track");
+      return;
+    }
   }
 
   // ============================================================
@@ -304,7 +302,7 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
 
     Tag* tagCurrent = trackMap.findTagByUid(uid);
 
-    if (!tagConnection) {
+    if (!tagConnection || !tagCurrent) {
       app.setScannerStatusLabelText("Failed To Connect Tracks");
 
       Serial.println("Could not find connection tag.");
@@ -313,20 +311,15 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
       return;
     }
 
-    if (!tagCurrent) {
-      app.setScannerStatusLabelText("Failed To Connect Tracks");
-
-      Serial.println("Could not find current tag.");
-
-      haveConnectionTag = false;
-      return;
-    }
-
     app.setScannerStatusLabelText("Adding Track and connection tags");
 
     trackMap.connectTags(tagConnection, tagCurrent);
-
+    if (track.getTrackType() == STATION) {
+      // stations should just be added and connected but not mess with rest of track setup
+      return;
+    }
     connectionTagUid.clear();
+
     haveConnectionTag = false;
   }
 

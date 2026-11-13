@@ -16,7 +16,8 @@ void LvDisplayController::init(lv_obj_t* screen) {
   }
 
   // Create the persistent track map inside the container.
-  trackMapDisplay_ = new LvTrackMap(screen_);
+  trackMapDisplay_ =
+      new LvTrackMap(screen_, [this]() { this->sendStateToReceiver(); });
 
   if (trackMapDisplay_ != nullptr) {
     trackMapDisplay_->setTrackMap(trackMap);
@@ -128,7 +129,7 @@ void LvDisplayController::init(lv_obj_t* screen) {
   applyStateToUi();
 }
 void LvDisplayController::reset() {
- if (trackMapDisplay_ != nullptr) {
+  if (trackMapDisplay_ != nullptr) {
     trackMapDisplay_->reset();
   }
   // if (trackScanningDisplay_ != nullptr) {
@@ -140,9 +141,8 @@ void LvDisplayController::reset() {
 void LvDisplayController::refresh() {
   // Serial.println("port display refresh");
 
-  
-  applyStateToUi();
   if (trackMapDisplay_ != nullptr) {
+    applyStateToUi();
     trackMapDisplay_->refresh();
   }
   if (trackScanningDisplay_ != nullptr) {

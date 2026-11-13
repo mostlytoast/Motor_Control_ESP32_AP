@@ -75,7 +75,6 @@ void Display::reset() {
   app.reset();
   // gDisplayController->reset();
   // refresh();
-  
 }
 void Display::createUI() {
   lv_obj_t* screen = lv_screen_active();
@@ -100,6 +99,14 @@ void Display::createUI() {
 }
 
 void Display::refresh() {
+  // Serial.print("Free Heap: ");
+  // Serial.print(ESP.getFreeHeap());
+  // Serial.println(" bytes");
+
+  // // Print largest contiguous block (useful for detecting fragmentation)
+  // Serial.print("Largest Free Block: ");
+  // Serial.print(ESP.getMaxAllocHeap());
+  // Serial.println(" bytes");
   if (espnowController.getReceiverListNeedsRefresh()) {
     espnowController.setReceiverListNeedsRefresh(false);
     controllerMenuInstance->refreshList();

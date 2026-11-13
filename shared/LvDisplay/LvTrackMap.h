@@ -23,6 +23,8 @@
  */
 class LvTrackMap {
  public:
+  using SendStateToReceiverCallback = std::function<void()>;
+
   struct Config {
     int32_t width = 320;
     int32_t height = 200;
@@ -44,7 +46,8 @@ class LvTrackMap {
     uint8_t tagRadius = 5;
   };
 
-  explicit LvTrackMap(lv_obj_t* parent = nullptr);
+  explicit LvTrackMap(lv_obj_t* parent,
+                      std::function<void()> sendStateToReceiverCallback_);
   ~LvTrackMap();
 
   // void createTrackMap(lv_obj_t* parent);
@@ -112,9 +115,12 @@ class LvTrackMap {
 
   Transform transform_;
 
-  void installCallbacks();
-
   SharedDisplayCalls display_;
+
+  SendStateToReceiverCallback sendStateToReceiverCallback = nullptr;
+  std::vector<Uid> hitboxUid;
+
+  void installCallbacks();
 
   static void drawEvent(lv_event_t* e);
 
@@ -126,7 +132,8 @@ class LvTrackMap {
 
   void drawConnections(lv_layer_t* layer) const;
 
-  void drawTrack(lv_layer_t* layer, const Track& track, size_t index) const;
+  void drawTrack(lv_layer_t* layer, const Track& track, size_t index);
+  void createTagHitBox(const Uid destinationUid, const Point point);
 
   void drawCurveOrStraight(lv_layer_t* layer, const Point entrance,
                            const Point exit) const;
@@ -147,4 +154,5 @@ class LvTrackMap {
 
   void drawText(lv_layer_t* layer, Point center, const char* text,
                 lv_color_t color, bool small = false) const;
+  void refreshAndSend();
 };

@@ -24,7 +24,10 @@ static float normalizeAngle(float angle) {
 // CONSTRUCTION / CONFIGURATION
 // ============================================================
 
-LvTrackMap::LvTrackMap(lv_obj_t* parent) {
+LvTrackMap::LvTrackMap(lv_obj_t* parent,
+                       std::function<void()> sendStateToReceiverCallback_) {
+  sendStateToReceiverCallback = sendStateToReceiverCallback_;
+
   Serial.println("LvTrackMap constructor");
 
   root_ = lv_obj_create(parent);
@@ -174,8 +177,8 @@ void LvTrackMap::setTrackMap(TrackMap* map) {
   map_->createTrack(SWITCH, 10, 0, 0, 10, 10, true, entrance2, exit2,
                     entrance2B, exit2B);
 
-  map_->createTrack(CROSS, 10, 0, 10, 10, 0, true, entrance3, exit3, entrance3,
-                    exit3);
+  map_->createTrack(STATION, 0, 0, 10, 10, 0, true, entrance3, emptyUid,
+                    emptyUid, emptyUid);
 
   // // Connect tracks after they have all been created.
   // // JsonDocument doc;
@@ -195,9 +198,9 @@ void LvTrackMap::setTrackMap(TrackMap* map) {
   // if (success2 && success) {
   //   connect(track.getTags()[0].getUid(), track2.getTags()[0].getUid());
   // }
-  connect(entrance0, exit1);
-  connect(entrance1, exit2);
-  connect(entrance2, exit3);
+  connect(exit0, entrance1);
+  connect(exit1, entrance2);
+  connect(exit2, entrance3);
 
   // Position the map.
   map_->calculateMap();
@@ -233,6 +236,35 @@ void LvTrackMap::reset() {
   refresh();
 }
 
+void LvTrackMap::refreshAndSend() {
+  // refresh();
+  if (sendStateToReceiverCallback != nullptr) {
+    sendStateToReceiverCallback();
+  }
+}
+// ============================================================
+// REFRESH
+// ============================================================
+
+void LvTrackMap::refresh() {
+  if (!root_ || lv_obj_is_hidden(root_)) {
+    return;
+  }
+  if (map_->getMapModified()) {
+    transformDirty_ = true;
+  }
+  // if (!lv_obj_is_hidden(root_)) {
+  //   transformDirty_ = true;
+  // }
+
+  if (root_) {
+    lv_obj_invalidate(root_);
+    // hitboxUid.clear();
+
+    // lv_obj_clean(root_);
+  }
+}
+
 size_t LvTrackMap::trackCount() const {
   if (!map_) {
     Serial.println("no map");
@@ -246,7 +278,7 @@ size_t LvTrackMap::trackCount() const {
 // VIEW / TRANSFORM
 // ============================================================
 void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
-  Serial.println("calculateTransform");
+  // Serial.println("calculateTransform");
   transform_ = {};
   transform_.scale = 1.0f;
 
@@ -396,19 +428,6 @@ LvTrackMap::Point LvTrackMap::worldToMap(Point point) const {
 
   return result;
 }
-// ============================================================
-// REFRESH
-// ============================================================
-
-void LvTrackMap::refresh() {
-  // transformDirty_ = true;
-
-  calculateTransform();
-
-  if (root_) {
-    lv_obj_invalidate(root_);
-  }
-}
 
 // ============================================================
 // DRAW EVENT
@@ -442,38 +461,34 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
     return;
   }
 
-  if (self->map_) {
-    self->currentTrackCount_ = self->map_->getTrackCount();
-  }
-  const bool resized = width != self->lastWidth_ || height != self->lastHeight_;
-  const bool tracksModified = self->lastTrackCount_ != self->currentTrackCount_;
+  const size_t trackCount = self->map_ ? self->map_->getTrackCount() : 0;
 
-  // IMPORTANT:
-  // Recalculate after LVGL has established the
-  // real size of the object.
+  const bool resized = width != self->lastWidth_ || height != self->lastHeight_;
+
+  const bool tracksModified = trackCount != self->lastTrackCount_;
+
   if (self->transformDirty_ || resized || tracksModified) {
     self->calculateTransform(width, height);
 
     self->lastWidth_ = width;
     self->lastHeight_ = height;
+    self->lastTrackCount_ = trackCount;
+
     self->transformDirty_ = false;
   }
 
   self->drawBackground(layer, area);
+  // self->drawConnections(layer);
 
-  self->drawConnections(layer);
-  int i = 0;
   if (self->map_) {
-    const std::vector<Track>* tracks = self->map_->getTracks();
+    const auto* tracks = self->map_->getTracks();
+
+    size_t index = 0;
+
     for (const Track& track : *tracks) {
-      self->drawTrack(layer, track, i);
-      self->lastTrackCount_++;
-      i++;
-      // self->transformDirty_ = true;
-      Serial.println("update");
+      self->drawTrack(layer, track, index++);
     }
   }
-
   char countText[24];
 
   snprintf(countText, sizeof(countText), "Tracks: %u",
@@ -498,22 +513,22 @@ void LvTrackMap::drawBackground(lv_layer_t* layer,
 
   lv_draw_rect(layer, &bg, &area);
 
-  constexpr int32_t spacing = 20;
+  // constexpr int32_t spacing = 20;
 
-  const int32_t width = lv_area_get_width(&area);
-  const int32_t height = lv_area_get_height(&area);
+  // const int32_t width = lv_area_get_width(&area);
+  // const int32_t height = lv_area_get_height(&area);
 
-  for (int32_t x = 0; x < width; x += spacing) {
-    drawSegment(layer, {static_cast<float>(x), 0.0f, 0.0f},
-                {static_cast<float>(x), static_cast<float>(height), 0.0f},
-                config_.grid, 1);
-  }
+  // for (int32_t x = 0; x < width; x += spacing) {
+  //   drawSegment(layer, {static_cast<float>(x), 0.0f, 0.0f},
+  //               {static_cast<float>(x), static_cast<float>(height), 0.0f},
+  //               config_.grid, 1);
+  // }
 
-  for (int32_t y = 0; y < height; y += spacing) {
-    drawSegment(layer, {0.0f, static_cast<float>(y), 0.0f},
-                {static_cast<float>(width), static_cast<float>(y), 0.0f},
-                config_.grid, 1);
-  }
+  // for (int32_t y = 0; y < height; y += spacing) {
+  //   drawSegment(layer, {0.0f, static_cast<float>(y), 0.0f},
+  //               {static_cast<float>(width), static_cast<float>(y), 0.0f},
+  //               config_.grid, 1);
+  // }
 }
 
 // ============================================================
@@ -710,7 +725,7 @@ void LvTrackMap::drawConnections(lv_layer_t* layer) const {
 
       // Connection exists in both directions.
       // Only draw it once.
-      if (!map_->doesObjectExist(otherTag->getUid())) {
+      if (std::less<const Tag*>{}(otherTag, &tag)) {
         continue;
       }
 
@@ -727,7 +742,7 @@ void LvTrackMap::drawConnections(lv_layer_t* layer) const {
 // ============================================================
 
 void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
-                           size_t index) const {
+                           size_t index) {
   if (!track.getPositioned()) {
     // Serial.println("track has not been positioned");
 
@@ -762,16 +777,48 @@ void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
       drawCurveOrStraight(layer, worldToMap(track.getTags()[2].getPoint()),
                           worldToMap(track.getTags()[3].getPoint()));
       break;
+    case STATION:
+      drawCurveOrStraight(layer, worldToMap(track.getTags()[0].getPoint()),
+                          worldToMap(track.getTags()[0].getPoint()));
+      const Point point = worldToMap(track.getTags()[0].getPoint());
+
+      drawCircle(layer, point, config_.tagRadius, config_.tagConnected, true,
+                 point.getHeading());
+      const Uid destinationUid = track.getTags()[0].getConnectedTagUid();
+      createTagHitBox(destinationUid, point);
+      drawLabel(layer, track, index);
+
+      break;
   }
 
-  // drawTags(layer, track);
+  // drawTags(layer, track.getTags());
   // drawLabel(layer, track, index);
 }
+void LvTrackMap::createTagHitBox(const Uid destinationUid, const Point point) {
+  if (!destinationUid.isValid()) {
+    return;
+  }
 
+  auto it = std::find_if(
+      hitboxUid.begin(), hitboxUid.end(),
+      [destinationUid](Uid& p) { return p.equals(destinationUid); });
+
+  if (it != hitboxUid.end()) {
+    return;
+  }
+  hitboxUid.emplace_back(destinationUid);
+  display_.createTagHitbox(root_, point.getX(), point.getY(),
+                           config_.tagRadius * 4, [this, destinationUid]() {
+                             Serial.println("touch hitbox");
+                             app.setDestinationUid(destinationUid);
+                             refreshAndSend();
+                           });
+}
 void LvTrackMap::drawCurveOrStraight(lv_layer_t* layer, const Point entrance,
                                      const Point exit) const {
-  constexpr int MIN_SEGMENTS = 8;
-  constexpr float MAX_SEGMENT_LENGTH = 3.0f;
+  constexpr int MIN_SEGMENTS = 4;
+  constexpr int MAX_SEGMENTS = 32;
+  constexpr float MAX_SEGMENT_LENGTH = 30.0f;
 
   const float x1 = entrance.getX();
   const float y1 = entrance.getY();
@@ -823,9 +870,12 @@ void LvTrackMap::drawCurveOrStraight(lv_layer_t* layer, const Point entrance,
   while (sweep < -PI_F) sweep += 2.0f * PI_F;
 
   // Determine number of segments based on arc length.
-  const int segments =
+  const float arcLength = fabsf(sweep) * radius;
+
+  const int segments = std::min(
+      MAX_SEGMENTS,
       std::max(MIN_SEGMENTS,
-               static_cast<int>(fabsf(sweep) * radius / MAX_SEGMENT_LENGTH));
+               static_cast<int>(ceilf(arcLength / MAX_SEGMENT_LENGTH))));
 
   Point previous = (entrance);
 
@@ -872,8 +922,8 @@ void LvTrackMap::drawBumper(lv_layer_t* layer, const Track& track) const {
 // ============================================================
 
 void LvTrackMap::drawTags(lv_layer_t* layer, const Track& track) const {
-  static constexpr const char* labels[] = {"entranceA", "entranceB", "exitA",
-                                           "exitB"};
+  // static constexpr const char* labels[] = {"entranceA", "entranceB", "exitA",
+  //                                          "exitB"};
 
   const auto& tags = track.getTags();
 
@@ -893,10 +943,10 @@ void LvTrackMap::drawTags(lv_layer_t* layer, const Track& track) const {
                connected ? config_.tagConnected : config_.tagUnconnected, true,
                point.getHeading());
 
-    if (i < sizeof(labels) / sizeof(labels[0])) {
-      drawText(layer, {point.getX(), point.getY() - 10.0f, 0.0f}, labels[i],
-               lv_color_hex(0x111111), true);
-    }
+    // if (i < sizeof(labels) / sizeof(labels[0])) {
+    //   drawText(layer, {point.getX(), point.getY() - 10.0f, 0.0f}, labels[i],
+    //            lv_color_hex(0x111111), true);
+    // }
   }
 }
 

@@ -75,14 +75,22 @@ bool EspnowController::setupESPNow(
   Serial.println("ESP-NOW initialized");
 
   // Event queue
+  auto cleanupESPNow = [this]() {
+    if (espNowEventQueue != nullptr) {
+      vQueueDelete(espNowEventQueue);
+      espNowEventQueue = nullptr;
+    }
 
+    esp_now_deinit();
+    callbackInstance = nullptr;
+  };
   espNowEventQueue = xQueueCreate(ESPNOW_EVENT_QUEUE_SIZE, sizeof(EspNowEvent));
 
   if (espNowEventQueue == nullptr) {
     Serial.println("ERROR: Could not create ESP-NOW event queue");
 
     esp_now_deinit();
-
+    cleanupESPNow();
     return false;
   }
 
@@ -96,6 +104,7 @@ bool EspnowController::setupESPNow(
     Serial.println(esp_err_to_name(result));
 
     esp_now_deinit();
+    cleanupESPNow();
 
     return false;
   }
@@ -110,6 +119,7 @@ bool EspnowController::setupESPNow(
     Serial.println(esp_err_to_name(result));
 
     esp_now_deinit();
+    cleanupESPNow();
 
     return false;
   }
@@ -135,6 +145,7 @@ bool EspnowController::setupESPNow(
       Serial.println(esp_err_to_name(result));
 
       esp_now_deinit();
+      cleanupESPNow();
 
       return false;
     }
@@ -181,18 +192,14 @@ void EspnowController::processESPNowEvents() {
 
   while (processed < 8 &&
          xQueueReceive(espNowEventQueue, &event, 0) == pdTRUE) {
-    // if (event == nullptr || event.mac == nullptr) {
-    //   continue;
-
-    // }
-
     processed++;
-    Peer* peer;
-    Peer* foundPeer = peers.findPeer(event.mac);
-    if (foundPeer != nullptr) {
-      peer = foundPeer;
-    } else {
-      peer = new Peer(event.mac, WIFI_CHANNEL, "");
+
+    Peer temporaryPeer(event.mac, WIFI_CHANNEL, "");
+
+    Peer* peer = peers.findPeer(event.mac);
+
+    if (peer == nullptr) {
+      peer = &temporaryPeer;
     }
 
     //
@@ -241,8 +248,14 @@ void EspnowController::processESPNowEvents() {
 
         peer->setLastSeen(millis());
         discoveryActive = true;
-        peers.removePeer(peer->getMac());
-        esp_now_del_peer(peer->getMac());
+        uint8_t mac[6];
+        memcpy(mac, peer->getMac(), sizeof(mac));
+
+        peers.removePeer(mac);
+
+        if (esp_now_is_peer_exist(mac)) {
+          esp_now_del_peer(mac);
+        }
         if (resetStateCallback) resetStateCallback();
       }
 
@@ -269,25 +282,25 @@ void EspnowController::handleUnkownPacket(Peer* peer, EspNowEvent& event) {
 
 void EspnowController::processDiscovery() {
   if (!discoveryActive) return;
-  unsigned long now = millis();
 
-  if (now - lastDiscoverySend >= DISCOVERY_INTERVAL) {
-    lastDiscoverySend = now;
+  const unsigned long now = millis();
 
-    ESPNowCommand command = {};
-
-    command.type = CMD_DISCOVER;
-
-    // command.value = 0;
-    Peer destination(broadcastMac, WIFI_CHANNEL, "temporary");
-    sendCommandToPeer(&destination, command);
+  if (now - lastDiscoverySend < DISCOVERY_INTERVAL) {
+    return;
   }
-}
 
+  lastDiscoverySend = now;
+
+  ESPNowCommand command{};
+  command.type = CMD_DISCOVER;
+
+  esp_now_send(broadcastMac, reinterpret_cast<const uint8_t*>(&command),
+               sizeof(command));
+}
 // FAILSAFE
 
 void EspnowController::ESPNowCheckFailsafe() {
-  auto controllers = peers.getActiveControllerPeers();
+  std::vector<Peer> controllers = peers.getActiveControllerPeers();
 
   const unsigned long now = millis();
 
@@ -315,6 +328,7 @@ void EspnowController::ESPNowCheckFailsafe() {
       peers.removePeer(mac);
     }
   }
+  controllers.clear();
 
   // Check AFTER iterating.
 }
@@ -350,6 +364,8 @@ bool EspnowController::sendServerState(Peer* peer) {
   send["data"] = fullState;
   send["type"] = CMD_SERVER_STATE;
   return sendJsonDocument(peer, send);
+  send.clear();
+  fullState.clear();
 }
 
 // PEER MANAGEMENT
@@ -451,11 +467,9 @@ bool EspnowController::addOrUpdateDiscoveredPeer(Peer* peer,
 // BINARY DISCOVERY RESPONSE
 
 void EspnowController::sendDiscoveryResponse(Peer* peer) {
-  ESPNowCommand response = {};
+  ESPNowCommand response{};
 
   response.type = CMD_DISCOVERY_RESPONSE;
-
-  // response.value = MAX_CONTROLLERS;
 
   uint8_t currentMac[6];
 
@@ -470,6 +484,7 @@ void EspnowController::sendDiscoveryResponse(Peer* peer) {
   if (!isBroadcastMac(peer->getMac())) {
     addPeer(peer);
   }
+
   sendCommandToPeer(peer, response);
 }
 
@@ -512,7 +527,6 @@ bool EspnowController::sendJsonDocument(Peer* peer, JsonDocument& doc) {
 
   if (packets == nullptr) {
     Serial.println("Failed to allocate JSON packet buffer");
-    free(packets);
 
     return false;
   }
@@ -742,11 +756,13 @@ bool EspnowController::processReceivedJsonFragment(Peer* peer,
 
     if (!jsonAssembler.jsonFragmentToJson(peer->getMac(), command.data,
                                           sizeof(command.data), doc)) {
+      doc.clear();
       return false;
     }
 
     if (peer == nullptr || (peer->getState() != PeerState::PAIRED &&
                             peer->getState() != PeerState::ACTIVE)) {
+      doc.clear();
       return false;
     }
 
@@ -757,6 +773,8 @@ bool EspnowController::processReceivedJsonFragment(Peer* peer,
     if (!stateData.isNull()) {
       getStateFromJsonCallback(stateData);
     }
+    stateData.clear();
+    doc.clear();
 
     return true;
   }
@@ -881,7 +899,7 @@ void EspnowController::queueEspNowEvent(EspNowEventType type,
     return;
   }
 
-  EspNowEvent event = {};
+  EspNowEvent event{};
 
   event.type = type;
 
@@ -890,18 +908,22 @@ void EspnowController::queueEspNowEvent(EspNowEventType type,
   }
 
   if (data != nullptr && len > 0) {
-    if (len > ESPNOW_EVENT_DATA_MAX) {
-      len = ESPNOW_EVENT_DATA_MAX;
-    }
+    len = std::min(len, ESPNOW_EVENT_DATA_MAX);
 
     memcpy(event.data, data, len);
-
     event.len = len;
   }
 
-  xQueueSend(espNowEventQueue, &event, 0);
-}
+  if (xQueueSend(espNowEventQueue, &event, 0) != pdPASS) {
+    static uint32_t droppedEvents = 0;
+    droppedEvents++;
 
+    if (droppedEvents % 100 == 0) {
+      Serial.printf("[ESP-NOW] Dropped events: %lu\n",
+                    static_cast<unsigned long>(droppedEvents));
+    }
+  }
+}
 // RECEIVE CALLBACK
 
 void EspnowController::onESPNowReceive(const esp_now_recv_info_t* info,
@@ -916,7 +938,6 @@ void EspnowController::onESPNowReceive(const esp_now_recv_info_t* info,
 }
 
 // SEND CALLBACK
-
 void EspnowController::onESPNowSendActual(const wifi_tx_info_t* tx_info,
                                           esp_now_send_status_t status) {
   if (tx_info == nullptr || callbackInstance == nullptr ||
@@ -924,13 +945,13 @@ void EspnowController::onESPNowSendActual(const wifi_tx_info_t* tx_info,
     return;
   }
 
-  EspNowEvent event = {};
-
-  event.type = ESP_NOW_EVENT_SEND;
+  EspNowEvent event{};
 
   memcpy(event.mac, tx_info->des_addr, 6);
-
+  event.type = ESP_NOW_EVENT_SEND;
   event.sendStatus = status;
 
-  xQueueSend(callbackInstance->espNowEventQueue, &event, 0);
+  if (xQueueSend(callbackInstance->espNowEventQueue, &event, 0) != pdPASS) {
+    return;
+  }
 }

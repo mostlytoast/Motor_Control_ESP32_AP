@@ -16,7 +16,8 @@
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
-
+// TODO rename to be more like a map of objects since track contains stations
+// now need to do rename for track.hpp too
 class TrackMap {
  public:
   Track* createTrack(TrackType type, float length, float radius,
@@ -27,14 +28,16 @@ class TrackMap {
                      Uid connectExitAUid = Uid(),
                      Uid connectEntranceBUid = Uid(),
                      Uid connectExitBUid = Uid());
+
   void addTrack(Track track);
-  void addStation(Station station);
-  // Station* createStation(Track* track, Uid stationUID, bool dontAdd =
-  // false);
+  // void addStation(Station station);
+  // Station* createStation(Uid stationUid, bool dontAdd);
+
   /*
    * Calculate the complete map.
    */
   void calculateMap();
+  // bool connectStationToTag(Station* a, Tag* b);
 
   bool connectTags(Tag* a, Tag* b);
   const std::vector<Track>* getTracks() const;
@@ -44,9 +47,10 @@ class TrackMap {
   /*
    * returns true if track with associated uid is in track file
    */
-  bool doesObjectExist(Uid uid);
-
+  bool doesTrackExist(Uid uid);
+  // auto* findObjectByUid(Uid uid);
   Track* findTrackByUid(Uid uid);
+  // Station* findStationByUid(Uid uid);
 
   Tag* findTagByUid(Uid uid);
 
@@ -57,11 +61,14 @@ class TrackMap {
   void JsonToMap(JsonArray doc);
 
   void mapToCondensedJson(JsonArray& addTracksJson,
+                          // JsonArray& addStationsJson,
                           JsonArray& removeUidsFromMap);
-  void connectTrack(Track* track);
   void condensedJsonToMap(JsonArray& addTracksJson,
+
+                          // JsonArray& addStationsJson,
                           JsonArray& removeUidsFromMap);
   void clearMap();
+  // bool removeStation(const Station* station);
   bool removeTrack(const Track* track);
 
   bool getMapModified();
@@ -70,6 +77,7 @@ class TrackMap {
  private:
   bool mapModified = false;
   static constexpr uint8_t MAX_TRACKS = 100;
+  // static constexpr uint8_t MAX_STATIONS = 100;
 
   // std::vector<Track> tracks;
 

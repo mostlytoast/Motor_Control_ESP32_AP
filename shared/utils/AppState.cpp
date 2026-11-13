@@ -240,6 +240,8 @@ void AppState::setStatusLabelText(String statusLabelText_) {
 Uid AppState::getDestinationUid() { return destinationUid; };
 void AppState::setDestinationUid(Uid destinationUid_) {
   destinationUid = destinationUid_;
+  Serial.println("destinationUid");
+  if (destinationUid.isValid()) Serial.println(destinationUid.toString());
 };
 
 Uid AppState::getCurrentUid() { return currentUid; };

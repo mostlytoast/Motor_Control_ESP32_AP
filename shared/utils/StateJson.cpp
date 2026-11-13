@@ -125,6 +125,7 @@ void getStateFromCondensedJson(JsonDocument& doc) {
   JsonObject state = doc["state"].as<JsonObject>();
   // TODO returning null? why
   JsonArray addTracks = doc["addTracks"].as<JsonArray>();
+  // JsonArray addStations = doc["addStation"].as<JsonArray>();
   JsonArray removeUid = doc["removeUid"].as<JsonArray>();
 
   if (!addTracks.isNull()) {
@@ -206,9 +207,11 @@ void getCondensedJsonFromState(JsonDocument& doc) {
   state["d"] = app.getAudioState();
 
   JsonArray addTracks = doc["addTracks"].to<JsonArray>();
+  // JsonArray addStations = doc["addStations"].to<JsonArray>();
   JsonArray removeUid = doc["removeUid"].to<JsonArray>();
 
   trackMap.mapToCondensedJson(addTracks, removeUid);
+  // Serial.println("stateJson");
   // pastTracks = trackMap.getTracks();
 
   JsonObject templateTrackDoc = doc["templateTrack"].to<JsonObject>();
@@ -216,4 +219,7 @@ void getCondensedJsonFromState(JsonDocument& doc) {
   if (const Track* track = app.getTemplateTrack()) {
     track->toCondensedJson(templateTrackDoc);
   }
+
+
 }
+

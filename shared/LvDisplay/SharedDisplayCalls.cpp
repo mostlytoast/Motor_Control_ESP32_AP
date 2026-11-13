@@ -65,6 +65,7 @@ void SharedDisplayCalls::setLabelText(lv_obj_t* label, const char* text) {
 
   lv_label_set_text(label, text);
 }
+
 lv_obj_t* SharedDisplayCalls::createActionButton(lv_obj_t* parent,
                                                  const char* text, int x, int y,
                                                  int width, int height,
@@ -90,6 +91,8 @@ lv_obj_t* SharedDisplayCalls::createActionButton(lv_obj_t* parent,
   bindings_.push_back(std::move(binding));
 
   lv_obj_add_event_cb(button, actionHandler, LV_EVENT_CLICKED, bindingPtr);
+  lv_obj_add_event_cb(button, bindingDeleteHandler, LV_EVENT_DELETE,
+                      bindingPtr);
   // Create button label
   lv_obj_t* label = lv_label_create(button);
   lv_label_set_text(label, text);
@@ -127,6 +130,62 @@ lv_obj_t* SharedDisplayCalls::createActionDropdown(
 
   lv_obj_add_event_cb(dropdown, actionHandler, LV_EVENT_VALUE_CHANGED,
                       bindingPtr);
+  lv_obj_add_event_cb(dropdown, bindingDeleteHandler, LV_EVENT_DELETE,
+                      bindingPtr);
 
   return dropdown;
+}
+
+lv_obj_t* SharedDisplayCalls::createTagHitbox(lv_obj_t* parent, int x, int y,
+                                              int hitboxRadius,
+                                              std::function<void()> action) {
+  lv_obj_t* hitbox = lv_button_create(parent);
+
+  lv_obj_set_size(hitbox, hitboxRadius * 2, hitboxRadius * 2);
+
+  // Position relative to root.
+  lv_obj_set_pos(hitbox, static_cast<int32_t>(x - hitboxRadius),
+                 static_cast<int32_t>(y - hitboxRadius));
+  // Make it circular.
+  lv_obj_set_style_radius(hitbox, LV_RADIUS_CIRCLE, 0);
+
+  // Completely invisible.
+  lv_obj_set_style_bg_opa(hitbox, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_width(hitbox, 0, 0);
+  lv_obj_set_style_outline_width(hitbox, 0, 0);
+
+  // Enable click handling.
+  lv_obj_set_clickable(hitbox, true);
+
+  // Create and store callback binding
+  auto binding = std::make_unique<ActionBinding>(std::move(action), this);
+
+  ActionBinding* bindingPtr = binding.get();
+
+  bindings_.push_back(std::move(binding));
+
+  lv_obj_add_event_cb(hitbox, actionHandler, LV_EVENT_CLICKED, bindingPtr);
+  lv_obj_add_event_cb(hitbox, bindingDeleteHandler, LV_EVENT_DELETE,
+                      bindingPtr);
+  // Create hitbox label
+
+  return hitbox;
+}
+
+void SharedDisplayCalls::bindingDeleteHandler(lv_event_t* event) {
+  auto* binding = static_cast<ActionBinding*>(lv_event_get_user_data(event));
+
+  if (!binding || !binding->owner) {
+    return;
+  }
+
+  auto* owner = binding->owner;
+
+  auto it =
+      std::find_if(owner->bindings_.begin(), owner->bindings_.end(),
+                   [binding](const auto& ptr) { return ptr.get() == binding; });
+
+  if (it != owner->bindings_.end()) {
+    owner->bindings_.erase(it);
+  }
 }
