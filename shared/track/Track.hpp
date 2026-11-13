@@ -384,7 +384,7 @@ class Track {
     for (Tag& tag : tags) {
       tag.getPoint().transformPoint(originalDestination, target, rotation);
     }
-
+    Serial.println("positioned track");
     positioned = true;
   }
 

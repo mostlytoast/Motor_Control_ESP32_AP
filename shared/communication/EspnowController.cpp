@@ -491,6 +491,7 @@ void EspnowController::sendDiscoveryResponse(Peer* peer) {
 // BINARY PAIR RESPONSE
 
 void EspnowController::sendPairResponse(Peer* peer) {
+  Serial.println("sending pair response");
   ESPNowCommand response = {};
 
   response.type = CMD_PAIR_RESPONSE;
@@ -579,7 +580,11 @@ bool EspnowController::processReceivedPeerBinaryPacket(Peer* peer,
     Serial.println("received CMD_PAIR_REQUEST");
     peer->setLastSeen(millis());
     peer->setState(PeerState::PAIRED);
+    Serial.println("1213");
+
     addPeer(peer);
+    Serial.println("124wesdf");
+
     sendPairResponse(peer);
 
     return true;
@@ -643,14 +648,18 @@ bool EspnowController::sendControllerClaim(Peer* peer) {
     return false;
   }
 
-  Serial.printf("Sending CMD_CONTROLLER_CLAIM to %s, MAC: %s", peer->getName(),
-                peer->getMac());
+
+  Serial.printf("Sending CMD_CONTROLLER_CLAIM to %s, MAC: %s\n", peer->getName(),
+                macToString(peer->getMac()));
 
   ESPNowCommand command = {};
   command.type = CMD_CONTROLLER_CLAIM;
   // TODO does not copy full name
-  memcpy(&command.name, peer->getName(),
-         min(sizeof(command.name), sizeof(peer->getName())));
+  if (sizeof(peer->getName()) < sizeof(command.name)) {
+    memcpy(&command.name, peer->getName(), sizeof(peer->getName()));
+  } else {
+    memcpy(&command.name, peer->getName(), sizeof(command.name));
+  }
   // command.value = 0;
   return sendCommandToPeer(peer, command);
 }
@@ -730,6 +739,7 @@ bool EspnowController::processReceivedControllerBinaryPacket(
     if (!sendControllerClaim(peer)) {
       Serial.println("Failed to send controller claim");
     }
+    if (resetStateCallback) resetStateCallback();
 
     Serial.println("Successfully sent controller claim");
     return true;

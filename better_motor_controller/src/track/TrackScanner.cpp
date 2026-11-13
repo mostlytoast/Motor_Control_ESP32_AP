@@ -482,7 +482,7 @@ void TrackScanner::processSerial() {
     Uid emptyUid;
 
     app.setTemplateTrack(*internalTrackMap.createTrack(
-        CURVED, length, diameter / 2, 0, 0, 0, true, emptyUid, emptyUid,
+        STRAIGHT, length, diameter / 2, 0, 0, 0, true, emptyUid, emptyUid,
         emptyUid, emptyUid, true));
 
   } else if (command == 'R' || command == 'r') {

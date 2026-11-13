@@ -3,8 +3,8 @@
 // TODO have special json funcitons that only output track when somethings
 // change?
 void getStateFromJson(JsonDocument& doc) {
-  Serial.println("=== getStateFromJson INPUT ===");
-  serializeJsonPretty(doc, Serial);
+  // Serial.println("=== getStateFromJson INPUT ===");
+  // serializeJsonPretty(doc, Serial);
   JsonObject state = doc["state"].as<JsonObject>();
   JsonArray tracks = doc["tracks"].as<JsonArray>();
 
@@ -120,8 +120,8 @@ void getJsonFromState(JsonDocument& doc) {
 }
 
 void getStateFromCondensedJson(JsonDocument& doc) {
-  Serial.println("=== getStateFromCondensedJson INPUT ===");
-  serializeJsonPretty(doc, Serial);
+  // Serial.println("=== getStateFromCondensedJson INPUT ===");
+  // serializeJsonPretty(doc, Serial);
   JsonObject state = doc["state"].as<JsonObject>();
   // TODO returning null? why
   JsonArray addTracks = doc["addTracks"].as<JsonArray>();

@@ -132,6 +132,9 @@ class Tag {
     if (obj["cu"].is<const char*>()) {
       const char* connectedTagUidString = obj["cu"] | "";
       connectedTagUid.fromString(connectedTagUidString);
+      Serial.println("added connecting tag");
+      Serial.println(connectedTagUid.toString());
+
       // is optional
     }
 
@@ -141,7 +144,7 @@ class Tag {
     if (!obj["internalConnectedTagUids"].is<JsonArrayConst>()) {
       return false;
     }
-    JsonArrayConst array = obj["int"].as<JsonArrayConst>();
+    JsonArrayConst array = obj["internalConnectedTagUids"].as<JsonArrayConst>();
 
     for (JsonVariantConst value : array) {
       const char* internalTagUidString = value.as<const char*>();

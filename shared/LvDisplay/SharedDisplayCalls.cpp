@@ -65,7 +65,8 @@ void SharedDisplayCalls::setLabelText(lv_obj_t* label, const char* text) {
 
   lv_label_set_text(label, text);
 }
-
+// TODO idea to add a variable callback action where you can pass in a function like value getVariable(bool& hasChanged - false); and if hasChanged is true it would update the value of the object 
+// this would have to be managed by some refresh function most likely that would go through a list of these functions and apply those changes
 lv_obj_t* SharedDisplayCalls::createActionButton(lv_obj_t* parent,
                                                  const char* text, int x, int y,
                                                  int width, int height,
