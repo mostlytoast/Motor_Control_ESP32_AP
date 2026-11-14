@@ -4,19 +4,6 @@ namespace {
 
 constexpr float DEG_TO_RAD_F = M_PI / 180.0f;
 
-//
-static float normalizeAngle(float angle) {
-  while (angle > M_PI) {
-    angle -= 2.0f * M_PI;
-  }
-
-  while (angle < -M_PI) {
-    angle += 2.0f * M_PI;
-  }
-
-  return angle;
-}
-
 }  // namespace
 
 // ============================================================
@@ -258,8 +245,11 @@ void LvTrackMap::setTrackMap(TrackMap* map) {
 }
 
 void LvTrackMap::togglePathFind() {
-  if (app.getScannerMode() == PATH_FINDING) {
+  if (app.getScannerMode() == PATH_FINDING &&
+      app.getPreviousScannerMode() != PATH_FINDING) {
     app.setScannerMode(app.getPreviousScannerMode());
+  } else if (app.getScannerMode() == PATH_FINDING) {
+    app.setScannerMode(SCANNING_TRACKS);
   } else {
     app.setScannerMode(PATH_FINDING);
   }
@@ -298,7 +288,7 @@ void LvTrackMap::refresh() {
     transformDirty_ = true;
     hitboxUid.clear();
     lv_obj_clean(hitBoxLayer_);
-    // Serial.println("cleared");
+    Serial.println("cleared");
     map_->setMapModified(false);
   }
 
@@ -520,7 +510,6 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
   }
 
   self->drawBackground(layer, area);
-  // self->drawConnections(layer);
 
   if (self->map_) {
     const auto* tracks = self->map_->getTracks();
@@ -554,230 +543,11 @@ void LvTrackMap::drawBackground(lv_layer_t* layer,
   bg.border_width = 0;
 
   lv_draw_rect(layer, &bg, &area);
-
-  // constexpr int32_t spacing = 20;
-
-  // const int32_t width = lv_area_get_width(&area);
-  // const int32_t height = lv_area_get_height(&area);
-
-  // for (int32_t x = 0; x < width; x += spacing) {
-  //   drawSegment(layer, {static_cast<float>(x), 0.0f, 0.0f},
-  //               {static_cast<float>(x), static_cast<float>(height), 0.0f},
-  //               config_.grid, 1);
-  // }
-
-  // for (int32_t y = 0; y < height; y += spacing) {
-  //   drawSegment(layer, {0.0f, static_cast<float>(y), 0.0f},
-  //               {static_cast<float>(width), static_cast<float>(y), 0.0f},
-  //               config_.grid, 1);
-  // }
 }
 
 // ============================================================
 // LOW-LEVEL DRAW HELPERS
 // ============================================================
-
-void LvTrackMap::drawSegment(lv_layer_t* layer, Point a, Point b,
-                             lv_color_t color, uint8_t width) const {
-  if (!layer || !root_) {
-    return;
-  }
-
-  lv_draw_line_dsc_t dsc;
-  lv_draw_line_dsc_init(&dsc);
-
-  dsc.color = color;
-  dsc.width = (width > 0) ? width : 1;
-  dsc.opa = LV_OPA_COVER;
-  dsc.round_start = true;
-  dsc.round_end = true;
-
-  lv_area_t rootArea;
-  lv_obj_get_coords(root_, &rootArea);
-
-  // Coordinates are already screen-local.
-  dsc.p1.x = static_cast<float>(rootArea.x1) + a.getX();
-  dsc.p1.y = static_cast<float>(rootArea.y1) + a.getY();
-
-  dsc.p2.x = static_cast<float>(rootArea.x1) + b.getX();
-  dsc.p2.y = static_cast<float>(rootArea.y1) + b.getY();
-
-  lv_draw_line(layer, &dsc);
-}
-
-void LvTrackMap::drawCircle(lv_layer_t* layer, Point center, int32_t radius,
-                            lv_color_t color, bool filled,
-                            float heading) const {
-  if (!root_) {
-    return;
-  }
-
-  lv_draw_rect_dsc_t dsc;
-  lv_draw_rect_dsc_init(&dsc);
-
-  dsc.radius = LV_RADIUS_CIRCLE;
-
-  if (filled) {
-    dsc.bg_color = color;
-    dsc.bg_opa = LV_OPA_COVER;
-    dsc.border_width = 0;
-  } else {
-    dsc.bg_opa = LV_OPA_TRANSP;
-    dsc.border_width = 2;
-    dsc.border_color = color;
-    dsc.border_opa = LV_OPA_COVER;
-  }
-
-  lv_area_t rootArea;
-  lv_obj_get_coords(root_, &rootArea);
-
-  const float cx = rootArea.x1 + center.getX();
-  const float cy = rootArea.y1 + center.getY();
-
-  lv_area_t area;
-  area.x1 = static_cast<lv_coord_t>(lroundf(cx - radius));
-  area.y1 = static_cast<lv_coord_t>(lroundf(cy - radius));
-  area.x2 = static_cast<lv_coord_t>(lroundf(cx + radius));
-  area.y2 = static_cast<lv_coord_t>(lroundf(cy + radius));
-
-  // Draw circle.
-  lv_draw_rect(layer, &dsc, &area);
-
-  // Convert heading to radians.
-  constexpr float DEG_TO_RAD_F = 0.017453292519943295f;
-  const float angle = heading * DEG_TO_RAD_F;
-
-  constexpr float ARROW_LENGTH = 12.0f;
-  constexpr float ARROW_HEAD_LENGTH = 5.0f;
-  constexpr float ARROW_HEAD_ANGLE = 0.6f;
-
-  const float dx = cosf(angle);
-  const float dy = sinf(angle);
-
-  const float startX = cx + dx * (radius - 1);
-  const float startY = cy + dy * (radius - 1);
-
-  const float endX = cx + dx * (radius + ARROW_LENGTH);
-  const float endY = cy + dy * (radius + ARROW_LENGTH);
-
-  // Arrowhead coordinates.
-  const float leftAngle = angle + M_PI - ARROW_HEAD_ANGLE;
-  const float rightAngle = angle + M_PI + ARROW_HEAD_ANGLE;
-
-  const float leftX = endX + cosf(leftAngle) * ARROW_HEAD_LENGTH;
-  const float leftY = endY + sinf(leftAngle) * ARROW_HEAD_LENGTH;
-
-  const float rightX = endX + cosf(rightAngle) * ARROW_HEAD_LENGTH;
-  const float rightY = endY + sinf(rightAngle) * ARROW_HEAD_LENGTH;
-
-  // Draw shaft.
-  lv_draw_line_dsc_t lineDsc;
-  lv_draw_line_dsc_init(&lineDsc);
-
-  lineDsc.color = color;
-  lineDsc.width = 2;
-  lineDsc.opa = LV_OPA_COVER;
-
-  lineDsc.p1.x = static_cast<lv_value_precise_t>(lroundf(startX));
-  lineDsc.p1.y = static_cast<lv_value_precise_t>(lroundf(startY));
-  lineDsc.p2.x = static_cast<lv_value_precise_t>(lroundf(endX));
-  lineDsc.p2.y = static_cast<lv_value_precise_t>(lroundf(endY));
-
-  lv_draw_line(layer, &lineDsc);
-
-  // Draw left arrowhead.
-  lineDsc.p1 = lineDsc.p2;
-  lineDsc.p2.x = static_cast<lv_value_precise_t>(lroundf(leftX));
-  lineDsc.p2.y = static_cast<lv_value_precise_t>(lroundf(leftY));
-
-  lv_draw_line(layer, &lineDsc);
-
-  // Draw right arrowhead.
-  lineDsc.p1.x = static_cast<lv_value_precise_t>(lroundf(endX));
-  lineDsc.p1.y = static_cast<lv_value_precise_t>(lroundf(endY));
-  lineDsc.p2.x = static_cast<lv_value_precise_t>(lroundf(rightX));
-  lineDsc.p2.y = static_cast<lv_value_precise_t>(lroundf(rightY));
-
-  lv_draw_line(layer, &lineDsc);
-}
-void LvTrackMap::drawText(lv_layer_t* layer, Point center, const char* text,
-                          lv_color_t color, bool small) const {
-  (void)small;
-
-  if (!root_ || !text) {
-    return;
-  }
-
-  lv_draw_label_dsc_t dsc;
-  lv_draw_label_dsc_init(&dsc);
-
-  dsc.color = color;
-  dsc.font = LV_FONT_DEFAULT;
-  dsc.align = LV_TEXT_ALIGN_CENTER;
-
-  lv_area_t rootArea;
-  lv_obj_get_coords(root_, &rootArea);
-
-  lv_area_t area;
-
-  area.x1 =
-      rootArea.x1 + static_cast<lv_coord_t>(lroundf(center.getX() - 100.0f));
-
-  area.x2 =
-      rootArea.x1 + static_cast<lv_coord_t>(lroundf(center.getX() + 100.0f));
-
-  area.y1 =
-      rootArea.y1 + static_cast<lv_coord_t>(lroundf(center.getY() - 8.0f));
-
-  area.y2 =
-      rootArea.y1 + static_cast<lv_coord_t>(lroundf(center.getY() + 8.0f));
-
-  dsc.text = text;
-
-  lv_draw_label(layer, &dsc, &area);
-}
-
-// ============================================================
-// CONNECTIONS
-// ============================================================
-void LvTrackMap::drawConnections(lv_layer_t* layer) const {
-  if (!map_) {
-    return;
-  }
-
-  const uint8_t count = map_->getTrackCount();
-
-  const std::vector<Track>* tracks = map_->getTracks();
-  for (const Track& track : *tracks) {
-    if (!track.getPositioned()) {
-      continue;
-    }
-
-    for (const Tag& tag : track.getTags()) {
-      // No connection stored.
-      if (!tag.getConnectedTagUid().isValid()) {
-        continue;
-      }
-
-      const Tag* otherTag = map_->findTagByUid(tag.getConnectedTagUid());
-
-      if (!otherTag) {
-        continue;
-      }
-
-      // Connection exists in both directions.
-      // Only draw it once.
-      if (std::less<const Tag*>{}(otherTag, &tag)) {
-        continue;
-      }
-
-      const Point a = worldToMap(tag.getPoint());
-      const Point b = worldToMap(otherTag->getPoint());
-
-      drawSegment(layer, a, b, config_.connection, config_.connectionWidth);
-    }
-  }
-}
 
 // ============================================================
 // TRACK DRAWING
@@ -849,7 +619,6 @@ void LvTrackMap::createTagHitBox(const Uid destinationUid, const Point point) {
   if (it != hitboxUid.end()) {
     return;
   }
-  // Serial.println("createTagHitBox");
 
   hitboxUid.emplace_back(destinationUid);
   display_.createTagHitbox(hitBoxLayer_, point.getX(), point.getY(),
@@ -859,6 +628,7 @@ void LvTrackMap::createTagHitBox(const Uid destinationUid, const Point point) {
                              refreshAndSend();
                            });
 }
+
 void LvTrackMap::drawCurveOrStraight(lv_layer_t* layer, const Point entrance,
                                      const Point exit) const {
   constexpr int MIN_SEGMENTS = 4;
@@ -1016,6 +786,167 @@ void LvTrackMap::drawLabel(lv_layer_t* layer, const Track& track,
            track.trackTypeToString());
 
   drawText(layer, center, text, config_.label, true);
+}
+
+void LvTrackMap::drawText(lv_layer_t* layer, Point center, const char* text,
+                          lv_color_t color, bool small) const {
+  (void)small;
+
+  if (!root_ || !text) {
+    return;
+  }
+
+  lv_draw_label_dsc_t dsc;
+  lv_draw_label_dsc_init(&dsc);
+
+  dsc.color = color;
+  dsc.font = LV_FONT_DEFAULT;
+  dsc.align = LV_TEXT_ALIGN_CENTER;
+
+  lv_area_t rootArea;
+  lv_obj_get_coords(root_, &rootArea);
+
+  lv_area_t area;
+
+  area.x1 =
+      rootArea.x1 + static_cast<lv_coord_t>(lroundf(center.getX() - 100.0f));
+
+  area.x2 =
+      rootArea.x1 + static_cast<lv_coord_t>(lroundf(center.getX() + 100.0f));
+
+  area.y1 =
+      rootArea.y1 + static_cast<lv_coord_t>(lroundf(center.getY() - 8.0f));
+
+  area.y2 =
+      rootArea.y1 + static_cast<lv_coord_t>(lroundf(center.getY() + 8.0f));
+
+  dsc.text = text;
+
+  lv_draw_label(layer, &dsc, &area);
+}
+
+void LvTrackMap::drawCircle(lv_layer_t* layer, Point center, int32_t radius,
+                            lv_color_t color, bool filled,
+                            float heading) const {
+  if (!root_) {
+    return;
+  }
+
+  lv_draw_rect_dsc_t dsc;
+  lv_draw_rect_dsc_init(&dsc);
+
+  dsc.radius = LV_RADIUS_CIRCLE;
+
+  if (filled) {
+    dsc.bg_color = color;
+    dsc.bg_opa = LV_OPA_COVER;
+    dsc.border_width = 0;
+  } else {
+    dsc.bg_opa = LV_OPA_TRANSP;
+    dsc.border_width = 2;
+    dsc.border_color = color;
+    dsc.border_opa = LV_OPA_COVER;
+  }
+
+  lv_area_t rootArea;
+  lv_obj_get_coords(root_, &rootArea);
+
+  const float cx = rootArea.x1 + center.getX();
+  const float cy = rootArea.y1 + center.getY();
+
+  lv_area_t area;
+  area.x1 = static_cast<lv_coord_t>(lroundf(cx - radius));
+  area.y1 = static_cast<lv_coord_t>(lroundf(cy - radius));
+  area.x2 = static_cast<lv_coord_t>(lroundf(cx + radius));
+  area.y2 = static_cast<lv_coord_t>(lroundf(cy + radius));
+
+  // Draw circle.
+  lv_draw_rect(layer, &dsc, &area);
+
+  // Convert heading to radians.
+  constexpr float DEG_TO_RAD_F = 0.017453292519943295f;
+  const float angle = heading * DEG_TO_RAD_F;
+
+  constexpr float ARROW_LENGTH = 12.0f;
+  constexpr float ARROW_HEAD_LENGTH = 5.0f;
+  constexpr float ARROW_HEAD_ANGLE = 0.6f;
+
+  const float dx = cosf(angle);
+  const float dy = sinf(angle);
+
+  const float startX = cx + dx * (radius - 1);
+  const float startY = cy + dy * (radius - 1);
+
+  const float endX = cx + dx * (radius + ARROW_LENGTH);
+  const float endY = cy + dy * (radius + ARROW_LENGTH);
+
+  // Arrowhead coordinates.
+  const float leftAngle = angle + M_PI - ARROW_HEAD_ANGLE;
+  const float rightAngle = angle + M_PI + ARROW_HEAD_ANGLE;
+
+  const float leftX = endX + cosf(leftAngle) * ARROW_HEAD_LENGTH;
+  const float leftY = endY + sinf(leftAngle) * ARROW_HEAD_LENGTH;
+
+  const float rightX = endX + cosf(rightAngle) * ARROW_HEAD_LENGTH;
+  const float rightY = endY + sinf(rightAngle) * ARROW_HEAD_LENGTH;
+
+  // Draw shaft.
+  lv_draw_line_dsc_t lineDsc;
+  lv_draw_line_dsc_init(&lineDsc);
+
+  lineDsc.color = color;
+  lineDsc.width = 2;
+  lineDsc.opa = LV_OPA_COVER;
+
+  lineDsc.p1.x = static_cast<lv_value_precise_t>(lroundf(startX));
+  lineDsc.p1.y = static_cast<lv_value_precise_t>(lroundf(startY));
+  lineDsc.p2.x = static_cast<lv_value_precise_t>(lroundf(endX));
+  lineDsc.p2.y = static_cast<lv_value_precise_t>(lroundf(endY));
+
+  lv_draw_line(layer, &lineDsc);
+
+  // Draw left arrowhead.
+  lineDsc.p1 = lineDsc.p2;
+  lineDsc.p2.x = static_cast<lv_value_precise_t>(lroundf(leftX));
+  lineDsc.p2.y = static_cast<lv_value_precise_t>(lroundf(leftY));
+
+  lv_draw_line(layer, &lineDsc);
+
+  // Draw right arrowhead.
+  lineDsc.p1.x = static_cast<lv_value_precise_t>(lroundf(endX));
+  lineDsc.p1.y = static_cast<lv_value_precise_t>(lroundf(endY));
+  lineDsc.p2.x = static_cast<lv_value_precise_t>(lroundf(rightX));
+  lineDsc.p2.y = static_cast<lv_value_precise_t>(lroundf(rightY));
+
+  lv_draw_line(layer, &lineDsc);
+}
+
+void LvTrackMap::drawSegment(lv_layer_t* layer, Point a, Point b,
+                             lv_color_t color, uint8_t width) const {
+  if (!layer || !root_) {
+    return;
+  }
+
+  lv_draw_line_dsc_t dsc;
+  lv_draw_line_dsc_init(&dsc);
+
+  dsc.color = color;
+  dsc.width = (width > 0) ? width : 1;
+  dsc.opa = LV_OPA_COVER;
+  dsc.round_start = true;
+  dsc.round_end = true;
+
+  lv_area_t rootArea;
+  lv_obj_get_coords(root_, &rootArea);
+
+  // Coordinates are already screen-local.
+  dsc.p1.x = static_cast<float>(rootArea.x1) + a.getX();
+  dsc.p1.y = static_cast<float>(rootArea.y1) + a.getY();
+
+  dsc.p2.x = static_cast<float>(rootArea.x1) + b.getX();
+  dsc.p2.y = static_cast<float>(rootArea.y1) + b.getY();
+
+  lv_draw_line(layer, &dsc);
 }
 
 void LvTrackMap::toggle() {

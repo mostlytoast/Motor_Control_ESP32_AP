@@ -117,6 +117,9 @@ class AppState {
   // void setCurrentTracks(std::vector<Track> currentTracks_);
   std::vector<Track>* getCurrentTracks();
 
+  void setPath(std::vector<Uid> path_);
+  std::vector<Uid> getPath();
+
   // void setPastStations(std::vector<Station> pastStations_);
   // std::vector<Station> getPastStations();
   // // void setCurrentStations(std::vector<Track> currentStations_);
@@ -181,9 +184,10 @@ class AppState {
   std::vector<Track> pastTracks;
 
   std::vector<Track> currentTracks;
-  // std::vector<Station> pastStations;
 
-  // std::vector<Station> currentStations;
+  // Path finding 
+  std::vector<Uid> path;
+
 
   // display status label
   String statusLabelText;

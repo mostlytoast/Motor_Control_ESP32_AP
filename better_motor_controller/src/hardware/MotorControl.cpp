@@ -159,39 +159,4 @@ void updateMotorRamp() {
   setMotor((int)app.getCurrentSpeed());
 }
 
-// ===================================================
-// Command interface for ESP-NOW and WebAPI
-// ===================================================
 
-void changeSpeedCommand(int speed) {
-  app.setTargetSpeed(speed);
-
-  app.setUserSpeed(app.getTargetSpeed());
-
-  Serial.print("Target speed: ");
-  Serial.println(app.getTargetSpeed());
-}
-
-void changeRampCommand(unsigned long ramp) {
-  ramp = clampInt(ramp, 0, 10000);
-
-  app.setRampTime(ramp);
-
-  Serial.print("Ramp time: ");
-  Serial.print(app.getRampTime() / 1000.0, 1);
-  Serial.println(" seconds");
-}
-
-// ===================================================
-// Emergency motor stop
-// ===================================================
-
-void motorStopCommand() {
-  app.setTargetSpeed(0);
-
-  app.setUserSpeed(0);
-
-  app.setAutoState(false);
-
-  Serial.println("EMERGENCY STOP");
-}

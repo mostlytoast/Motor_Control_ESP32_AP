@@ -72,7 +72,9 @@ void TrackScanner::processScans() {
   Uid uid;
 
   NFCReadResult nfcReadResults = nfc.readNFC(uid, tagJson);
-
+  if (app.getScannerMode() == PATH_FINDING) {
+    pathFind();
+  }
   if (nfcReadResults == NFC_READ_FAILED) {
     // app.setScannerStatusLabelText("Nfc Read failed");
 
@@ -85,13 +87,13 @@ void TrackScanner::processScans() {
     Serial.println("Invalid UID.");
     return;
   }
+
+  trackLocation(uid);
   // has found a uid dont know if it got the jason tho
   if (app.getScannerMode() != PATH_FINDING || app.getScannerMode() != NORMAL) {
     app.setRampTime(0);
     app.setTargetSpeed(0);
   }
-
-  trackLocation(uid, tagJson);
 
   if (app.getScannerMode() == REGISTER_TRACKS &&
       nfcReadResults != NFC_READ_DUPLICATE) {
@@ -122,57 +124,42 @@ void TrackScanner::processScans() {
 
     return;
   }
-
-  if (app.getScannerMode() == PATH_FINDING) {
-    pathFind();
-  }
 }
-
-
+Uid previousUid;
 void TrackScanner::pathFind() {
   Uid startUid;
-  Uid destinationUid = app.getDestinationUid();
-  bool uidIsForward = false;
-  if (!forwardsUid.isValid() || !backwardsUid.isValid()) {
+  if (!forwardsUid.isValid() && !backwardsUid.isValid()) {
+    Serial.println("No valid uids:");
+
     return;
   }
   if (forwardsUid.isValid() && !backwardsUid.isValid()) {
-    uidIsForward = true;
     startUid = forwardsUid;
   } else if (backwardsUid.isValid()) {
-    uidIsForward = false;
     startUid = backwardsUid;
   }
 
-  std::vector<Uid> path;
 
   int setSpeed = app.getUserSpeed();
-  if (pathFinder.findPath(startUid, destinationUid, path)) {
+
+  if (!hasUidChanged(startUid, previousUid)) {
+    Serial.println("Finding path:");
+
+    pathFinder.findPath(startUid, app.getDestinationUid(), path);
+  }
+  if (!app.getPath().empty()) {
     Serial.println("Path found:");
     for (const Uid& uid : path) {
       Serial.println(uid.toString());
     }
     String context = "Path found";
-    if (forwardsUid.isValid() && path[0].equals(forwardsUid) && uidIsForward) {
+    if (forwardsUid.isValid() && app.getPath()[0].equals(forwardsUid)) {
       // go forward
 
       app.setTargetSpeed(setSpeed);
       context += "->";
-    } else if (forwardsUid.isValid() && path[0].equals(forwardsUid) &&
-               !uidIsForward) {
-      // go backwards
-      context += "<-";
 
-      app.setTargetSpeed(-setSpeed);
-    } else if (backwardsUid.isValid() && path[0].equals(backwardsUid) &&
-               uidIsForward) {
-      // go forwards
-      context += "->";
-
-      app.setTargetSpeed(setSpeed);
-
-    } else if (backwardsUid.isValid() && path[0].equals(backwardsUid) &&
-               !uidIsForward) {
+    } else if (backwardsUid.isValid() && app.getPath()[0].equals(backwardsUid)) {
       // go backwards
       context += "<-";
 
@@ -192,7 +179,7 @@ void TrackScanner::pathFind() {
   // the path using PathFinder and use location data to decide if we should
   // move forwards or backwards
 }
-void TrackScanner::trackLocation(const Uid& uid, JsonObject& jsonTag) {
+void TrackScanner::trackLocation(const Uid& uid) {
   app.setCurrentUid(uid);
   if (app.getCurrentSpeed() > 0) {
     // going forwards
@@ -347,19 +334,19 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
 // ============================================================================
 // TRACK SCANNING
 // ============================================================================
-bool TrackScanner::isDuplicate(const Uid& uid) {
+bool TrackScanner::hasUidChanged(const Uid& uid, Uid& previousScannedUid) {
   // nfc dup protection only works when past read was successful otherwise it
   // resets and fails to detect anything
   if (!havePreviousTag) {
     havePreviousTag = true;
-    previousTagUid = uid;
+    previousScannedUid = uid;
     return false;
   }
-  if (!uid.equals(previousTagUid)) {
-    previousTagUid = uid;
+  if (!uid.equals(previousScannedUid)) {
+    previousScannedUid = uid;
     return false;
   }
-  previousTagUid = uid;
+  previousScannedUid = uid;
   return true;
 }
 void TrackScanner::registerScannedTracks(const Uid& uid) {
@@ -383,7 +370,7 @@ void TrackScanner::registerScannedTracks(const Uid& uid) {
   // ----------------------------------------------------------
   // First tag
   // ----------------------------------------------------------
-  if (isDuplicate(uid)) {
+  if (hasUidChanged(uid, previousScannedUid)) {
     Serial.println("dup tag");
     // Serial.println("Scan a different tag.");
     return;

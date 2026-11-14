@@ -466,6 +466,7 @@ void TrackMap::condensedJsonToMap(JsonArray& addTracksJson,
   }
 
   // Serial.println("map done");
+  // TODO maybe should be in mapToCondensedJson?
   app.setPastTracks(*tracks);
 
   trackMap.calculateMap();
@@ -476,8 +477,14 @@ void TrackMap::clearMap() {
 
   mapModified = true;
   (*app.getCurrentTracks()).clear();
-  // (*app.getCurrentStations()).clear();
+  (app.getPastTracks()).clear();
+  app.setPastTracks({});
 }
 
-bool TrackMap::getMapModified() { return mapModified; }
-void TrackMap::setMapModified(bool mapModified_) { mapModified = mapModified_; }
+bool TrackMap::getMapModified() {
+  return app.getPastTracks() != *app.getCurrentTracks();
+}
+void TrackMap::setMapModified(bool mapModified_) {
+  mapModified = mapModified_;
+  app.setPastTracks(*app.getCurrentTracks());
+}

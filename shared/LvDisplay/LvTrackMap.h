@@ -133,7 +133,6 @@ class LvTrackMap {
 
   void drawBackground(lv_layer_t* layer, const lv_area_t& area) const;
 
-  void drawConnections(lv_layer_t* layer) const;
 
   void drawTrack(lv_layer_t* layer, const Track& track, size_t index);
   void createTagHitBox(const Uid destinationUid, const Point point);

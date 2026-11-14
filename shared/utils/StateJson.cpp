@@ -146,6 +146,12 @@ void getStateFromCondensedJson(JsonDocument& doc) {
     }
   }
 
+  if (state["cur"].is<const char*>()) {
+    app.setCurrentUid(Uid(state["cur"].as<const char*>()));
+  }
+  if (state["dest"].is<const char*>()) {
+    app.setDestinationUid(Uid(state["dest"].as<const char*>()));
+  }
   if (state["pf"].is<const char*>()) {
     app.setPathFinderStatusText(state["pf"].as<const char*>());
   }
@@ -199,6 +205,8 @@ void getCondensedJsonFromStateTransmitter(JsonDocument& doc) {
 
 void getCondensedJsonFromState(JsonDocument& doc) {
   JsonObject state = doc["state"].to<JsonObject>();
+  state["cur"] = app.getCurrentUid().toString();
+  state["dest"] = app.getDestinationUid().toString();
   state["pf"] = app.getPathFinderStatusText();
   state["ssl"] = app.getScannerStatusLabelText();
   state["sl"] = app.getStatusLabelText();
@@ -223,7 +231,4 @@ void getCondensedJsonFromState(JsonDocument& doc) {
   if (const Track* track = app.getTemplateTrack()) {
     track->toCondensedJson(templateTrackDoc);
   }
-
-
 }
-

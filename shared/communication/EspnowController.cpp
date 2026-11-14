@@ -150,14 +150,8 @@ bool EspnowController::setupESPNow(
       return false;
     }
   }
+  resetDiscover();
 
-  discoveryActive = true;
-
-  discoveryStarted = millis();
-
-  lastDiscoverySend = 0;
-
-  lastHeartbeatSend = millis();
 
   Serial.println("ESP-NOW READY");
 
@@ -243,11 +237,11 @@ void EspnowController::processESPNowEvents() {
 
         // Controller-side receiver
         // Todo put into a controller function
-        app.setStatusLabelText("FAIL");
+
         std::cout << *peer << "\n";
 
         peer->setLastSeen(millis());
-        discoveryActive = true;
+        bool wasKnown = peer->getRole() != PeerRole::UNKNOWN;
         uint8_t mac[6];
         memcpy(mac, peer->getMac(), sizeof(mac));
 
@@ -256,7 +250,14 @@ void EspnowController::processESPNowEvents() {
         if (esp_now_is_peer_exist(mac)) {
           esp_now_del_peer(mac);
         }
-        if (resetStateCallback) resetStateCallback();
+        // if (resetStateCallback) resetStateCallback();
+        resetDiscover();
+
+        if (wasKnown) {
+          app.setStatusLabelText("NO PEER");
+        } else {
+          app.setStatusLabelText("FAIL");
+        }
       }
 
       // SEND SUCCESS
@@ -648,9 +649,8 @@ bool EspnowController::sendControllerClaim(Peer* peer) {
     return false;
   }
 
-
-  Serial.printf("Sending CMD_CONTROLLER_CLAIM to %s, MAC: %s\n", peer->getName(),
-                macToString(peer->getMac()).c_str());
+  Serial.printf("Sending CMD_CONTROLLER_CLAIM to %s, MAC: %s\n",
+                peer->getName(), macToString(peer->getMac()).c_str());
 
   ESPNowCommand command = {};
   command.type = CMD_CONTROLLER_CLAIM;
@@ -851,10 +851,11 @@ bool EspnowController::sendPairRequest(Peer* peer) {
 }
 
 void EspnowController::resetDiscover() {
+  
   // Reset receiver list
   Serial.println("resetDiscover");
 
-  peers.removePeers();
+  // peers.removePeers();
 
   resetStateCallback();
   // Start discovery

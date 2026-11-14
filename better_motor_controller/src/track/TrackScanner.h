@@ -23,14 +23,7 @@ class TrackScanner {
   // Process commands such as 'D'.
   void processSerial();
 
-  // Current scanner mode.
-  bool isWritingMode() const;
-
-  //  private:
-  //   static constexpr uint8_t MAX_TRACKS = 100;
-
-  //   Track tracks[MAX_TRACKS];
-  //   uint8_t trackCount = 0;
+ private:
   TrackMap& trackMap;
   NFC nfc;
 
@@ -39,7 +32,7 @@ class TrackScanner {
 
   bool haveFirstTag;
 
-  Uid previousTagUid;
+  Uid previousScannedUid;
 
   bool havePreviousTag;
 
@@ -51,7 +44,7 @@ class TrackScanner {
   Uid backwardsUid;
   Uid forwardsUid;
   void pathFind();
-  bool isDuplicate(const Uid& uid);
+  bool hasUidChanged(const Uid& uid, Uid& previousScannedUid);
   // Write the track associated with a tag.
   //   todo rename
   bool writeTrackForTag(const Uid& uid, JsonObject& jsonTag);
@@ -61,7 +54,7 @@ class TrackScanner {
   // Track creation.
   void registerScannedTracks(const Uid& uid);
   void createTrackFromTemplate(const Uid& uid);
-  void trackLocation(const Uid& uid, JsonObject& jsonTag);
+  void trackLocation(const Uid& uid);
 
   void writeTag(const Uid& uid, JsonObject& jsonTag);
   // Track lookup.

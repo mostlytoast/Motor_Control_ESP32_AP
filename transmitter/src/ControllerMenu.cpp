@@ -102,6 +102,7 @@ void ControllerMenu::refreshList() {
 
 // Logic methods
 void ControllerMenu::scanEvent(lv_event_t* event) {
+  espnowController.removePeers();
   espnowController.resetDiscover();
 
   app.setStatusLabelText("NO PEER");

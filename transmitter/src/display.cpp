@@ -114,9 +114,9 @@ void Display::refresh() {
   }
 
   espnowController.espnowUpdate();
-
+// TOdo play with timming to find sweet spoot
   uint32_t sleepTime = lv_timer_handler();
-  if (sleepTime > 5) sleepTime = 5;
+  if (sleepTime > 15) sleepTime = 15;
   delay(sleepTime);
 
   gDisplayController->refresh();

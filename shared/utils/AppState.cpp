@@ -60,7 +60,6 @@ void AppState::initDefaults() {
   selectedTrackType = CURVED;
   previousSelectedTrackType = CURVED;
 
-  pastTracks.clear();
   currentTracks.clear();
   currentTracks = {};
 
@@ -229,16 +228,12 @@ std::vector<Track> AppState::getPastTracks() { return pastTracks; }
 // }
 std::vector<Track>* AppState::getCurrentTracks() { return &currentTracks; }
 
-// void AppState::setPastStations(std::vector<Station> pastStations_) {
-//   pastStations = pastStations_;
-// }
-// std::vector<Station> AppState::getPastStations() { return pastStations; }
-// std::vector<Station>* AppState::getCurrentStations() {
-//   return &currentStations;
-// }
-// -------------------------
-// display
-// -------------------------
+void AppState::setPath(std::vector<Uid> path_) { path = path_; }
+std::vector<Uid> AppState::getPath() {
+  return path;
+}  // -------------------------
+   // display
+   // -------------------------
 
 String AppState::getStatusLabelText() { return statusLabelText; }
 void AppState::setStatusLabelText(String statusLabelText_) {

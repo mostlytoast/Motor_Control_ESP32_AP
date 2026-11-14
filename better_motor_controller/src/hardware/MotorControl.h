@@ -20,15 +20,4 @@ int getUserSpeed();
 void setRampTime(int speed);
 int getRampTime();
 
-// void setLastSensorDetect(int time);
-// int getSpeedBeforeDetect();
-
-void changeSpeedCommand(int speed);
-
-void changeRampCommand(unsigned long ramp);
-
-
-void motorStopCommand();
-
-
 // MOVE to audio section
