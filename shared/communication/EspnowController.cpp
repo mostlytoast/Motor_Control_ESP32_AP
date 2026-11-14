@@ -650,7 +650,7 @@ bool EspnowController::sendControllerClaim(Peer* peer) {
 
 
   Serial.printf("Sending CMD_CONTROLLER_CLAIM to %s, MAC: %s\n", peer->getName(),
-                macToString(peer->getMac()));
+                macToString(peer->getMac()).c_str());
 
   ESPNowCommand command = {};
   command.type = CMD_CONTROLLER_CLAIM;
@@ -835,7 +835,7 @@ validateSelectedPeerState EspnowController::validateSelectedPeer(Peer* peer) {
 
 bool EspnowController::sendPairRequest(Peer* peer) {
   Serial.printf("Sending CMD_PAIR_REQUEST to %s, MAC: %s \n", peer->getName(),
-                macToString(peer->getMac()));
+                macToString(peer->getMac()).c_str());
 
   ESPNowCommand pairPacket = {};
 

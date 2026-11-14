@@ -15,7 +15,7 @@ bool TrackMap::positionConnectedTrack(Track& source, Tag& sourceTag) {
   // Serial.println("pos 1");
 
   if (!destinationTag) {
-    Serial.println("failed to find destination tag");
+    // Serial.println("failed to find destination tag");
 
     return false;
   }
@@ -25,7 +25,7 @@ bool TrackMap::positionConnectedTrack(Track& source, Tag& sourceTag) {
   // Serial.println("pos 4");
 
   if (!destination || destination->getPositioned()) {
-    Serial.println("failed to find destination track or already positioned");
+    // Serial.println("failed to find destination track or already positioned");
     return false;
   }
 
@@ -61,9 +61,9 @@ void TrackMap::calculateMap() {
       for (Tag& tag : source.getTags()) {
         // TODO could simplify positionConnectedTrack by changing its call
         // structure?
-        Serial.println("positioning track");
-        Serial.println(tag.getUid().toString());
-        Serial.println(tag.getConnectedTagUid().toString());
+        // Serial.println("positioning track");
+        // Serial.println(tag.getUid().toString());
+        // Serial.println(tag.getConnectedTagUid().toString());
 
         if (positionConnectedTrack(source, tag)) {
           changed = true;

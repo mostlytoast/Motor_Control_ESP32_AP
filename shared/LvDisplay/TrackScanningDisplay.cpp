@@ -19,6 +19,8 @@ TrackScanningDisplay::TrackScanningDisplay(
   lv_obj_set_style_border_side(container_, LV_BORDER_SIDE_NONE, 0);
   lv_obj_set_scrolled(container_, LV_SCROLL_SNAP_NONE);
 
+  lv_obj_set_scrollable(container_, false);
+
   scan_status_label_ = display_.createLabel(container_, kColorStatus, -8, 53,
                                             LV_PART_MAIN, LV_ALIGN_TOP_RIGHT);
 
@@ -34,16 +36,16 @@ TrackScanningDisplay::TrackScanningDisplay(
       container_, "Scan", 215, 78, 100, 45, [this]() { scanNewLayout(); },
       kColorForward);
 
-  btn_auto_ = display_.createActionButton(
-      container_, "Auto", 5, 128, 100, 40, [this]() { pathFind(); },
-      kColorForward);
+  // btn_auto_ = display_.createActionButton(
+  //     container_, "Auto", 5, 128, 100, 40, [this]() { pathFind(); },
+  //     kColorForward);
 
   hide_button_ = display_.createActionButton(
       container_, "Hide", 5, 27, 100, 22, [this]() { toggle(); },
       kColorForward);
 
   list_tracks_ = display_.createActionDropdown(
-      container_, "Curved\nStraight\nCross\nStation", 110, 128, 100, 40,
+      container_, "Curved\nStraight\nCross\nStation", 5, 128, 100, 40,
       {[this]() {
          app.setSelectedTrackType(CURVED);
          refresh();
@@ -82,22 +84,29 @@ void TrackScanningDisplay::updateStatusLabel() {
   if (scan_status_label_ == nullptr) {
     return;
   }
-  if (!app.getStatusLabelText().equals("")) {
-    // Todo use own vars for this? include trackscanner
-    display_.setLabelText(scan_status_label_,
-                          app.getScannerStatusLabelText().c_str());
-    return;
-  }
+  // if (!app.getStatusLabelText().equals("")) {
+  // Serial.print("set track status label");
+  // Serial.println(app.getScannerStatusLabelText());
+  // Todo use own vars for this? include trackscanner
+  display_.setLabelText(scan_status_label_,
+                        app.getScannerStatusLabelText().c_str());
+
+  return;
+  // }
 }
 void TrackScanningDisplay::refresh() {
+  if (lv_obj_is_hidden(container_)) {
+    return;
+  }
+
   display_.setButtonState(btn_register_,
                           app.getScannerMode() == ScannerMode::REGISTER_TRACKS);
   display_.setButtonState(btn_write_,
                           app.getScannerMode() == ScannerMode::WRITING_TRACKS);
   display_.setButtonState(btn_scan_,
                           app.getScannerMode() == ScannerMode::SCANNING_TRACKS);
-  display_.setButtonState(btn_auto_,
-                          app.getScannerMode() == ScannerMode::PATH_FINDING);
+  // display_.setButtonState(btn_auto_,
+  //                         app.getScannerMode() == ScannerMode::PATH_FINDING);
   updateStatusLabel();
   if (app.getPreviousSelectedTrackType() != app.getSelectedTrackType()) {
     refreshList();
@@ -133,13 +142,12 @@ void TrackScanningDisplay::refreshList() {
   }
 }
 
-
 void TrackScanningDisplay::setListAsCurved() {
   Serial.println("set track as curved");
 
   app.getTemplateTrack()->setTrackType(CURVED);
   list_tracks_options_ = display_.createActionDropdown(
-      container_, "O31\nO36\nO48\nO60\nO72\nO84\nO96\n", 215, 128, 100, 40,
+      container_, "O31\nO36\nO48\nO60\nO72\nO84\nO96\n", 110, 128, 100, 40,
       {[this]() {
          app.getTemplateTrack()->setSectionsAndRadius(8.0, 31.0 / 2.0);
          refreshAndSend();
@@ -171,7 +179,7 @@ void TrackScanningDisplay::setListAsStraight() {
   app.getTemplateTrack()->setTrackType(STRAIGHT);
 
   list_tracks_options_ = display_.createActionDropdown(
-      container_, "1 3/8\n1 3/4\n3\n4 1/2\n5\n10\n30\n", 215, 128, 100, 40,
+      container_, "1 3/8\n1 3/4\n3\n4 1/2\n5\n10\n30\n", 110, 128, 100, 40,
       {[this]() {
          app.getTemplateTrack()->setLength(1.375);
          refreshAndSend();
@@ -203,7 +211,7 @@ void TrackScanningDisplay::setListAsStraight() {
 }
 void TrackScanningDisplay::setListAsNone() {
   list_tracks_options_ = display_.createActionDropdown(
-      container_, "no options", 215, 128, 100, 40, {[this]() {}});
+      container_, "no options", 110, 128, 100, 40, {[this]() {}});
 }
 // Scan button
 void TrackScanningDisplay::registerTracks() {
@@ -228,10 +236,16 @@ void TrackScanningDisplay::pathFind() {
 
 void TrackScanningDisplay::toggle() {
   if (lv_obj_is_hidden(container_)) {
+        // lv_obj_move_to_index(container_, 0);
+
+
     lv_obj_move_foreground(container_);
     lv_obj_set_hidden(container_, false);
 
   } else {
+        // lv_obj_move_to_index(container_, 2);
+
+
     lv_obj_set_hidden(container_, true);
   }
 }

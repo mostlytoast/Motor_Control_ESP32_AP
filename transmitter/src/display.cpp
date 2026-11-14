@@ -49,6 +49,7 @@ void Display::setupDisplay() {
   lv_tick_set_cb(lvglTick);
 
   lv_display_t* display = lv_display_create(SCREEN_WIDTH, SCREEN_HEIGHT);
+  
   lv_display_set_color_format(display, LV_COLOR_FORMAT_RGB565);
   lv_display_set_buffers(display, drawBuffer, NULL, sizeof(drawBuffer),
                          LV_DISPLAY_RENDER_MODE_PARTIAL);
@@ -115,7 +116,7 @@ void Display::refresh() {
   espnowController.espnowUpdate();
 
   uint32_t sleepTime = lv_timer_handler();
-  if (sleepTime > 10) sleepTime = 10;
+  if (sleepTime > 5) sleepTime = 5;
   delay(sleepTime);
 
   gDisplayController->refresh();

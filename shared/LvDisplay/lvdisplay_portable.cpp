@@ -14,6 +14,7 @@ void LvDisplayController::init(lv_obj_t* screen) {
   if (screen_ == nullptr) {
     return;
   }
+  // lv_obj_t * top_obj = lv_obj_create(lv_layer_top());
 
   // Create the persistent track map inside the container.
   trackMapDisplay_ =
@@ -36,10 +37,12 @@ void LvDisplayController::init(lv_obj_t* screen) {
                                     LV_ALIGN_TOP_MID, "Ramp: 0");
 
   // TODO make this show on top of everything
+  // lv_obj_t * top_obj = lv_obj_create(lv_layer_top());
   statusLabel_ =
       display_.createLabel(screen_, kColorStatus, -8, 53, LV_PART_MAIN,
                            LV_ALIGN_TOP_RIGHT, "No Peer");
-
+  lv_obj_move_to_index(statusLabel_, -1);
+  // lv_obj_move_foreground(statusLabel_);
   forwardButton_ = display_.createActionButton(
       screen_, "FORWARD", 5, 78, 100, 45,
       [this]() {
@@ -126,6 +129,7 @@ void LvDisplayController::init(lv_obj_t* screen) {
   lv_obj_set_style_text_color(info, lv_color_hex(kColorInfo), LV_PART_MAIN);
   lv_obj_align(info, LV_ALIGN_BOTTOM_MID, 0, -3);
 
+  lv_obj_move_to_index(screen_, 1);
   applyStateToUi();
 }
 void LvDisplayController::reset() {
@@ -141,8 +145,8 @@ void LvDisplayController::reset() {
 void LvDisplayController::refresh() {
   // Serial.println("port display refresh");
 
+  applyStateToUi();
   if (trackMapDisplay_ != nullptr) {
-    applyStateToUi();
     trackMapDisplay_->refresh();
   }
   if (trackScanningDisplay_ != nullptr) {
@@ -203,7 +207,7 @@ void LvDisplayController::getStateFromJsonDisplay(const char* json) {
 }
 
 void LvDisplayController::sendStateToReceiver() {
-  // Serial.println("called sendStateToReceiver");
+  // Serial.println("called sendStateToReceiver portable");
   JsonDocument state;
 
   getCondensedJsonFromState(state);
@@ -220,6 +224,7 @@ void LvDisplayController::sendStateToReceiver() {
   if (previousState == state) {
     return;
   }
+  // Serial.println("refreshAndSend");
 
   previousState = state;
 

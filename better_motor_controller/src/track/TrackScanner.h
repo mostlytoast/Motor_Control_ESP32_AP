@@ -26,11 +26,11 @@ class TrackScanner {
   // Current scanner mode.
   bool isWritingMode() const;
 
-//  private:
-//   static constexpr uint8_t MAX_TRACKS = 100;
+  //  private:
+  //   static constexpr uint8_t MAX_TRACKS = 100;
 
-//   Track tracks[MAX_TRACKS];
-//   uint8_t trackCount = 0;
+  //   Track tracks[MAX_TRACKS];
+  //   uint8_t trackCount = 0;
   TrackMap& trackMap;
   NFC nfc;
 
@@ -60,6 +60,7 @@ class TrackScanner {
   void addTrack(const Uid& uid, JsonObject& jsonTag);
   // Track creation.
   void registerScannedTracks(const Uid& uid);
+  void createTrackFromTemplate(const Uid& uid);
   void trackLocation(const Uid& uid, JsonObject& jsonTag);
 
   void writeTag(const Uid& uid, JsonObject& jsonTag);

@@ -110,14 +110,14 @@ void setup() {
 
 void loop() {
   // Process ESP-NOW commands
-  Serial.print("Free Heap: ");
-  Serial.print(ESP.getFreeHeap());
-  Serial.println(" bytes");
+  // Serial.print("Free Heap: ");
+  // Serial.print(ESP.getFreeHeap());
+  // Serial.println(" bytes");
 
-  // Print largest contiguous block (useful for detecting fragmentation)
-  Serial.print("Largest Free Block: ");
-  Serial.print(ESP.getMaxAllocHeap());
-  Serial.println(" bytes");
+  // // Print largest contiguous block (useful for detecting fragmentation)
+  // Serial.print("Largest Free Block: ");
+  // Serial.print(ESP.getMaxAllocHeap());
+  // Serial.println(" bytes");
   espnowController.espnowUpdate();
 
   // Automatic mode

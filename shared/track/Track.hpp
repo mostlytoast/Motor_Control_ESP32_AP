@@ -147,7 +147,7 @@ class Track {
 
   bool fromCondensedJson(JsonObject& obj) {
     // Validate input
-    Serial.println("track");
+    // Serial.println("track");
     try {
       if (obj.isNull()) {
         Serial.println("jsonToTrack: JSON object is null");
@@ -384,7 +384,7 @@ class Track {
     for (Tag& tag : tags) {
       tag.getPoint().transformPoint(originalDestination, target, rotation);
     }
-    Serial.println("positioned track");
+    // Serial.println("positioned track");
     positioned = true;
   }
 

@@ -103,7 +103,10 @@ class LvTrackMap {
   };
 
   lv_obj_t* hide_button_ = nullptr;
+  lv_obj_t* auto_btn_ = nullptr;
+  lv_obj_t* auto_label_ = nullptr;
   lv_obj_t* root_ = nullptr;
+  lv_obj_t* hitBoxLayer_ = nullptr;
 
   Config config_;
 
@@ -155,4 +158,6 @@ class LvTrackMap {
   void drawText(lv_layer_t* layer, Point center, const char* text,
                 lv_color_t color, bool small = false) const;
   void refreshAndSend();
+  void togglePathFind();
+  void updateAutoLabel();
 };

@@ -132,8 +132,8 @@ class Tag {
     if (obj["cu"].is<const char*>()) {
       const char* connectedTagUidString = obj["cu"] | "";
       connectedTagUid.fromString(connectedTagUidString);
-      Serial.println("added connecting tag");
-      Serial.println(connectedTagUid.toString());
+      // Serial.println("added connecting tag");
+      // Serial.println(connectedTagUid.toString());
 
       // is optional
     }

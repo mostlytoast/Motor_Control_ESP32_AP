@@ -2,17 +2,16 @@
 
 namespace {
 
-constexpr float PI_F = 3.14159265358979323846f;
-constexpr float DEG_TO_RAD_F = PI_F / 180.0f;
+constexpr float DEG_TO_RAD_F = M_PI / 180.0f;
 
 //
 static float normalizeAngle(float angle) {
-  while (angle > PI_F) {
-    angle -= 2.0f * PI_F;
+  while (angle > M_PI) {
+    angle -= 2.0f * M_PI;
   }
 
-  while (angle < -PI_F) {
-    angle += 2.0f * PI_F;
+  while (angle < -M_PI) {
+    angle += 2.0f * M_PI;
   }
 
   return angle;
@@ -44,15 +43,42 @@ LvTrackMap::LvTrackMap(lv_obj_t* parent,
   lv_obj_set_size(root_, LV_PCT(100), LV_PCT(100));
   lv_obj_set_pos(root_, 0, 0);
 
-  // lv_obj_clear_flag(root_, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_set_scrollable(root_, false);
 
   installCallbacks();
 
   hide_button_ = display_.createActionButton(
       root_, "Hide", 110, 27, 100, 25, [this]() { toggle(); }, kColorForward);
+
+  auto_btn_ = display_.createActionButton(
+      root_, "Auto", 215, 27, 100, 25, [this]() { togglePathFind(); },
+      kColorForward);
+  auto_label_ = display_.createLabel(root_, kColorStatus, 8, 53, LV_PART_MAIN,
+                                     LV_ALIGN_TOP_LEFT);
+
+  hitBoxLayer_ = lv_obj_create(root_);
+
+  if (!hitBoxLayer_) {
+    Serial.println("FAILED creating hitBoxLayer");
+    return;
+  }
+  lv_obj_remove_style_all(hitBoxLayer_);
+
+  lv_obj_set_size(hitBoxLayer_, LV_PCT(100), LV_PCT(100));
+  lv_obj_set_pos(hitBoxLayer_, 0, 0);
+  lv_obj_set_scrollable(hitBoxLayer_, false);
+  lv_obj_set_clickable(hitBoxLayer_, false);
+
+  // lv_obj_set_scrollable(hitBoxLayer_, false);
   lv_obj_set_hidden(root_, true);
+
+  lv_obj_move_foreground(hide_button_);
+  lv_obj_move_foreground(auto_btn_);
+  lv_obj_move_foreground(auto_label_);
+
   Serial.println("LvTrackMap constructor finished");
 }
+
 LvTrackMap::~LvTrackMap() { root_ = nullptr; }
 
 void LvTrackMap::installCallbacks() {
@@ -167,10 +193,12 @@ void LvTrackMap::setTrackMap(TrackMap* map) {
   // Serial.println("starting tracks setup");
 
   // // Create tracks first.
-  // map_->createTrack(STRAIGHT, 10, 0, 0, 0, 0, true, entrance0, exit0, emptyUid,
+  // map_->createTrack(STRAIGHT, 10, 0, 0, 0, 0, true, entrance0, exit0,
+  // emptyUid,
   //                   emptyUid);
 
-  // map_->createTrack(CURVED, 10, 10, 0, 0, 0, true, entrance1, exit1, emptyUid,
+  // map_->createTrack(CURVED, 10, 10, 0, 0, 0, true, entrance1, exit1,
+  // emptyUid,
   //                   emptyUid);
 
   // // flipped
@@ -228,6 +256,16 @@ void LvTrackMap::setTrackMap(TrackMap* map) {
 
   refresh();
 }
+
+void LvTrackMap::togglePathFind() {
+  if (app.getScannerMode() == PATH_FINDING) {
+    app.setScannerMode(app.getPreviousScannerMode());
+  } else {
+    app.setScannerMode(PATH_FINDING);
+  }
+  refreshAndSend();
+}
+
 void LvTrackMap::reset() {
   map_ = nullptr;
 
@@ -237,7 +275,7 @@ void LvTrackMap::reset() {
 }
 
 void LvTrackMap::refreshAndSend() {
-  // refresh();
+  refresh();
   if (sendStateToReceiverCallback != nullptr) {
     sendStateToReceiverCallback();
   }
@@ -245,23 +283,27 @@ void LvTrackMap::refreshAndSend() {
 // ============================================================
 // REFRESH
 // ============================================================
+void LvTrackMap::updateAutoLabel() {
+  display_.setLabelText(auto_label_, app.getPathFinderStatusText().c_str());
+}
 
 void LvTrackMap::refresh() {
   if (!root_ || lv_obj_is_hidden(root_)) {
     return;
   }
+  display_.setButtonState(auto_btn_,
+                          app.getScannerMode() == ScannerMode::PATH_FINDING);
+  updateAutoLabel();
   if (map_->getMapModified()) {
     transformDirty_ = true;
+    hitboxUid.clear();
+    lv_obj_clean(hitBoxLayer_);
+    // Serial.println("cleared");
+    map_->setMapModified(false);
   }
-  // if (!lv_obj_is_hidden(root_)) {
-  //   transformDirty_ = true;
-  // }
 
   if (root_) {
     lv_obj_invalidate(root_);
-    // hitboxUid.clear();
-
-    // lv_obj_clean(root_);
   }
 }
 
@@ -348,14 +390,14 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
     }
 
     // if (tags.size() < 1) return;
-
+    // TODO replace with logic that was used in other calc for straight
     const Point& entrance = tags[0].getPoint();
 
     const float direction = track.getDirection() ? -1.0f : 1.0f;
 
     const float heading = entrance.getHeading() * DEG_TO_RAD_F;
 
-    const float centerHeading = heading + direction * (PI_F * 0.5f);
+    const float centerHeading = heading + direction * (M_PI * 0.5f);
 
     const float centerX = entrance.getX() + cosf(centerHeading) * radius;
 
@@ -619,8 +661,8 @@ void LvTrackMap::drawCircle(lv_layer_t* layer, Point center, int32_t radius,
   const float endY = cy + dy * (radius + ARROW_LENGTH);
 
   // Arrowhead coordinates.
-  const float leftAngle = angle + PI_F - ARROW_HEAD_ANGLE;
-  const float rightAngle = angle + PI_F + ARROW_HEAD_ANGLE;
+  const float leftAngle = angle + M_PI - ARROW_HEAD_ANGLE;
+  const float rightAngle = angle + M_PI + ARROW_HEAD_ANGLE;
 
   const float leftX = endX + cosf(leftAngle) * ARROW_HEAD_LENGTH;
   const float leftY = endY + sinf(leftAngle) * ARROW_HEAD_LENGTH;
@@ -784,7 +826,7 @@ void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
 
       drawCircle(layer, point, config_.tagRadius, config_.tagConnected, true,
                  point.getHeading());
-      const Uid destinationUid = track.getTags()[0].getConnectedTagUid();
+      const Uid destinationUid = track.getTags()[0].getUid();
       createTagHitBox(destinationUid, point);
       drawLabel(layer, track, index);
 
@@ -795,7 +837,7 @@ void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
   // drawLabel(layer, track, index);
 }
 void LvTrackMap::createTagHitBox(const Uid destinationUid, const Point point) {
-  // need to clear out when ui gets refreshed 
+  // need to clear out when ui gets refreshed
   if (!destinationUid.isValid()) {
     return;
   }
@@ -807,8 +849,10 @@ void LvTrackMap::createTagHitBox(const Uid destinationUid, const Point point) {
   if (it != hitboxUid.end()) {
     return;
   }
+  // Serial.println("createTagHitBox");
+
   hitboxUid.emplace_back(destinationUid);
-  display_.createTagHitbox(root_, point.getX(), point.getY(),
+  display_.createTagHitbox(hitBoxLayer_, point.getX(), point.getY(),
                            config_.tagRadius * 4, [this, destinationUid]() {
                              Serial.println("touch hitbox");
                              app.setDestinationUid(destinationUid);
@@ -867,8 +911,8 @@ void LvTrackMap::drawCurveOrStraight(lv_layer_t* layer, const Point entrance,
 
   float sweep = endAngle - startAngle;
 
-  while (sweep > PI_F) sweep -= 2.0f * PI_F;
-  while (sweep < -PI_F) sweep += 2.0f * PI_F;
+  while (sweep > M_PI) sweep -= 2.0f * M_PI;
+  while (sweep < -M_PI) sweep += 2.0f * M_PI;
 
   // Determine number of segments based on arc length.
   const float arcLength = fabsf(sweep) * radius;
@@ -978,11 +1022,15 @@ void LvTrackMap::toggle() {
   // Serial.print("call toggle");
 
   if (lv_obj_is_hidden(root_)) {
+    // lv_obj_move_to_index(root_, 0);
+
     lv_obj_set_hidden(root_, false);
     lv_obj_move_foreground(root_);
     // Serial.print("show");
   } else {
     lv_obj_set_hidden(root_, true);
+    // lv_obj_move_to_index(root_, 2);
+
     // Serial.print("hide");
   }
 }

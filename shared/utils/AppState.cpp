@@ -29,7 +29,8 @@ void AppState::initDefaults() {
   scannerMode = REGISTER_TRACKS;
   previousScanMode = REGISTER_TRACKS;
 
-  ScannerStatusLabelText = "";
+  scannerStatusLabelText = "";
+  pathFinderStatusText = "";
 
   // Audio
   ambianceAudioMode = false;
@@ -106,12 +107,19 @@ void AppState::setScannerMode(ScannerMode newScannerMode) {
 }
 ScannerMode AppState::getPreviousScannerMode() { return previousScanMode; }
 
-void AppState::setScannerStatusLabelText(String ScannerStatusLabelText_) {
+void AppState::setScannerStatusLabelText(String scannerStatusLabelText_) {
   Serial.print("Scanner status ");
-  Serial.println(ScannerStatusLabelText_);
-  ScannerStatusLabelText = ScannerStatusLabelText_;
+  Serial.println(scannerStatusLabelText_);
+  scannerStatusLabelText = scannerStatusLabelText_;
 }
-String AppState::getScannerStatusLabelText() { return ScannerStatusLabelText; }
+String AppState::getScannerStatusLabelText() { return scannerStatusLabelText; }
+
+void AppState::setPathFinderStatusText(String pathFinderStatusText_) {
+  Serial.print("Path Finder status ");
+  Serial.println(pathFinderStatusText_);
+  pathFinderStatusText = pathFinderStatusText_;
+}
+String AppState::getPathFinderStatusText() { return pathFinderStatusText; }
 
 // Audio mode
 
@@ -221,13 +229,13 @@ std::vector<Track> AppState::getPastTracks() { return pastTracks; }
 // }
 std::vector<Track>* AppState::getCurrentTracks() { return &currentTracks; }
 
-void AppState::setPastStations(std::vector<Station> pastStations_) {
-  pastStations = pastStations_;
-}
-std::vector<Station> AppState::getPastStations() { return pastStations; }
-std::vector<Station>* AppState::getCurrentStations() {
-  return &currentStations;
-}
+// void AppState::setPastStations(std::vector<Station> pastStations_) {
+//   pastStations = pastStations_;
+// }
+// std::vector<Station> AppState::getPastStations() { return pastStations; }
+// std::vector<Station>* AppState::getCurrentStations() {
+//   return &currentStations;
+// }
 // -------------------------
 // display
 // -------------------------

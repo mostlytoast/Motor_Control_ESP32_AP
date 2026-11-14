@@ -129,7 +129,7 @@ void getStateFromCondensedJson(JsonDocument& doc) {
   JsonArray removeUid = doc["removeUid"].as<JsonArray>();
 
   if (!addTracks.isNull()) {
-    Serial.println("convert to map ");
+    // Serial.println("convert to map ");
 
     trackMap.condensedJsonToMap(addTracks, removeUid);
   }
@@ -146,6 +146,9 @@ void getStateFromCondensedJson(JsonDocument& doc) {
     }
   }
 
+  if (state["pf"].is<const char*>()) {
+    app.setPathFinderStatusText(state["pf"].as<const char*>());
+  }
   if (state["ssl"].is<const char*>()) {
     app.setScannerStatusLabelText(state["ssl"].as<const char*>());
   }
@@ -196,6 +199,7 @@ void getCondensedJsonFromStateTransmitter(JsonDocument& doc) {
 
 void getCondensedJsonFromState(JsonDocument& doc) {
   JsonObject state = doc["state"].to<JsonObject>();
+  state["pf"] = app.getPathFinderStatusText();
   state["ssl"] = app.getScannerStatusLabelText();
   state["sl"] = app.getStatusLabelText();
   state["s"] = app.getScannerMode();

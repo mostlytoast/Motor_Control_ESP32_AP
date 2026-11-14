@@ -20,6 +20,8 @@ void ControllerMenu::createMenu(lv_obj_t* screen) {
                                 LV_PART_MAIN);
   lv_obj_set_style_border_width(menu_obj, 2, LV_PART_MAIN);
 
+  lv_obj_set_scrollable(menu_obj, false);
+
   // Header
   lv_obj_t* header = lv_label_create(menu_obj);
   lv_label_set_text(header, "SELECT RECEIVER");
@@ -118,6 +120,7 @@ void ControllerMenu::selectReceiverByMac(const uint8_t* mac) {
 
   Peer* peer = peers.findPeer(mac);
 
+
   if (peer == nullptr) {
     Serial.println("ERROR: Receiver not found");
     refreshList();
@@ -168,10 +171,14 @@ void ControllerMenu::updateStatus() {
 void ControllerMenu::toggle() {
   if (lv_obj_is_hidden(menu_obj)) {
     lv_obj_move_foreground(menu_obj);
+        // lv_obj_move_to_index(menu_obj, 0);
+
 
     lv_obj_set_hidden(menu_obj, false);
     espnowController.setReceiverListNeedsRefresh(true);
   } else {
     lv_obj_set_hidden(menu_obj, true);
+        // lv_obj_move_to_index(menu_obj, 2);
+
   }
 }

@@ -128,6 +128,7 @@ void TrackScanner::processScans() {
   }
 }
 
+
 void TrackScanner::pathFind() {
   Uid startUid;
   Uid destinationUid = app.getDestinationUid();
@@ -147,32 +148,44 @@ void TrackScanner::pathFind() {
 
   int setSpeed = app.getUserSpeed();
   if (pathFinder.findPath(startUid, destinationUid, path)) {
+    Serial.println("Path found:");
+    for (const Uid& uid : path) {
+      Serial.println(uid.toString());
+    }
+    String context = "Path found";
     if (forwardsUid.isValid() && path[0].equals(forwardsUid) && uidIsForward) {
       // go forward
 
       app.setTargetSpeed(setSpeed);
+      context += "->";
     } else if (forwardsUid.isValid() && path[0].equals(forwardsUid) &&
                !uidIsForward) {
       // go backwards
+      context += "<-";
+
       app.setTargetSpeed(-setSpeed);
     } else if (backwardsUid.isValid() && path[0].equals(backwardsUid) &&
                uidIsForward) {
       // go forwards
+      context += "->";
+
       app.setTargetSpeed(setSpeed);
 
     } else if (backwardsUid.isValid() && path[0].equals(backwardsUid) &&
                !uidIsForward) {
       // go backwards
+      context += "<-";
+
       app.setTargetSpeed(-setSpeed);
     }
-    app.setScannerStatusLabelText("Path found");
+    app.setPathFinderStatusText(context);
     // TODO find way to display found path
     for (const Uid& uid : path) {
       Serial.println(uid.toString());
     }
 
   } else {
-    app.setScannerStatusLabelText("No path exists.");
+    app.setPathFinderStatusText("No path exists.");
   }
   // TODO write these functions
   // if we have a destination tag app.getDestinationUid() then we calculate
@@ -209,7 +222,7 @@ void TrackScanner::writeTag(const Uid& uid, JsonObject& jsonTag) {
     app.setScannerMode(WRITING_TRACKS);
     // Todo might cause error???
   }
-  if (haveFirstTag) {
+  if (haveFirstTag && app.getTemplateTrack()->getTrackType() != STATION) {
     app.setScannerStatusLabelText("ERROR: Scan the second tag first.");
 
     app.setScannerMode(app.getPreviousScannerMode());
@@ -315,7 +328,9 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
 
     trackMap.connectTags(tagConnection, tagCurrent);
     if (track.getTrackType() == STATION) {
-      // stations should just be added and connected but not mess with rest of track setup
+      Serial.println("skipping clear because is station");
+      // stations should just be added and connected but not mess with rest of
+      // track setup
       return;
     }
     connectionTagUid.clear();
@@ -382,6 +397,13 @@ void TrackScanner::registerScannedTracks(const Uid& uid) {
 
     Serial.print("Entrance UID: ");
     Serial.println(firstTagUid.toString());
+    if (app.getTemplateTrack()->getTrackType() == STATION) {
+      createTrackFromTemplate(uid);
+      Serial.println();
+      Serial.println("Scan the first tag of the next Station.");
+      app.setScannerStatusLabelText("Scan the first tag of the next Station.");
+      return;
+    }
 
     Serial.println();
     Serial.println("Scan the second tag.");
@@ -389,10 +411,6 @@ void TrackScanner::registerScannedTracks(const Uid& uid) {
 
     return;
   }
-
-  // ----------------------------------------------------------
-  // Second tag
-  // ----------------------------------------------------------
 
   if (firstTagUid.equals(uid)) {
     Serial.println();
@@ -402,6 +420,10 @@ void TrackScanner::registerScannedTracks(const Uid& uid) {
 
     return;
   }
+
+  // ----------------------------------------------------------
+  // Second tag
+  // ----------------------------------------------------------
 
   app.setScannerStatusLabelText("Second tag detected.");
 
@@ -413,6 +435,14 @@ void TrackScanner::registerScannedTracks(const Uid& uid) {
   // ----------------------------------------------------------
   // Reset temporary tag
   // ----------------------------------------------------------
+  createTrackFromTemplate(uid);
+
+  Serial.println();
+  Serial.println("Scan the first tag of the next track.");
+  app.setScannerStatusLabelText("Scan the first tag of the next track.");
+}
+
+void TrackScanner::createTrackFromTemplate(const Uid& uid) {
   Track* templateTrack = app.getTemplateTrack();
   internalTrackMap.createTrack(
       templateTrack->getTrackType(), templateTrack->getLength(),
@@ -422,17 +452,12 @@ void TrackScanner::registerScannedTracks(const Uid& uid) {
 
   firstTagUid.clear();
   haveFirstTag = false;
-
   Serial.println();
   Serial.println("Track stored.");
 
   Serial.print("Total tracks: ");
 
   Serial.println(internalTrackMap.getTrackCount());
-
-  Serial.println();
-  Serial.println("Scan the first tag of the next track.");
-  app.setScannerStatusLabelText("Scan the first tag of the next track.");
 }
 
 // ============================================================================
@@ -449,6 +474,7 @@ bool TrackScanner::writeTrackForTag(const Uid& uid, JsonObject& jsonTag) {
 
     return false;
   }
+  track->setInclude(false);
 
   track->toCondensedJson(jsonTag);
 
@@ -484,6 +510,13 @@ void TrackScanner::processSerial() {
     app.setTemplateTrack(*internalTrackMap.createTrack(
         STRAIGHT, length, diameter / 2, 0, 0, 0, true, emptyUid, emptyUid,
         emptyUid, emptyUid, true));
+  } else if (command == 'T' || command == 't') {
+    Serial.println("station");
+    Uid emptyUid;
+
+    app.setTemplateTrack(
+        *internalTrackMap.createTrack(STATION, 0, 0, 0, 0, 0, true, emptyUid,
+                                      emptyUid, emptyUid, emptyUid, true));
 
   } else if (command == 'R' || command == 'r') {
     Serial.println("register mode");

@@ -5,9 +5,9 @@
 #include <vector>
 
 #include "../track/Point.hpp"
+#include "../track/Station.hpp"
 #include "../track/Tag.hpp"
 #include "../track/Track.hpp"
-#include "../track/Station.hpp"
 #include "uidLogic.h"
 
 // TODO all values should have a default state defined here maybe?? and not be
@@ -52,6 +52,11 @@ class AppState {
 
   void setScannerStatusLabelText(String statusLabelText_);
   String getScannerStatusLabelText();
+
+  // Pathfind
+  void setPathFinderStatusText(String pathFinderStatusText_);
+
+  String getPathFinderStatusText();
 
   // Audio mode
 
@@ -112,10 +117,10 @@ class AppState {
   // void setCurrentTracks(std::vector<Track> currentTracks_);
   std::vector<Track>* getCurrentTracks();
 
-    void setPastStations(std::vector<Station> pastStations_);
-  std::vector<Station> getPastStations();
-  // void setCurrentStations(std::vector<Track> currentStations_);
-  std::vector<Station>* getCurrentStations();
+  // void setPastStations(std::vector<Station> pastStations_);
+  // std::vector<Station> getPastStations();
+  // // void setCurrentStations(std::vector<Track> currentStations_);
+  // std::vector<Station>* getCurrentStations();
   // display
   String getStatusLabelText();
   void setStatusLabelText(String statusLabelText_);
@@ -141,7 +146,9 @@ class AppState {
   ScannerMode scannerMode;
   ScannerMode previousScanMode;
 
-  String ScannerStatusLabelText;
+  String scannerStatusLabelText;
+  // path find
+  String pathFinderStatusText;
 
   // Audio
   bool ambianceAudioMode;
@@ -174,9 +181,9 @@ class AppState {
   std::vector<Track> pastTracks;
 
   std::vector<Track> currentTracks;
-  std::vector<Station> pastStations;
+  // std::vector<Station> pastStations;
 
-  std::vector<Station> currentStations;
+  // std::vector<Station> currentStations;
 
   // display status label
   String statusLabelText;
