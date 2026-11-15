@@ -1,14 +1,13 @@
 #ifndef APP_STATE_HPP
 #define APP_STATE_HPP
-// #include "AppState.hpp"
+
 #include <Arduino.h>
 
 #include <vector>
 
 #include "../track/Point.hpp"
-#include "../track/Station.hpp"
 #include "../track/Tag.hpp"
-#include "../track/Track.hpp"
+#include "../track/Tracks.hpp"
 #include "uidLogic.h"
 enum AutoMode { AUTO_IDLE, AUTO_MOVING, AUTO_WAITING, AUTO_DEPARTING };
 
@@ -151,16 +150,11 @@ class AppState {
   void setTemplateTrack(const Track& track) {
     Serial.println("set template");
     templateTrack_ = track;
-
   }
 
-  Track* getTemplateTrack() {
-    return &templateTrack_ ;
-  }
+  Track* getTemplateTrack() { return &templateTrack_; }
 
-  const Track* getTemplateTrack() const {
-    return &templateTrack_ ;
-  }
+  const Track* getTemplateTrack() const { return &templateTrack_; }
 
   TrackType getSelectedTrackType() { return selectedTrackType; }
   void setSelectedTrackType(TrackType selectedTrackType_) {
@@ -169,16 +163,15 @@ class AppState {
   }
   TrackType getPreviousSelectedTrackType() { return previousSelectedTrackType; }
 
-  void setPastTracks(std::vector<Track> pastTracks_) {
-    pastTracks = pastTracks_;
-  }
-  std::vector<Track> getPastTracks() { return pastTracks; }
+  void setPastTracks(const Tracks& pastTracks_) { pastTracks = pastTracks_; }
 
-  // void setCurrentTracks(std::vector<Track> currentTracks_) {
-  //   currentTracks = currentTracks_;
-  // }
-  std::vector<Track>* getCurrentTracks() { return &currentTracks; }
+  Tracks& getPastTracks() { return pastTracks; }
 
+  const Tracks& getPastTracks() const { return pastTracks; }
+
+  Tracks* getCurrentTracks() { return &currentTracks; }
+
+  // const Tracks* getCurrentTracks() const { return &currentTracks; }
   void setPath(std::vector<Uid> path_) { path = path_; }
   std::vector<Uid>& getPath() {
     return path;
@@ -306,9 +299,9 @@ class AppState {
   TrackType selectedTrackType;
   TrackType previousSelectedTrackType;
 
-  std::vector<Track> pastTracks;
+  Tracks pastTracks;
 
-  std::vector<Track> currentTracks;
+  Tracks currentTracks;
 
   // Path finding
   std::vector<Uid> path;

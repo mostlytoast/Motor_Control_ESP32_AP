@@ -152,7 +152,6 @@ bool EspnowController::setupESPNow(
   }
   resetDiscover();
 
-
   Serial.println("ESP-NOW READY");
 
   return true;
@@ -302,7 +301,7 @@ void EspnowController::processDiscovery() {
 
 void EspnowController::ESPNowCheckFailsafe() {
   std::vector<Peer> controllers = peers.getActiveControllerPeers();
-
+  bool recentlyTimedOut = false;
   const unsigned long now = millis();
 
   for (const Peer& peer : controllers) {
@@ -327,7 +326,11 @@ void EspnowController::ESPNowCheckFailsafe() {
 
       // Remove from your peer manager.
       peers.removePeer(mac);
+      recentlyTimedOut = true;
     }
+  }
+  if (peers.getActiveControllerPeers().size() == 0 && recentlyTimedOut) {
+    if (resetStateCallback != nullptr) resetStateCallback();
   }
   controllers.clear();
 
@@ -851,7 +854,6 @@ bool EspnowController::sendPairRequest(Peer* peer) {
 }
 
 void EspnowController::resetDiscover() {
-  
   // Reset receiver list
   Serial.println("resetDiscover");
 

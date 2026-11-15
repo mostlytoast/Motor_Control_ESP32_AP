@@ -9,7 +9,7 @@
 #include "../utils/uidLogic.h"
 #include "Arduino.h"
 #include "Point.hpp"
-#include "Tag.hpp"
+#include "Tags.hpp"
 
 enum TrackType { STRAIGHT, CURVED, SWITCH, BUMPER, CROSS, STATION };
 
@@ -59,7 +59,8 @@ class Track {
     if (!tagsArray.isNull()) {
       for (JsonObject tagObj : tagsArray) {
         bool success;
-        tags.emplace_back(success, tagObj);
+
+        tags.addTag(Tag(success, tagObj));
         if (!success) {
           return false;
         }
@@ -102,6 +103,7 @@ class Track {
 
     for (int i = 0; i < tags.size(); i++) {
       JsonObject obj = tagsArray.add<JsonObject>();
+
       tags[i].toJson(obj);
     }
   }
@@ -138,10 +140,10 @@ class Track {
     this->include = !dontAdd;
 
     this->positioned = false;
-    tags.emplace_back(entranceAUid, connectEntranceAUid, Point());
-    tags.emplace_back(exitAUid, connectExitAUid, Point());
-    tags.emplace_back(entranceBUid, connectEntranceBUid, Point());
-    tags.emplace_back(exitBUid, connectExitBUid, Point());
+    tags.addTag(Tag(entranceAUid, connectEntranceAUid, Point()));
+    tags.addTag(Tag(exitAUid, connectExitAUid, Point()));
+    tags.addTag(Tag(entranceBUid, connectEntranceBUid, Point()));
+    tags.addTag(Tag(exitBUid, connectExitBUid, Point()));
     setTagPositions();
   }
 
@@ -180,7 +182,7 @@ class Track {
           // Serial.println("track2");
 
           if (tag.fromCondensedJson(tagObj)) {
-            tags.emplace_back(tag);
+            tags.addTag(tag);
           }
         }
       }
@@ -263,9 +265,9 @@ class Track {
 
   const TrackType getTrackType() const { return trackType; }
 
-  std::vector<Tag>& getTags() { return tags; }
+  Tags& getTags() { return tags; }
 
-  const std::vector<Tag>& getTags() const { return tags; }
+  const Tags& getTags() const { return tags; }
   bool operator!=(const Track& other) const { return !(*this == other); }
 
   // Equality operator for comparing two Track objects
@@ -384,7 +386,7 @@ class Track {
     for (Tag& tag : tags) {
       tag.getPoint().transformPoint(originalDestination, target, rotation);
     }
-    // Serial.println("positioned track");
+    Serial.println("positioned track");
     positioned = true;
   }
 
@@ -530,7 +532,7 @@ class Track {
   TrackType trackType = STRAIGHT;
   // TODO might want to store in array/dictionary?
 
-  std::vector<Tag> tags;
+  Tags tags;
 
   /*
    * Position in the global track map.

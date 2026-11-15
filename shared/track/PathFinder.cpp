@@ -1,14 +1,11 @@
 #include "PathFinder.h"
 
-TrackPathFinder::TrackPathFinder(const TrackMap& map) : map_(map) {}
-
+TrackPathFinder::TrackPathFinder(const Tracks& tracks) : tracks(tracks) {}
 // Find the shortest path between two tags.
 // Returns true if a path exists.
 bool TrackPathFinder::findPath(const Uid& startUid, const Uid& destinationUid,
                                std::vector<Uid>& path) const {
   path.clear();
-
-  const std::vector<Track>* tracks = map_.getTracks();
 
   // --------------------------------------------------
   // Collect every tag in the map.
@@ -16,7 +13,7 @@ bool TrackPathFinder::findPath(const Uid& startUid, const Uid& destinationUid,
 
   std::vector<const Tag*> nodes;
 
-  for (const Track& track : *tracks) {
+  for (const Track& track : tracks) {
     for (const Tag& tag : track.getTags()) {
       nodes.emplace_back(&tag);
     }

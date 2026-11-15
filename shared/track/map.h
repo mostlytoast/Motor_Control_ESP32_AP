@@ -12,7 +12,7 @@
 #include "../utils/uidLogic.h"
 #include "Arduino.h"
 #include "Station.hpp"
-#include "Track.hpp"
+#include "Tracks.hpp"
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -29,10 +29,6 @@ class TrackMap {
                      Uid connectEntranceBUid = Uid(),
                      Uid connectExitBUid = Uid());
 
-  void addTrack(Track track);
-  // void addStation(Station station);
-  // Station* createStation(Uid stationUid, bool dontAdd);
-
   /*
    * Calculate the complete map.
    */
@@ -40,21 +36,9 @@ class TrackMap {
   // bool connectStationToTag(Station* a, Tag* b);
 
   bool connectTags(Tag* a, Tag* b);
-  const std::vector<Track>* getTracks() const;
 
-  bool doUidsBelongToSameTrack(const Uid& uidA, const Uid& uidB);
 
-  /*
-   * returns true if track with associated uid is in track file
-   */
-  bool doesTrackExist(Uid uid);
-  // auto* findObjectByUid(Uid uid);
-  Track* findTrackByUid(Uid uid);
-  // Station* findStationByUid(Uid uid);
 
-  Tag* findTagByUid(Uid uid);
-
-  uint8_t getTrackCount() const;
 
   void mapToJson(JsonDocument& doc);
 
@@ -68,18 +52,10 @@ class TrackMap {
                           // JsonArray& addStationsJson,
                           JsonArray& removeUidsFromMap);
   void clearMap();
-  // bool removeStation(const Station* station);
-  bool removeTrack(const Track* track);
-
-  bool getMapModified();
-  void setMapModified(bool mapModified_);
 
  private:
-  bool mapModified = false;
   static constexpr uint8_t MAX_TRACKS = 100;
-  // static constexpr uint8_t MAX_STATIONS = 100;
 
-  // std::vector<Track> tracks;
 
   //  used when creating track that should not be added
   Track tempTrack;

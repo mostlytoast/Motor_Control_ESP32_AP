@@ -1,6 +1,7 @@
 #include "lvdisplay_portable.h"
 // todo make this use arduinoJson to simplify code
-// TODO odd web bug where buttons dont initially respond until multiple are clicked?
+// TODO odd web bug where buttons dont initially respond until multiple are
+// clicked?
 namespace {
 JsonDocument previousState;
 bool previousStateUpdated = false;
@@ -21,10 +22,6 @@ void LvDisplayController::init(lv_obj_t* screen) {
   trackMapDisplay_ =
       new LvTrackMap(screen_, [this]() { this->sendStateToReceiver(); });
 
-  if (trackMapDisplay_ != nullptr) {
-    trackMapDisplay_->setTrackMap(trackMap);
-  }
-
   lv_obj_set_style_bg_color(screen_, lv_color_hex(kColorBackground),
                             LV_PART_MAIN);
 
@@ -43,7 +40,7 @@ void LvDisplayController::init(lv_obj_t* screen) {
       display_.createLabel(screen_, kColorStatus, -8, 53, LV_PART_MAIN,
                            LV_ALIGN_TOP_RIGHT, "No Peer");
   lv_obj_move_to_index(statusLabel_, -1);
-  
+
   forwardButton_ = display_.createActionButton(
       screen_, "FORWARD", 5, 78, 100, 45,
       [this]() {
@@ -114,11 +111,19 @@ void LvDisplayController::init(lv_obj_t* screen) {
       kColorButtonOff);
   mapButton_ = display_.createActionButton(
       screen_, "show Map", 5, 27, 100, 22,
-      [this]() { trackMapDisplay_->toggle(); lv_obj_move_foreground(this->statusLabel_);}, KColorMenuHeader);
+      [this]() {
+        trackMapDisplay_->toggle();
+        lv_obj_move_foreground(this->statusLabel_);
+      },
+      KColorMenuHeader);
 
   trackScannerButton = display_.createActionButton(
       screen_, "SCANNER", 110, 27, 100, 25,
-      [this]() { trackScanningDisplay_->toggle(); lv_obj_move_foreground(this->statusLabel_);}, COLOR_MENU_HEADER);
+      [this]() {
+        trackScanningDisplay_->toggle();
+        lv_obj_move_foreground(this->statusLabel_);
+      },
+      COLOR_MENU_HEADER);
 
   trackScanningDisplay_ = new TrackScanningDisplay(
       screen_, [this]() { this->sendStateToReceiver(); });

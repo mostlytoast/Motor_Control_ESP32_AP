@@ -50,11 +50,6 @@ class LvTrackMap {
                       std::function<void()> sendStateToReceiverCallback_);
   ~LvTrackMap();
 
-  // void createTrackMap(lv_obj_t* parent);
-
-  // static void mapMenuEvent(lv_event_t* event);
-
-  lv_obj_t* object() const { return root_; }
 
   void setConfig(const Config& config);
 
@@ -63,25 +58,10 @@ class LvTrackMap {
   // Attach the LVGL renderer to the application's TrackMap.
   //
   // TrackMap must remain alive while LvTrackMap is being used.
-  void setTrackMap(TrackMap* map);
-
-  void setTrackMap(TrackMap& map) { setTrackMap(&map); }
-
-  TrackMap* trackMap() const { return map_; }
 
   void reset();
 
   void refresh();
-  // void invalidateMap();
-
-  size_t trackCount() const;
-
-  // Recalculate the display transform only.
-  // This does NOT recalculate track geometry.
-  // void resetView();
-
-  // static void refreshButtonEvent(lv_event_t* e);
-  // static void resetButtonEvent(lv_event_t* e);
 
   void toggle();
 
@@ -131,7 +111,7 @@ class LvTrackMap {
 
   Point worldToMap(Point p) const;
 
-  void drawBackground(lv_layer_t* layer, const lv_area_t& area) const;
+
 
   void drawTrack(lv_layer_t* layer, const Track& track, size_t index);
   void createTagHitBox(const Uid destinationUid, const Point point);
@@ -145,7 +125,6 @@ class LvTrackMap {
 
   void drawLabel(lv_layer_t* layer, const Track& track, size_t index) const;
 
-  // Point tagWorldPosition(const Track& track, const Tag& tag) const;
 
   void drawSegment(lv_layer_t* layer, Point a, Point b, lv_color_t color,
                    uint8_t width) const;

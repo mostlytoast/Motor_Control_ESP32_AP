@@ -1,15 +1,15 @@
 
 #include "TrackScanner.h"
 
-TrackMap internalTrackMap;
 // TODO fix issue where if track is scanned it does not get sent to display
 // unless you connect to website
 
 // ============================================================================
 // CONSTRUCTOR
 // ============================================================================
-std::vector<Track> internalTracks;
-TrackScanner::TrackScanner(TrackMap& map) : trackMap(map), pathFinder(map) {
+Tracks internalTracks;
+TrackScanner::TrackScanner(TrackMap& map)
+    : trackMap(map), pathFinder(*app.getCurrentTracks()) {
   app.setScannerMode(REGISTER_TRACKS);
 
   firstTagUid.clear();
@@ -271,7 +271,7 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
     return;
   }
   Track track;
-  if (!trackMap.doesTrackExist(uid)) {
+  if (!app.getCurrentTracks()->doesTrackExist(uid)) {
     Serial.println("creating track");
     serializeJsonPretty(jsonTag, Serial);
 
@@ -280,7 +280,7 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
     if (track.fromCondensedJson(jsonTag)) {
       app.setScannerStatusLabelText("Adding Track");
 
-      trackMap.addTrack(track);
+      app.getCurrentTracks()->addTrack(track);
     } else {
       app.setScannerStatusLabelText("Track scanner failed to add track");
       return;
@@ -295,7 +295,8 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
     connectionTagUid = uid;
     haveConnectionTag = true;
 
-  } else if (trackMap.doUidsBelongToSameTrack(connectionTagUid, uid)) {
+  } else if (app.getCurrentTracks()->doUidsBelongToSameTrack(connectionTagUid,
+                                                             uid)) {
     connectionTagUid = uid;
     haveConnectionTag = true;
   } else {
@@ -305,9 +306,9 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
     // Second connection tag
     // ==========================================================
 
-    Tag* tagConnection = trackMap.findTagByUid(connectionTagUid);
+    Tag* tagConnection = app.getCurrentTracks()->findTagByUid(connectionTagUid);
 
-    Tag* tagCurrent = trackMap.findTagByUid(uid);
+    Tag* tagCurrent = app.getCurrentTracks()->findTagByUid(uid);
 
     if (!tagConnection || !tagCurrent) {
       app.setScannerStatusLabelText("Failed To Connect Tracks");
@@ -334,7 +335,7 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
 
   Serial.print("Total tracks: ");
 
-  Serial.println(trackMap.getTrackCount());
+  Serial.println(app.getCurrentTracks()->size());
   trackMap.calculateMap();
 }
 
@@ -445,7 +446,7 @@ void TrackScanner::createTrackFromTemplate(const Uid& uid) {
       templateTrack->getBranchLength(), templateTrack->getBranchRadius(),
       templateTrack->getDirection(), firstTagUid, uid, emptyUid, emptyUid,
       true);
-  internalTracks.emplace_back(track);
+  internalTracks.addTrack(*track);
   firstTagUid.clear();
   haveFirstTag = false;
   Serial.println();
@@ -461,8 +462,7 @@ void TrackScanner::createTrackFromTemplate(const Uid& uid) {
 // ============================================================================
 
 bool TrackScanner::writeTrackForTag(const Uid& uid, JsonObject& jsonTag) {
-  
-  Track* track = internalTrackMap.findTrackByUid(uid);
+  Track* track = internalTracks.findTrackByUid(uid);
 
   if (!track) {
     Serial.println();
@@ -494,9 +494,9 @@ void TrackScanner::processSerial() {
     float length = 10;
     Uid emptyUid;
 
-    app.setTemplateTrack(*internalTrackMap.createTrack(
-        STRAIGHT, length, 0, 0, 0, 0, true, emptyUid, emptyUid, emptyUid,
-        emptyUid, true));
+    app.setTemplateTrack(*trackMap.createTrack(STRAIGHT, length, 0, 0, 0, 0,
+                                               true, emptyUid, emptyUid,
+                                               emptyUid, emptyUid, true));
 
   } else if (command == 'C' || command == 'c') {
     Serial.println("curved Track");
@@ -504,16 +504,16 @@ void TrackScanner::processSerial() {
     float length = (diameter * M_PI) / 8;
     Uid emptyUid;
 
-    app.setTemplateTrack(*internalTrackMap.createTrack(
-        CURVED, length, diameter / 2, 0, 0, 0, true, emptyUid, emptyUid,
-        emptyUid, emptyUid, true));
+    app.setTemplateTrack(*trackMap.createTrack(CURVED, length, diameter / 2, 0,
+                                               0, 0, true, emptyUid, emptyUid,
+                                               emptyUid, emptyUid, true));
   } else if (command == 'T' || command == 't') {
     Serial.println("station");
     Uid emptyUid;
 
-    app.setTemplateTrack(
-        *internalTrackMap.createTrack(STATION, 0, 0, 0, 0, 0, true, emptyUid,
-                                      emptyUid, emptyUid, emptyUid, true));
+    app.setTemplateTrack(*trackMap.createTrack(STATION, 0, 0, 0, 0, 0, true,
+                                               emptyUid, emptyUid, emptyUid,
+                                               emptyUid, true));
 
   } else if (command == 'R' || command == 'r') {
     Serial.println("register mode");
