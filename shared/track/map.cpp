@@ -10,7 +10,7 @@ bool TrackMap::positionConnectedTrack(Track& source, Tag& sourceTag) {
 
     return false;
   }
-  source.printTrack();
+  // source.printTrack();
   // find the track and tag that needs to get positioned
   Tag* destinationTag =
       app.getCurrentTracks()->findTagByUid(sourceTag.getConnectedTagUid());
@@ -66,8 +66,8 @@ void TrackMap::calculateMap() {
         // TODO could simplify positionConnectedTrack by changing its call
         // structure?
         // Serial.println("positioning track");
-        Serial.println(tag.getUid().toString());
-        Serial.println(tag.getConnectedTagUid().toString());
+        // Serial.println(tag.getUid().toString());
+        // Serial.println(tag.getConnectedTagUid().toString());
 
         if (positionConnectedTrack(source, tag)) {
           changed = true;
@@ -131,8 +131,8 @@ bool TrackMap::connectTags(Tag* a, Tag* b) {
     return false;
   }
 
-  Serial.print(a->getUid().toString());
-  Serial.print(b->getUid().toString());
+  // Serial.print(a->getUid().toString());
+  // Serial.print(b->getUid().toString());
 
   Track* trackA = app.getCurrentTracks()->findTrackByUid(a->getUid());
   Track* trackB = app.getCurrentTracks()->findTrackByUid(b->getUid());
@@ -244,6 +244,7 @@ void TrackMap::mapToCondensedJson(JsonArray& addTracksJson,
   }
 }
 
+
 void TrackMap::condensedJsonToMap(JsonArray& addTracksJson,
                                   // JsonArray& addStationsJson,
                                   JsonArray& removeUidsFromMap) {
@@ -267,10 +268,10 @@ void TrackMap::condensedJsonToMap(JsonArray& addTracksJson,
 
       if (success && track.getTags().size() > 0) {
         Track* existingTrack =
-            app.getCurrentTracks()->findTrackByUid(track.getTags()[0].getUid());
+            tracks->findTrackByUid(track.getTags()[0].getUid());
 
         if (existingTrack != nullptr) {
-          app.getCurrentTracks()->removeTrack(existingTrack);
+          tracks->removeTrack(existingTrack);
         }
 
         tracks->addTrack(track);
@@ -284,12 +285,12 @@ void TrackMap::condensedJsonToMap(JsonArray& addTracksJson,
     } else if (removeUid["uid"].is<const char*>()) {
       // Remove track from tracks
       Uid uid(removeUid["uid"].as<const char*>());
-      const Track* track = app.getCurrentTracks()->findTrackByUid(uid);
-      app.getCurrentTracks()->removeTrack(track);
+      const Track* track = tracks->findTrackByUid(uid);
+      tracks->removeTrack(track);
     }
   }
 
-  // Serial.println("map done");
+  Serial.println("map done");
   // TODO maybe should be in mapToCondensedJson?
   app.setPastTracks(*tracks);
 

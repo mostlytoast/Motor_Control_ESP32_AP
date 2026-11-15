@@ -143,7 +143,7 @@ void getStateFromCondensedJson(JsonDocument& doc) {
     if (success) {
       temporaryTrack.setInclude(false);
       app.setTemplateTrack(temporaryTrack);
-      Serial.println("set template Track");
+      // Serial.println("set template Track");
     } else {
       Serial.println("didn't set template Track");
     }

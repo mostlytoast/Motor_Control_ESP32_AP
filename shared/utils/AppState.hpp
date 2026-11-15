@@ -148,7 +148,7 @@ class AppState {
 
   // template track
   void setTemplateTrack(const Track& track) {
-    Serial.println("set template");
+    // Serial.println("set template");
     templateTrack_ = track;
   }
 

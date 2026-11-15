@@ -2,81 +2,52 @@
 #include "MotorControl.h"
 // TODO remove hall sensor implementation
 // Global variable definitions
-
+#define IN1_CHANNEL 0
+#define IN2_CHANNEL 1
 void setupMotor() {
-  ledcAttachChannel(IN1, freq, resolution, ledChannel);
-
-  ledcAttachChannel(IN2, freq, resolution, ledChannel);
-
-  // todo maybe move hall to auto.h ?
-  // pinMode(HALL_PIN, INPUT);
+  ledcAttachChannel(IN1, freq, resolution, IN1_CHANNEL);
+  ledcAttachChannel(IN2, freq, resolution, IN2_CHANNEL);
 
   pinMode(ENA, OUTPUT);
-
-  ledcWrite(ENA, 0);
+  digitalWrite(ENA, LOW);
 }
 
 void setMotor(int speed) {
-  Serial.print("set motor");
-  Serial.println(speed);
+    Serial.print("[Motor] Speed: ");
+    Serial.println(speed);
 
-  speed = clampInt(speed, -255, 255);
+    speed = clampInt(speed, -255, 255);
 
-  // ===================================================
-  // STOP
-  // ===================================================
+    if (speed == 0) {
+        ledcWrite(IN1, 0);
+        ledcWrite(IN2, 0);
 
-  if (speed == 0) {
-    ledcWrite(IN1, 0);
+        digitalWrite(ENA, LOW);
 
-    ledcWrite(IN2, 0);
+        app.setMovementAudioMode(false);
+        return;
+    }
 
-    digitalWrite(ENA, LOW);
-    app.setMovementAudioMode(false);
-    return;
-  }
-  app.setMovementAudioMode(true);
+    app.setMovementAudioMode(true);
 
-  // ===================================================
-  // Get magnitude
-  // ===================================================
+    int pwm = abs(speed);
 
-  int pwm = abs(speed);
+    pwm = map(pwm, 1, 255, MIN_PWM, MAX_PWM);
+    pwm = clampInt(pwm, MIN_PWM, MAX_PWM);
 
-  // Convert commanded speed
-  // 1-255 into MIN_PWM-255
-
-  pwm = map(pwm, 1, 255, MIN_PWM, MAX_PWM);
-
-  pwm = clampInt(pwm, MIN_PWM, MAX_PWM);
-
-  // ===================================================
-  // FORWARD
-  // ===================================================
-
-  if (speed > 0) {
-    ledcWrite(IN1, pwm);
-
-    ledcWrite(IN2, 0);
     digitalWrite(ENA, HIGH);
-  }
 
-  // ===================================================
-  // REVERSE
-  // ===================================================
-
-  else {
-    ledcWrite(IN1, 0);
-
-    ledcWrite(IN2, pwm);
-    digitalWrite(ENA, HIGH);
-  }
+    if (speed > 0) {
+        ledcWrite(IN1, pwm);
+        ledcWrite(IN2, 0);
+    } else {
+        ledcWrite(IN1, 0);
+        ledcWrite(IN2, pwm);
+    }
 }
-
 // Motor ramping
 
 void updateMotorRamp() {
-
   unsigned long now = millis();
 
   // ===================================================

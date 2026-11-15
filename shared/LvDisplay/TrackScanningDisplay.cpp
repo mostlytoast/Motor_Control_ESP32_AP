@@ -168,6 +168,9 @@ void TrackScanningDisplay::setListAsCurved() {
   }
 
   track->setTrackType(CURVED);
+
+  track->setSectionsAndRadius(8.0, 31.0 / 2.0);
+  track->setDirection(false);
   list_tracks_options_ = display_.createActionDropdown(
       root_, "O31\nO36\nO48\nO60\nO72\nO84\nO96\n", 215, 128, 100, 40,
       {[this]() {
@@ -209,6 +212,7 @@ void TrackScanningDisplay::setListAsStraight() {
 
   track->setTrackType(STRAIGHT);
   track->setRadius(0);
+  track->setLength(1.375);
   track->setDirection(false);
 
   list_tracks_options_ = display_.createActionDropdown(

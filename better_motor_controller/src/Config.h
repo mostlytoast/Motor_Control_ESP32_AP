@@ -22,7 +22,7 @@ constexpr char AP_PASSWORD[] = "12345678";
 //   0  = stopped
 // +255 = full forward
 
-constexpr int MIN_PWM = 140;
+inline  int MIN_PWM = 100;
 constexpr int MAX_PWM = 255;
 
 // =====================================================

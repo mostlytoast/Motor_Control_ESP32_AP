@@ -41,20 +41,20 @@ void TrackScanner::begin() {
   connectionTagUid.clear();
   haveConnectionTag = false;
 
-  Serial.println();
-  Serial.println("========================================");
-  Serial.println("TRACK SCANNER");
-  Serial.println("========================================");
-  Serial.println();
+  // Serial.println();
+  // Serial.println("========================================");
+  // Serial.println("TRACK SCANNER");
+  // Serial.println("========================================");
+  // Serial.println();
 
-  Serial.println("Scan two NFC tags to create a STRAIGHT track.");
-  Serial.println("First tag = entranceA");
-  Serial.println("Second tag = exitA");
-  Serial.println();
+  // Serial.println("Scan two NFC tags to create a STRAIGHT track.");
+  // Serial.println("First tag = entranceA");
+  // Serial.println("Second tag = exitA");
+  // Serial.println();
 
-  Serial.println("When all tracks have been scanned,");
-  Serial.println("send D over Serial.");
-  Serial.println();
+  // Serial.println("When all tracks have been scanned,");
+  // Serial.println("send D over Serial.");
+  // Serial.println();
 
   nfc.setupNFC();
   // TrackPathFinder pathFinder(trackMap);
@@ -65,19 +65,21 @@ void TrackScanner::begin() {
 // ============================================================================
 
 void TrackScanner::processScans() {
-  JsonDocument doc;
-  JsonObject tagJson = doc.to<JsonObject>();
-
-  // Temporary UID returned by the NFC reader.
-  Uid uid;
-
-  NFCReadResult nfcReadResults = nfc.readNFC(uid, tagJson);
-  app.setTargetSpeed(app.getUserSpeed());
+   app.setTargetSpeed(app.getUserSpeed());
   // if (app.getScannerMode() == NORMAL) {
   // }
   if (app.getScannerMode() == PATH_FINDING) {
     pathFind();
   }
+  JsonDocument doc;
+  JsonObject tagJson = doc.to<JsonObject>();
+
+  // Temporary UID returned by the NFC reader.
+
+  Uid uid;
+
+  NFCReadResult nfcReadResults = nfc.readNFC(uid, tagJson);
+ 
   if (nfcReadResults == NFC_READ_FAILED) {
     // app.setScannerStatusLabelText("Nfc Read failed");
 
@@ -242,10 +244,12 @@ void TrackScanner::writeTag(const Uid& uid, JsonObject& jsonTag) {
   NFCWriteResult nfcWriteResults = nfc.writeNFC(newTagJson, uid);
 
   if (nfcWriteResults == NFC_WRITE_SUCCESS) {
-    app.setScannerStatusLabelText("Track written successfully!");
+    String successMessage = "Written";
+    successMessage += uid.toString();
+    app.setScannerStatusLabelText(successMessage);
 
   } else if (nfcWriteResults != NFC_WRITE_DUPLICATE) {
-    Serial.println("Failed to write track.");
+    Serial.println("Failed to write.");
   }
 }
 
@@ -529,5 +533,13 @@ void TrackScanner::processSerial() {
     Serial.println("writing mode");
 
     app.setScannerMode(WRITING_TRACKS);
+  } else if (command == '+') {
+    Serial.println("increase min pwm");
+    MIN_PWM += 10;
+    Serial.println(MIN_PWM);
+  } else if (command == '-') {
+    Serial.println("decrease min pwm");
+    MIN_PWM -= 10;
+    Serial.println(MIN_PWM);
   }
 }

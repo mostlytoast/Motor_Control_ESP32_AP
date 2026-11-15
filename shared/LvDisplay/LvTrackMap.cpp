@@ -132,13 +132,16 @@ void LvTrackMap::refresh() {
   display_.setButtonState(auto_btn_,
                           app.getScannerMode() == ScannerMode::PATH_FINDING);
   updateAutoLabel();
-
   if (app.getPastTracks() != *app.getCurrentTracks()) {
+    Serial.println("not the same");
+  }
+
+  if (app.getPastTracks().size() != app.getCurrentTracks()->size()) {
     transformDirty_ = true;
     hitboxUid.clear();
     lv_obj_clean(hitBoxLayer_);
-    // Serial.println("cleared");
-    app.setPastTracks(*app.getCurrentTracks());
+    Serial.println("cleared");
+    // app.setPastTracks(*app.getCurrentTracks());
   }
 
   if (root_) {
@@ -348,7 +351,6 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
     self->transformDirty_ = false;
   }
 
-
   const auto* tracks = app.getCurrentTracks();
 
   size_t index = 0;
@@ -449,7 +451,6 @@ void LvTrackMap::createTagHitBox(const Uid destinationUid, const Point point) {
 
 void LvTrackMap::drawCurveOrStraight(lv_layer_t* layer, const Point entrance,
                                      const Point exit) const {
-
   constexpr int MIN_SEGMENTS = 4;
   constexpr int MAX_SEGMENTS = 32;
   constexpr float MAX_SEGMENT_LENGTH = 30.0f;

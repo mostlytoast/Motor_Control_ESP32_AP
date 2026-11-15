@@ -9,6 +9,7 @@
 #include "../../../shared/utils/AppState.hpp"
 #include "../../../shared/utils/uidLogic.h"
 #include "../hardware/NFC.h"
+#include "../Config.h"
 
 class TrackScanner {
  public:
