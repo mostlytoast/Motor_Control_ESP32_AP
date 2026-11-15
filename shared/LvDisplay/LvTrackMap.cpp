@@ -121,6 +121,7 @@ void LvTrackMap::refreshAndSend() {
 // ============================================================
 // REFRESH
 // ============================================================
+Tracks* pastTracks;
 void LvTrackMap::updateAutoLabel() {
   display_.setLabelText(auto_label_, app.getPathFinderStatusText().c_str());
 }
@@ -132,15 +133,15 @@ void LvTrackMap::refresh() {
   display_.setButtonState(auto_btn_,
                           app.getScannerMode() == ScannerMode::PATH_FINDING);
   updateAutoLabel();
-  if (app.getPastTracks() != *app.getCurrentTracks()) {
-    Serial.println("not the same");
-  }
+  if (pastTracks == nullptr) {
+    pastTracks = app.getCurrentTracks();
 
-  if (app.getPastTracks().size() != app.getCurrentTracks()->size()) {
+  } else if (*pastTracks != *app.getCurrentTracks()) {
     transformDirty_ = true;
     hitboxUid.clear();
     lv_obj_clean(hitBoxLayer_);
     Serial.println("cleared");
+    pastTracks = app.getCurrentTracks();
     // app.setPastTracks(*app.getCurrentTracks());
   }
 
