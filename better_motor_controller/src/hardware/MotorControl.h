@@ -2,9 +2,8 @@
 
 #include <Arduino.h>
 
-#include "../../../shared/utils/AppState.h"
+#include "../../../shared/utils/AppState.hpp"
 #include "../../../shared/utils/Math.hpp"
-
 #include "../Config.h"
 
 extern int sensorValue;

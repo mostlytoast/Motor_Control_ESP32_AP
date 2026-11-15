@@ -11,7 +11,7 @@
 #include "../../shared/LvDisplay/lvdisplay_portable.h"
 #include "../../shared/SharedConfig.h"
 #include "../../shared/communication/packets.h"
-#include "../../shared/utils/AppState.h"
+#include "../../shared/utils/AppState.hpp"
 #include "../../shared/utils/MacUtils.h"
 #include "../../shared/utils/StateJson.h"
 #include "Config.h"
@@ -46,7 +46,6 @@ class Display {
   void reset();
 
  private:
-
   // DISPLAY UPDATE FUNCTIONS
 
   void toggleControllerMenu();

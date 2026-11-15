@@ -33,6 +33,11 @@ lv_indev_t* touchIndev = NULL;
 ControllerMenu* controllerMenuInstance = nullptr;
 
 void Display::setupDisplay() {
+  if (!espnowController.setupESPNow(
+          getCondensedJsonFromStateTransmitter, getStateFromCondensedJson,
+          [this]() { this->reset(); }, true)) {
+    app.setStatusLabelText("ERROR");
+  }
   setupEncoder();
   app.setTargetSpeed(0);
   app.setRampTime(0);
@@ -49,7 +54,7 @@ void Display::setupDisplay() {
   lv_tick_set_cb(lvglTick);
 
   lv_display_t* display = lv_display_create(SCREEN_WIDTH, SCREEN_HEIGHT);
-  
+
   lv_display_set_color_format(display, LV_COLOR_FORMAT_RGB565);
   lv_display_set_buffers(display, drawBuffer, NULL, sizeof(drawBuffer),
                          LV_DISPLAY_RENDER_MODE_PARTIAL);
@@ -63,12 +68,6 @@ void Display::setupDisplay() {
   // TODO need to make it so it does not overwrite the track state of the train,
   // need to do that by not including track for the getCondensedJsonFromState
   // make custoom one
-
-  if (!espnowController.setupESPNow(
-          getCondensedJsonFromStateTransmitter, getStateFromCondensedJson,
-          [this]() { this->reset(); }, true)) {
-    app.setStatusLabelText("ERROR");
-  }
 }
 
 // TODO should just be able to only call app.reset() and everything gets reset
@@ -114,7 +113,7 @@ void Display::refresh() {
   }
 
   espnowController.espnowUpdate();
-// TOdo play with timming to find sweet spoot
+  // TOdo play with timming to find sweet spoot
   uint32_t sleepTime = lv_timer_handler();
   if (sleepTime > 15) sleepTime = 15;
   delay(sleepTime);

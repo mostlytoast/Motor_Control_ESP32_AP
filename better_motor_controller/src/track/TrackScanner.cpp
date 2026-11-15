@@ -8,7 +8,7 @@ TrackMap internalTrackMap;
 // ============================================================================
 // CONSTRUCTOR
 // ============================================================================
-
+std::vector<Track> internalTracks;
 TrackScanner::TrackScanner(TrackMap& map) : trackMap(map), pathFinder(map) {
   app.setScannerMode(REGISTER_TRACKS);
 
@@ -29,9 +29,9 @@ void TrackScanner::begin() {
   float length = (diameter * M_PI) / 8;
   Uid emptyUid;
 
-  app.setTemplateTrack(*internalTrackMap.createTrack(
-      CURVED, length, diameter / 2, 0, 0, 0, true, emptyUid, emptyUid, emptyUid,
-      emptyUid, true));
+  app.setTemplateTrack(*trackMap.createTrack(CURVED, length, diameter / 2, 0, 0,
+                                             0, true, emptyUid, emptyUid,
+                                             emptyUid, emptyUid, true));
 
   // app.setScannerMode(REGISTER_TRACKS);
 
@@ -57,7 +57,7 @@ void TrackScanner::begin() {
   Serial.println();
 
   nfc.setupNFC();
-  TrackPathFinder pathFinder(trackMap);
+  // TrackPathFinder pathFinder(trackMap);
 }
 
 // ============================================================================
@@ -72,6 +72,9 @@ void TrackScanner::processScans() {
   Uid uid;
 
   NFCReadResult nfcReadResults = nfc.readNFC(uid, tagJson);
+  app.setTargetSpeed(app.getUserSpeed());
+  // if (app.getScannerMode() == NORMAL) {
+  // }
   if (app.getScannerMode() == PATH_FINDING) {
     pathFind();
   }
@@ -90,37 +93,40 @@ void TrackScanner::processScans() {
 
   trackLocation(uid);
   // has found a uid dont know if it got the jason tho
-  if (app.getScannerMode() != PATH_FINDING || app.getScannerMode() != NORMAL) {
-    app.setRampTime(0);
-    app.setTargetSpeed(0);
-  }
+  // if (app.getScannerMode() != PATH_FINDING || app.getScannerMode() != NORMAL)
+  // { app.setRampTime(0); app.setTargetSpeed(0);
+  // }
 
   if (app.getScannerMode() == REGISTER_TRACKS &&
       nfcReadResults != NFC_READ_DUPLICATE) {
     // app.setScannerStatusLabelText("Nfc tag read");
+    Serial.println("track type");
+    Serial.println(app.getTemplateTrack()->getTrackType());
 
     Serial.println("registering track");
 
     registerScannedTracks(uid);
-    app.setTargetSpeed(app.getUserSpeed());
+    // app.setTargetSpeed(app.getUserSpeed());
 
     return;
   }
 
   if (app.getScannerMode() == WRITING_TRACKS) {
     // app.setScannerStatusLabelText("Writing nfc tag");
+    Serial.println("write tag");
 
     writeTag(uid, tagJson);
-    app.setTargetSpeed(app.getUserSpeed());
+    // app.setTargetSpeed(app.getUserSpeed());
     return;
   }
 
   if (app.getScannerMode() == SCANNING_TRACKS &&
       nfcReadResults == NFC_READ_SUCCESS) {
     // app.setScannerStatusLabelText("Nfc tag read");
+    Serial.println("scanning track");
 
     addTrack(uid, tagJson);
-    app.setTargetSpeed(app.getUserSpeed());
+    // app.setTargetSpeed(app.getUserSpeed());
 
     return;
   }
@@ -139,17 +145,16 @@ void TrackScanner::pathFind() {
     startUid = backwardsUid;
   }
 
-
   int setSpeed = app.getUserSpeed();
 
-  if (!hasUidChanged(startUid, previousUid)) {
+  if (!isDuplicate(startUid, previousUid)) {
     Serial.println("Finding path:");
-
-    pathFinder.findPath(startUid, app.getDestinationUid(), path);
+    app.getPath().clear();
+    pathFinder.findPath(startUid, app.getDestinationUid(), app.getPath());
   }
   if (!app.getPath().empty()) {
     Serial.println("Path found:");
-    for (const Uid& uid : path) {
+    for (const Uid& uid : app.getPath()) {
       Serial.println(uid.toString());
     }
     String context = "Path found";
@@ -159,7 +164,8 @@ void TrackScanner::pathFind() {
       app.setTargetSpeed(setSpeed);
       context += "->";
 
-    } else if (backwardsUid.isValid() && app.getPath()[0].equals(backwardsUid)) {
+    } else if (backwardsUid.isValid() &&
+               app.getPath()[0].equals(backwardsUid)) {
       // go backwards
       context += "<-";
 
@@ -167,7 +173,7 @@ void TrackScanner::pathFind() {
     }
     app.setPathFinderStatusText(context);
     // TODO find way to display found path
-    for (const Uid& uid : path) {
+    for (const Uid& uid : app.getPath()) {
       Serial.println(uid.toString());
     }
 
@@ -217,7 +223,7 @@ void TrackScanner::writeTag(const Uid& uid, JsonObject& jsonTag) {
     return;
   }
 
-  if (internalTrackMap.getTrackCount() == 0) {
+  if (internalTracks.size() == 0) {
     app.setScannerStatusLabelText("ERROR: No tracks have been created.");
 
     app.setScannerMode(app.getPreviousScannerMode());
@@ -251,7 +257,8 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
   if (app.getPreviousScannerMode() != SCANNING_TRACKS) {
     // Todo add a restart button for this
     app.setScannerStatusLabelText("switching back to scanning");
-    internalTrackMap.clearMap();
+    app.setScannerMode(SCANNING_TRACKS);
+    internalTracks.clear();
     // Todo might cause error???
     firstTagUid.clear();
     haveFirstTag = false;
@@ -334,7 +341,7 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
 // ============================================================================
 // TRACK SCANNING
 // ============================================================================
-bool TrackScanner::hasUidChanged(const Uid& uid, Uid& previousScannedUid) {
+bool TrackScanner::isDuplicate(const Uid& uid, Uid& previousScannedUid) {
   // nfc dup protection only works when past read was successful otherwise it
   // resets and fails to detect anything
   if (!havePreviousTag) {
@@ -354,7 +361,7 @@ void TrackScanner::registerScannedTracks(const Uid& uid) {
     // Todo add a restart button for this
     app.setScannerStatusLabelText("switching back to register");
     app.setScannerMode(REGISTER_TRACKS);
-    internalTrackMap.clearMap();
+    internalTracks.clear();
     // Todo might cause error???
     firstTagUid.clear();
     haveFirstTag = false;
@@ -370,7 +377,7 @@ void TrackScanner::registerScannedTracks(const Uid& uid) {
   // ----------------------------------------------------------
   // First tag
   // ----------------------------------------------------------
-  if (hasUidChanged(uid, previousScannedUid)) {
+  if (isDuplicate(uid, previousScannedUid)) {
     Serial.println("dup tag");
     // Serial.println("Scan a different tag.");
     return;
@@ -430,13 +437,15 @@ void TrackScanner::registerScannedTracks(const Uid& uid) {
 }
 
 void TrackScanner::createTrackFromTemplate(const Uid& uid) {
+  Uid emptyUid;
   Track* templateTrack = app.getTemplateTrack();
-  internalTrackMap.createTrack(
+  Track* track = trackMap.createTrack(
       templateTrack->getTrackType(), templateTrack->getLength(),
       templateTrack->getRadius(), templateTrack->getBranchAngle(),
       templateTrack->getBranchLength(), templateTrack->getBranchRadius(),
-      templateTrack->getDirection(), firstTagUid, uid);
-
+      templateTrack->getDirection(), firstTagUid, uid, emptyUid, emptyUid,
+      true);
+  internalTracks.emplace_back(track);
   firstTagUid.clear();
   haveFirstTag = false;
   Serial.println();
@@ -444,7 +453,7 @@ void TrackScanner::createTrackFromTemplate(const Uid& uid) {
 
   Serial.print("Total tracks: ");
 
-  Serial.println(internalTrackMap.getTrackCount());
+  Serial.println(internalTracks.size());
 }
 
 // ============================================================================
@@ -452,6 +461,7 @@ void TrackScanner::createTrackFromTemplate(const Uid& uid) {
 // ============================================================================
 
 bool TrackScanner::writeTrackForTag(const Uid& uid, JsonObject& jsonTag) {
+  
   Track* track = internalTrackMap.findTrackByUid(uid);
 
   if (!track) {
@@ -485,7 +495,7 @@ void TrackScanner::processSerial() {
     Uid emptyUid;
 
     app.setTemplateTrack(*internalTrackMap.createTrack(
-        CURVED, length, 0, 0, 0, 0, true, emptyUid, emptyUid, emptyUid,
+        STRAIGHT, length, 0, 0, 0, 0, true, emptyUid, emptyUid, emptyUid,
         emptyUid, true));
 
   } else if (command == 'C' || command == 'c') {
@@ -495,7 +505,7 @@ void TrackScanner::processSerial() {
     Uid emptyUid;
 
     app.setTemplateTrack(*internalTrackMap.createTrack(
-        STRAIGHT, length, diameter / 2, 0, 0, 0, true, emptyUid, emptyUid,
+        CURVED, length, diameter / 2, 0, 0, 0, true, emptyUid, emptyUid,
         emptyUid, emptyUid, true));
   } else if (command == 'T' || command == 't') {
     Serial.println("station");

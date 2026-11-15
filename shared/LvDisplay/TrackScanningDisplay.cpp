@@ -7,51 +7,58 @@ TrackScanningDisplay::TrackScanningDisplay(
   // Using SharedDisplayCalls to create a container if available,
   // otherwise standard lv_obj_create
 
-  container_ = lv_obj_create(parent);
-  if (!container_) {
+  root_ = lv_obj_create(parent);
+  if (!root_) {
     Serial.println("FAILED creating container");
     return;
   }
+  lv_obj_remove_style_all(root_);
+  lv_obj_set_size(root_, LV_PCT(100), LV_PCT(100));
+  lv_obj_set_pos(root_, 0, 0);
+  lv_obj_align(root_, LV_ALIGN_TOP_MID, 0, 0);
+  lv_obj_center(root_);
+  lv_obj_set_style_bg_color(root_, lv_color_hex(kColorBackground),
+                            LV_PART_MAIN);
+  lv_obj_set_style_bg_opa(root_, LV_OPA_COVER, LV_PART_MAIN);
 
-  lv_obj_set_size(container_, LV_PCT(100), LV_PCT(100));
-  lv_obj_set_pos(container_, 0, 0);
+  // lv_obj_set_style_border_side(root_, LV_BORDER_SIDE_NONE, 0);
+  lv_obj_set_scrolled(root_, LV_SCROLL_SNAP_NONE);
 
-  lv_obj_set_style_border_side(container_, LV_BORDER_SIDE_NONE, 0);
-  lv_obj_set_scrolled(container_, LV_SCROLL_SNAP_NONE);
+  lv_obj_set_scrollable(root_, false);
 
-  lv_obj_set_scrollable(container_, false);
-
-  scan_status_label_ = display_.createLabel(container_, kColorStatus, -8, 53,
-                                            LV_PART_MAIN, LV_ALIGN_TOP_RIGHT);
+  scan_status_label_ = display_.createLabel(root_, kColorStatus, 8, 53,
+                                            LV_PART_MAIN, LV_ALIGN_TOP_LEFT);
 
   btn_register_ = display_.createActionButton(
-      container_, "Register", 5, 78, 100, 45, [this]() { registerTracks(); },
-      kColorForward);
+      root_, "Register", 5, 78, 100, 45, [this]() { registerTracks(); },
+      kColorButtonOff);
 
   btn_write_ = display_.createActionButton(
-      container_, "Write", 110, 78, 100, 45, [this]() { writeTracks(); },
-      kColorForward);
+      root_, "Write", 110, 78, 100, 45, [this]() { writeTracks(); },
+      kColorButtonOff);
 
   btn_scan_ = display_.createActionButton(
-      container_, "Scan", 215, 78, 100, 45, [this]() { scanNewLayout(); },
-      kColorForward);
+      root_, "Scan", 215, 78, 100, 45, [this]() { scanNewLayout(); },
+      kColorButtonOff);
 
-  // btn_auto_ = display_.createActionButton(
-  //     container_, "Auto", 5, 128, 100, 40, [this]() { pathFind(); },
-  //     kColorForward);
+  btn_normal_ = display_.createActionButton(
+      root_, "Normal", 5, 128, 100, 40, [this]() { normal(); },
+      kColorButtonOff);
 
   hide_button_ = display_.createActionButton(
-      container_, "Hide", 5, 27, 100, 22, [this]() { toggle(); },
-      kColorForward);
+      root_, "Hide", 110, 27, 100, 25, [this]() { toggle(); },
+      COLOR_MENU_HEADER);
 
   list_tracks_ = display_.createActionDropdown(
-      container_, "Curved\nStraight\nCross\nStation", 5, 128, 100, 40,
+      root_, "Curved\nStraight\nCross\nStation", 110, 128, 100, 40,
       {[this]() {
          app.setSelectedTrackType(CURVED);
+
          refresh();
        },
        [this]() {
          app.setSelectedTrackType(STRAIGHT);
+
          refresh();
        },
        [this]() {
@@ -66,17 +73,25 @@ TrackScanningDisplay::TrackScanningDisplay(
   float diameter = 36.0;
   float length = (diameter * M_PI) / 8;
   Uid emptyUid;
+  Track* templateTrack =
+      trackMap.createTrack(CURVED, length, diameter / 2, 0, 0, 0, true,
+                           emptyUid, emptyUid, emptyUid, emptyUid, true);
+  if (templateTrack == nullptr) {
+    return;
+  }
 
-  Track templateTrack(CURVED, length, diameter / 2, 0, 0, 0, true, emptyUid,
-                      emptyUid, emptyUid, emptyUid, true);
+  app.setTemplateTrack(*templateTrack);
 
-  app.setTemplateTrack(templateTrack);
+  if (app.getTemplateTrack() == nullptr) {
+    return;
+  }
+
   setListAsCurved();
-  lv_obj_set_hidden(container_, true);
+  lv_obj_set_hidden(root_, true);
   refresh();
 }
 
-TrackScanningDisplay::~TrackScanningDisplay() { lv_obj_delete(container_); }
+TrackScanningDisplay::~TrackScanningDisplay() { lv_obj_delete(root_); }
 
 // --- Logic Methods ---
 
@@ -95,7 +110,7 @@ void TrackScanningDisplay::updateStatusLabel() {
   // }
 }
 void TrackScanningDisplay::refresh() {
-  if (lv_obj_is_hidden(container_)) {
+  if (lv_obj_is_hidden(root_)) {
     return;
   }
 
@@ -105,8 +120,8 @@ void TrackScanningDisplay::refresh() {
                           app.getScannerMode() == ScannerMode::WRITING_TRACKS);
   display_.setButtonState(btn_scan_,
                           app.getScannerMode() == ScannerMode::SCANNING_TRACKS);
-  // display_.setButtonState(btn_auto_,
-  //                         app.getScannerMode() == ScannerMode::PATH_FINDING);
+  display_.setButtonState(btn_normal_,
+                          app.getScannerMode() == ScannerMode::NORMAL);
   updateStatusLabel();
   if (app.getPreviousSelectedTrackType() != app.getSelectedTrackType()) {
     refreshList();
@@ -123,6 +138,7 @@ void TrackScanningDisplay::refreshAndSend() {
 void TrackScanningDisplay::refreshList() {
   if (list_tracks_options_ != nullptr) {
     lv_obj_del_async(list_tracks_options_);
+    list_tracks_options_ = nullptr;
     if (app.getSelectedTrackType() == CURVED) {
       app.setSelectedTrackType(CURVED);
 
@@ -145,11 +161,18 @@ void TrackScanningDisplay::refreshList() {
 void TrackScanningDisplay::setListAsCurved() {
   Serial.println("set track as curved");
 
-  app.getTemplateTrack()->setTrackType(CURVED);
+  Track* track = app.getTemplateTrack();
+
+  if (track == nullptr) {
+    return;
+  }
+
+  track->setTrackType(CURVED);
   list_tracks_options_ = display_.createActionDropdown(
-      container_, "O31\nO36\nO48\nO60\nO72\nO84\nO96\n", 110, 128, 100, 40,
+      root_, "O31\nO36\nO48\nO60\nO72\nO84\nO96\n", 215, 128, 100, 40,
       {[this]() {
          app.getTemplateTrack()->setSectionsAndRadius(8.0, 31.0 / 2.0);
+
          refreshAndSend();
        },
        [this]() {
@@ -172,14 +195,24 @@ void TrackScanningDisplay::setListAsCurved() {
          app.getTemplateTrack()->setSectionsAndRadius(32.0, 84.0 / 2.0);
          refreshAndSend();
        },
-       [this]() { app.getTemplateTrack()->setSectionsAndRadius(32.0, 96.0); }});
+       [this]() {
+         app.getTemplateTrack()->setSectionsAndRadius(32.0, 96.0 / 2);
+         refreshAndSend();
+       }});
 }
 void TrackScanningDisplay::setListAsStraight() {
-  Serial.println("set track as straight");
-  app.getTemplateTrack()->setTrackType(STRAIGHT);
+  Track* track = app.getTemplateTrack();
+
+  if (track == nullptr) {
+    return;
+  }
+
+  track->setTrackType(STRAIGHT);
+  track->setRadius(0);
+  track->setDirection(false);
 
   list_tracks_options_ = display_.createActionDropdown(
-      container_, "1 3/8\n1 3/4\n3\n4 1/2\n5\n10\n30\n", 110, 128, 100, 40,
+      root_, "1 3/8\n1 3/4\n3\n4 1/2\n5\n10\n30\n", 215, 128, 100, 40,
       {[this]() {
          app.getTemplateTrack()->setLength(1.375);
          refreshAndSend();
@@ -211,7 +244,7 @@ void TrackScanningDisplay::setListAsStraight() {
 }
 void TrackScanningDisplay::setListAsNone() {
   list_tracks_options_ = display_.createActionDropdown(
-      container_, "no options", 110, 128, 100, 40, {[this]() {}});
+      root_, "no options", 215, 128, 100, 40, {[this]() {}});
 }
 // Scan button
 void TrackScanningDisplay::registerTracks() {
@@ -229,23 +262,21 @@ void TrackScanningDisplay::scanNewLayout() {
   refreshAndSend();
 }
 
-void TrackScanningDisplay::pathFind() {
-  app.setScannerMode(PATH_FINDING);
+void TrackScanningDisplay::normal() {
+  app.setScannerMode(NORMAL);
   refreshAndSend();
 }
 
 void TrackScanningDisplay::toggle() {
-  if (lv_obj_is_hidden(container_)) {
-        // lv_obj_move_to_index(container_, 0);
+  if (lv_obj_is_hidden(root_)) {
+    // lv_obj_move_to_index(root_, 0);
 
-
-    lv_obj_move_foreground(container_);
-    lv_obj_set_hidden(container_, false);
+    lv_obj_move_foreground(root_);
+    lv_obj_set_hidden(root_, false);
 
   } else {
-        // lv_obj_move_to_index(container_, 2);
+    // lv_obj_move_to_index(root_, 2);
 
-
-    lv_obj_set_hidden(container_, true);
+    lv_obj_set_hidden(root_, true);
   }
 }

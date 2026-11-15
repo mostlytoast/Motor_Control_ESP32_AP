@@ -6,10 +6,9 @@
 #include "Config.h"
 // #include "../../shared/communication/ControllerStorage.h"
 #include "../../shared/communication/EspnowController.h"
-#include "../../shared/utils/StateJson.h"
-
 #include "../../shared/track/map.h"
-#include "../../shared/utils/AppState.h"
+#include "../../shared/utils/AppState.hpp"
+#include "../../shared/utils/StateJson.h"
 #include "hardware/LedControl.h"
 #include "hardware/MotorControl.h"
 #include "hardware/NFC.h"

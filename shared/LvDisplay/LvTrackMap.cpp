@@ -30,16 +30,19 @@ LvTrackMap::LvTrackMap(lv_obj_t* parent,
   lv_obj_set_size(root_, LV_PCT(100), LV_PCT(100));
   lv_obj_set_pos(root_, 0, 0);
 
+  lv_obj_set_style_bg_color(root_, lv_color_hex(kColorBackground),
+                            LV_PART_MAIN);
+  lv_obj_set_style_bg_opa(root_, LV_OPA_COVER, LV_PART_MAIN);
   lv_obj_set_scrollable(root_, false);
 
   installCallbacks();
 
   hide_button_ = display_.createActionButton(
-      root_, "Hide", 110, 27, 100, 25, [this]() { toggle(); }, kColorForward);
+      root_, "Hide", 5, 27, 100, 22, [this]() { toggle(); }, COLOR_MENU_HEADER);
 
   auto_btn_ = display_.createActionButton(
       root_, "Auto", 215, 27, 100, 25, [this]() { togglePathFind(); },
-      kColorForward);
+      COLOR_MENU_HEADER);
   auto_label_ = display_.createLabel(root_, kColorStatus, 8, 53, LV_PART_MAIN,
                                      LV_ALIGN_TOP_LEFT);
 
@@ -288,7 +291,7 @@ void LvTrackMap::refresh() {
     transformDirty_ = true;
     hitboxUid.clear();
     lv_obj_clean(hitBoxLayer_);
-    Serial.println("cleared");
+    // Serial.println("cleared");
     map_->setMapModified(false);
   }
 
@@ -509,7 +512,7 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
     self->transformDirty_ = false;
   }
 
-  self->drawBackground(layer, area);
+  // self->drawBackground(layer, area);
 
   if (self->map_) {
     const auto* tracks = self->map_->getTracks();
@@ -527,7 +530,7 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
   // TODO check angle
 
   self->drawText(layer, {static_cast<float>(width) / 2.0f, 10.0f, 0.0f},
-                 countText, self->config_.label);
+                 countText, lv_color_hex(COLOR_TEXT));
 }
 // ============================================================
 // BACKGROUND
@@ -598,6 +601,7 @@ void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
                  point.getHeading());
       const Uid destinationUid = track.getTags()[0].getUid();
       createTagHitBox(destinationUid, point);
+
       drawLabel(layer, track, index);
 
       break;
@@ -784,8 +788,8 @@ void LvTrackMap::drawLabel(lv_layer_t* layer, const Track& track,
 
   snprintf(text, sizeof(text), "#%u %s", static_cast<unsigned>(index),
            track.trackTypeToString());
-
-  drawText(layer, center, text, config_.label, true);
+  //  TODO maybe use shared display calls?
+  drawText(layer, center, text, lv_color_hex(COLOR_TEXT), true);
 }
 
 void LvTrackMap::drawText(lv_layer_t* layer, Point center, const char* text,

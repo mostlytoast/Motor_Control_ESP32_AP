@@ -65,8 +65,11 @@ void SharedDisplayCalls::setLabelText(lv_obj_t* label, const char* text) {
 
   lv_label_set_text(label, text);
 }
-// TODO idea to add a variable callback action where you can pass in a function like value getVariable(bool& hasChanged - false); and if hasChanged is true it would update the value of the object 
-// this would have to be managed by some refresh function most likely that would go through a list of these functions and apply those changes
+// TODO idea to add a variable callback action where you can pass in a function
+// like value getVariable(bool& hasChanged - false); and if hasChanged is true
+// it would update the value of the object this would have to be managed by some
+// refresh function most likely that would go through a list of these functions
+// and apply those changes
 lv_obj_t* SharedDisplayCalls::createActionButton(lv_obj_t* parent,
                                                  const char* text, int x, int y,
                                                  int width, int height,
@@ -151,9 +154,10 @@ lv_obj_t* SharedDisplayCalls::createTagHitbox(lv_obj_t* parent, int x, int y,
   lv_obj_set_style_radius(hitbox, LV_RADIUS_CIRCLE, 0);
 
   // Completely invisible.
-  lv_obj_set_style_bg_opa(hitbox, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_bg_opa(hitbox, LV_OPA_COVER, 0);
+  lv_obj_move_background(hitbox);
   lv_obj_set_style_border_width(hitbox, 0, 0);
-  lv_obj_set_style_outline_width(hitbox, 0, 0);
+  lv_obj_set_style_outline_width(hitbox, 1, 0);
 
   // Enable click handling.
   lv_obj_set_clickable(hitbox, true);

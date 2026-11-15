@@ -186,9 +186,9 @@ class Track {
       }
       // Serial.println("track3");
 
-      if (tags.size() == 0) {
-        return false;
-      }
+      // if (tags.size() == 0) {
+      //   return false;
+      // }
 
       // todo might need to find way to add back in pose and position marker
       // settings?  dont want stateJson to call calculateMap?
@@ -439,7 +439,7 @@ class Track {
 
         // Serial.println("track6");
 
-        if (tags.size() < 2) return false;
+        if (tags.size() < 2) return true;
         // Serial.println("track6a");
 
         setCurveOrStraightPose(tags[0], tags[1], length, 0);
@@ -447,7 +447,7 @@ class Track {
       case CURVED:
         // Serial.println("track7");
 
-        if (tags.size() < 2) return false;
+        if (tags.size() < 2) return true;
         // Serial.println("track7a");
 
         setCurveOrStraightPose(tags[0], tags[1], length, radius);
@@ -456,7 +456,7 @@ class Track {
         break;
 
       case SWITCH:
-        if (tags.size() < 4) return false;
+        if (tags.size() < 4) return true;
 
         setCurveOrStraightPose(tags[0], tags[1], length, radius);
 
@@ -466,7 +466,7 @@ class Track {
         break;
 
       case CROSS: {
-        if (tags.size() < 4) return false;
+        if (tags.size() < 4) return true;
 
         setCurveOrStraightPose(tags[0], tags[1], length, radius);
         setCurveOrStraightPose(tags[2], tags[3], branchLength, 0);
@@ -490,7 +490,7 @@ class Track {
       }
 
       case STATION:
-        if (tags.size() < 1) return false;
+        if (tags.size() < 1) return true;
         tags[0].setPoint(Point(0.0f, 0.0f, 180.0f));
         break;
 

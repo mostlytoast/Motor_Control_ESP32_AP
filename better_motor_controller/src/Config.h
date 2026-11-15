@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ConfigEsp32s3.h"
+#include "ConfigEsp32.h"
 
 
 // change import for audio files here:

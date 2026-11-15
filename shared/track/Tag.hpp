@@ -1,5 +1,5 @@
-#ifndef SHARED_TRACK_TAG_HPP
-#define SHARED_TRACK_TAG_HPP
+#ifndef TAG_HPP
+#define TAG_HPP
 // TODO improve error checking especially with json conversion
 #include <ArduinoJson.h>
 #include <string.h>
@@ -210,4 +210,6 @@ class Tag {
   //   TODO think of moving point from tracks to tag
 };
 
-#endif  // SHARED_TRACK_TAG_HPP
+#endif  // TAG_HPP
+
+

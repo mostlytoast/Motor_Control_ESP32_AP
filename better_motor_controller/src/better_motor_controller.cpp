@@ -119,6 +119,7 @@ void loop() {
   // Serial.print(ESP.getMaxAllocHeap());
   // Serial.println(" bytes");
   espnowController.espnowUpdate();
+  audio.updateAudioState();
 
   // Automatic mode
 

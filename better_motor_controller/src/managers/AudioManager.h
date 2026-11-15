@@ -4,7 +4,7 @@
 
 #include <cmath>
 
-#include "../../../shared/utils/AppState.h"
+#include "../../../shared/utils/AppState.hpp"
 #include "../Config.h"
 #include "../hardware/AudioPlayer.h"
 

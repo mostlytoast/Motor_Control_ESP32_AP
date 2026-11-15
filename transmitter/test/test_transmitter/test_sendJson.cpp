@@ -4,9 +4,8 @@
 #include <string>
 #include <vector>
 
-#include "../../../shared/utils/AppState.h"
+#include "../../../shared/utils/AppState.hpp"
 #include "../../../shared/utils/StateJson.h"
-
 
 void setupTestApp() {
   // Reset your app to a known baseline

@@ -81,9 +81,9 @@ void getStateFromJson(JsonDocument& doc) {
   // AUDIO
   // ----------------------------------------------------
 
-  if (state["audio"].is<bool>()) {
-    app.setAudioState(state["audio"].as<bool>());
-  }
+  // if (state["audio"].is<bool>()) {
+  //   app.setAudioState(state["audio"].as<bool>());
+  // }
 }
 
 void getJsonFromState(JsonDocument& doc) {
@@ -98,7 +98,7 @@ void getJsonFromState(JsonDocument& doc) {
   stateDoc["auto"] = app.getAutoState();
   stateDoc["speed"] = app.getUserSpeed();
   stateDoc["ramp"] = app.getRampTime() / 1000.0f;
-  stateDoc["audio"] = app.getAudioState();
+  // stateDoc["audio"] = app.getAudioState();
 
   // ----------------------------------------------------
   // TRACK MAP
@@ -120,8 +120,8 @@ void getJsonFromState(JsonDocument& doc) {
 }
 
 void getStateFromCondensedJson(JsonDocument& doc) {
-  // Serial.println("=== getStateFromCondensedJson INPUT ===");
-  // serializeJsonPretty(doc, Serial);
+  Serial.println("=== getStateFromCondensedJson INPUT ===");
+  serializeJsonPretty(doc, Serial);
   JsonObject state = doc["state"].as<JsonObject>();
   // TODO returning null? why
   JsonArray addTracks = doc["addTracks"].as<JsonArray>();
@@ -140,9 +140,12 @@ void getStateFromCondensedJson(JsonDocument& doc) {
     bool success = false;
 
     Track temporaryTrack(success, templateTrackDoc, true);
-
     if (success) {
+      temporaryTrack.setInclude(false);
       app.setTemplateTrack(temporaryTrack);
+      Serial.println("set template Track");
+    } else {
+      Serial.println("didn't set template Track");
     }
   }
 
@@ -192,9 +195,8 @@ void getStateFromCondensedJson(JsonDocument& doc) {
 
     app.setRampTime(static_cast<int>(rampSeconds * 1000.0f));
   }
-
-  if (state["d"].is<bool>()) {
-    app.setAudioState(state["d"].as<bool>());
+  if (state["aa"].is<bool>()) {
+    app.setAmbianceAudioMode(state["aa"].as<bool>());
   }
 }
 void getCondensedJsonFromStateTransmitter(JsonDocument& doc) {
@@ -216,7 +218,7 @@ void getCondensedJsonFromState(JsonDocument& doc) {
   state["a"] = app.getAutoState();
   state["p"] = app.getUserSpeed();
   state["r"] = app.getRampTime() / 1000.0f;
-  state["d"] = app.getAudioState();
+  state["aa"] = app.getAmbianceAudioMode();
 
   JsonArray addTracks = doc["addTracks"].to<JsonArray>();
   // JsonArray addStations = doc["addStations"].to<JsonArray>();

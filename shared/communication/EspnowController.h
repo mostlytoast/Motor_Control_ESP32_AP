@@ -14,7 +14,7 @@
 #include <stdint.h>
 
 #include "../SharedConfig.h"
-#include "../utils/AppState.h"
+#include "../utils/AppState.hpp"
 #include "../utils/MacUtils.h"
 #include "JsonAssembler.h"
 #include "Peers.h"

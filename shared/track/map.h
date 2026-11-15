@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "../utils/AppState.h"
+#include "../utils/AppState.hpp"
 #include "../utils/Math.hpp"
 #include "../utils/uidLogic.h"
 #include "Arduino.h"

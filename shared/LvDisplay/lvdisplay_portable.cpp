@@ -1,5 +1,6 @@
 #include "lvdisplay_portable.h"
 // todo make this use arduinoJson to simplify code
+// TODO odd web bug where buttons dont initially respond until multiple are clicked?
 namespace {
 JsonDocument previousState;
 bool previousStateUpdated = false;
@@ -42,7 +43,7 @@ void LvDisplayController::init(lv_obj_t* screen) {
       display_.createLabel(screen_, kColorStatus, -8, 53, LV_PART_MAIN,
                            LV_ALIGN_TOP_RIGHT, "No Peer");
   lv_obj_move_to_index(statusLabel_, -1);
-  // lv_obj_move_foreground(statusLabel_);
+  
   forwardButton_ = display_.createActionButton(
       screen_, "FORWARD", 5, 78, 100, 45,
       [this]() {
@@ -107,17 +108,17 @@ void LvDisplayController::init(lv_obj_t* screen) {
   audioButton_ = display_.createActionButton(
       screen_, "AUDIO", 215, 173, 100, 40,
       [this]() {
-        app.setAudioState(!app.getAudioState());
+        app.setAmbianceAudioMode(!app.getAmbianceAudioMode());
         sendStateToReceiver();
       },
       kColorButtonOff);
   mapButton_ = display_.createActionButton(
       screen_, "show Map", 5, 27, 100, 22,
-      [this]() { trackMapDisplay_->toggle(); }, KColorMenuHeader);
+      [this]() { trackMapDisplay_->toggle(); lv_obj_move_foreground(this->statusLabel_);}, KColorMenuHeader);
 
   trackScannerButton = display_.createActionButton(
       screen_, "SCANNER", 110, 27, 100, 25,
-      [this]() { trackScanningDisplay_->toggle(); }, COLOR_MENU_HEADER);
+      [this]() { trackScanningDisplay_->toggle(); lv_obj_move_foreground(this->statusLabel_);}, COLOR_MENU_HEADER);
 
   trackScanningDisplay_ = new TrackScanningDisplay(
       screen_, [this]() { this->sendStateToReceiver(); });
@@ -129,7 +130,7 @@ void LvDisplayController::init(lv_obj_t* screen) {
   lv_obj_set_style_text_color(info, lv_color_hex(kColorInfo), LV_PART_MAIN);
   lv_obj_align(info, LV_ALIGN_BOTTOM_MID, 0, -3);
 
-  lv_obj_move_to_index(screen_, 1);
+  // lv_obj_move_to_index(screen_, 1);
   applyStateToUi();
 }
 void LvDisplayController::reset() {
@@ -244,5 +245,5 @@ void LvDisplayController::applyStateToUi() {
   display_.setButtonState(led1Button_, app.getLed1State());
   display_.setButtonState(led2Button_, app.getLed2State());
   display_.setButtonState(autoButton_, app.getAutoState());
-  display_.setButtonState(audioButton_, app.getAudioState());
+  display_.setButtonState(audioButton_, app.getAmbianceAudioMode());
 }

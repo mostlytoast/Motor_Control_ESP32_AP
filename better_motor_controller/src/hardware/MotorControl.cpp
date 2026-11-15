@@ -17,7 +17,10 @@ void setupMotor() {
 }
 
 void setMotor(int speed) {
-  speed = constrain(speed, -255, 255);
+  Serial.print("set motor");
+  Serial.println(speed);
+
+  speed = clampInt(speed, -255, 255);
 
   // ===================================================
   // STOP
@@ -45,7 +48,7 @@ void setMotor(int speed) {
 
   pwm = map(pwm, 1, 255, MIN_PWM, MAX_PWM);
 
-  pwm = constrain(pwm, MIN_PWM, MAX_PWM);
+  pwm = clampInt(pwm, MIN_PWM, MAX_PWM);
 
   // ===================================================
   // FORWARD
@@ -73,6 +76,7 @@ void setMotor(int speed) {
 // Motor ramping
 
 void updateMotorRamp() {
+
   unsigned long now = millis();
 
   // ===================================================
@@ -104,7 +108,6 @@ void updateMotorRamp() {
 
   if (app.getRampTime() == 0) {
     app.setCurrentSpeed(app.getTargetSpeed());
-
     setMotor((int)app.getCurrentSpeed());
 
     return;
@@ -158,5 +161,3 @@ void updateMotorRamp() {
 
   setMotor((int)app.getCurrentSpeed());
 }
-
-

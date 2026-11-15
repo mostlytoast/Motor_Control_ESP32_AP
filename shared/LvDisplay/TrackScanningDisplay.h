@@ -8,7 +8,7 @@
 #include <iostream>
 #include <vector>
 
-#include "../utils/AppState.h"  // Assuming app.h contains setScannerMode
+#include "../utils/AppState.hpp"  // Assuming app.h contains setScannerMode
 #include "LvTrackMap.h"
 #include "SharedDisplayCalls.h"
 
@@ -27,12 +27,12 @@ class TrackScanningDisplay {
   void toggle();
 
  private:
-  lv_obj_t* container_;
+  lv_obj_t* root_;
   lv_obj_t* scan_status_label_;
   lv_obj_t* btn_register_;
   lv_obj_t* btn_write_;
   lv_obj_t* btn_scan_;
-  lv_obj_t* btn_auto_;
+  lv_obj_t* btn_normal_;
   lv_obj_t* list_tracks_;
   lv_obj_t* list_tracks_options_ = nullptr;
   lv_obj_t* hide_button_;
@@ -47,7 +47,7 @@ class TrackScanningDisplay {
   void registerTracks();
   void writeTracks();
   void scanNewLayout();
-  void pathFind();
+  void normal();
   void refreshList();
   void refreshAndSend();
   void updateStatusLabel();

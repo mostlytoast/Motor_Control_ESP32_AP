@@ -8,7 +8,7 @@
 
 #include "../../shared/LvDisplay/SharedDisplayCalls.h"
 #include "../../shared/communication/EspnowController.h"
-#include "../../shared/utils/AppState.h"  // Assuming this exists
+#include "../../shared/utils/AppState.hpp"  // Assuming this exists
 #include "Config.h"
 
 // Forward declarations to prevent circular dependency issues
@@ -59,7 +59,7 @@ class ControllerMenu {
   void updateStatus();
 
   // Members
-  lv_obj_t* menu_obj;      // The main container
+  lv_obj_t* root_;      // The main container
   lv_obj_t* list_obj;      // The scrollable list
   lv_obj_t* status_label;  // The text label for current status
   lv_obj_t* hide_button;

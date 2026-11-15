@@ -6,7 +6,7 @@
 
 #include "../../../shared/track/PathFinder.h"
 #include "../../../shared/track/map.h"
-#include "../../../shared/utils/AppState.h"
+#include "../../../shared/utils/AppState.hpp"
 #include "../../../shared/utils/uidLogic.h"
 #include "../hardware/NFC.h"
 
@@ -44,7 +44,7 @@ class TrackScanner {
   Uid backwardsUid;
   Uid forwardsUid;
   void pathFind();
-  bool hasUidChanged(const Uid& uid, Uid& previousScannedUid);
+  bool isDuplicate(const Uid& uid, Uid& previousScannedUid);
   // Write the track associated with a tag.
   //   todo rename
   bool writeTrackForTag(const Uid& uid, JsonObject& jsonTag);

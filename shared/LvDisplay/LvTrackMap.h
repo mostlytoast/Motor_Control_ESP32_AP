@@ -8,7 +8,7 @@
 #include "../SharedConfig.h"
 #include "../track/PathFinder.h"
 #include "../track/map.h"
-#include "../utils/AppState.h"
+#include "../utils/AppState.hpp"
 #include "SharedDisplayCalls.h"
 
 /*
@@ -132,7 +132,6 @@ class LvTrackMap {
   Point worldToMap(Point p) const;
 
   void drawBackground(lv_layer_t* layer, const lv_area_t& area) const;
-
 
   void drawTrack(lv_layer_t* layer, const Track& track, size_t index);
   void createTagHitBox(const Uid destinationUid, const Point point);

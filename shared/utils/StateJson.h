@@ -1,5 +1,5 @@
 #pragma once
-#include "../../shared/utils/AppState.h"
+#include "../../shared/utils/AppState.hpp"
 #include "../track/map.h"
 
 void getStateFromJson(JsonDocument& doc);

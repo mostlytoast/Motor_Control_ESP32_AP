@@ -54,7 +54,9 @@ void AudioManager::updateAmbianceAudioState() {
 }
 
 void AudioManager::updateMovementAudioState() {
-  if (app.getMovementAudioMode()) {
+  const float speed = std::abs(static_cast<float>(app.getCurrentSpeed()));
+
+  if (app.getMovementAudioMode() && speed != 0) {
     if (!AudioPlayer_isPlaying(movementSound)) {
       if (AudioPlayer_resume(movementSound)) {
         Serial.println("MOVEMENT AUDIO ON");
@@ -71,7 +73,6 @@ void AudioManager::updateMovementAudioState() {
     return;
   }
 
-  const float speed = std::abs(static_cast<float>(app.getCurrentSpeed()));
 
   AudioPlayer_setSpeed(
       movementSound,
