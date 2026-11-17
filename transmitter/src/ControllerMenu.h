@@ -10,6 +10,7 @@
 #include "../../shared/communication/EspnowController.h"
 #include "../../shared/utils/AppState.hpp"  // Assuming this exists
 #include "Config.h"
+#include "OptionsMenu.h"
 
 // Forward declarations to prevent circular dependency issues
 // These represent the classes in your existing project
@@ -59,14 +60,15 @@ class ControllerMenu {
   void updateStatus();
 
   // Members
-  lv_obj_t* root_;      // The main container
+  lv_obj_t* root_;         // The main container
   lv_obj_t* list_obj;      // The scrollable list
   lv_obj_t* status_label;  // The text label for current status
   lv_obj_t* hide_button;
   // Internal helper to handle the fact that LVGL callbacks don't easily
   // support "this" pointers unless wrapped in a static wrapper.
+  OptionsMenu* optionsMenuDisplay_;
   void handleScan(lv_event_t* event);
-  SharedDisplayCalls display_;
+  SharedDisplayCalls sharedDisplay;
 };
 
 #endif  // CONTROLLER_MENU_H

@@ -28,53 +28,54 @@ class Track {
   }
   bool fromJson(JsonObject& obj) {
     // Validate input
+    try {
+      if (obj.isNull()) {
+        Serial.println("jsonToTrack: JSON object is null");
+        return false;
+      }
 
-    if (obj.isNull()) {
-      Serial.println("jsonToTrack: JSON object is null");
-      return false;
-    }
+      length = obj["length"].is<float>() ? obj["length"].as<float>() : 0;
 
-    length = obj["length"].is<float>() ? obj["length"].as<float>() : 0;
+      radius = obj["radius"].is<float>() ? obj["radius"].as<float>() : 0;
 
-    radius = obj["radius"].is<float>() ? obj["radius"].as<float>() : 0;
+      direction =
+          obj["direction"].is<bool>() ? obj["direction"].as<bool>() : false;
 
-    direction =
-        obj["direction"].is<bool>() ? obj["direction"].as<bool>() : false;
+      branchAngle =
+          obj["branchAngle"].is<float>() ? obj["branchAngle"].as<float>() : 0;
 
-    branchAngle =
-        obj["branchAngle"].is<float>() ? obj["branchAngle"].as<float>() : 0;
+      branchRadius =
+          obj["branchRadius"].is<float>() ? obj["branchRadius"].as<float>() : 0;
 
-    branchRadius =
-        obj["branchRadius"].is<float>() ? obj["branchRadius"].as<float>() : 0;
+      branchLength =
+          obj["branchLength"].is<float>() ? obj["branchLength"].as<float>() : 0;
 
-    branchLength =
-        obj["branchLength"].is<float>() ? obj["branchLength"].as<float>() : 0;
+      // Track type
 
-    // Track type
+      trackType = obj["t"].as<TrackType>();
+      // UID objects
+      JsonArray tagsArray = obj["tags"].as<JsonArray>();
 
-    trackType = obj["t"].as<TrackType>();
-    // UID objects
-    JsonArray tagsArray = obj["tags"].as<JsonArray>();
+      if (!tagsArray.isNull()) {
+        for (JsonObject tagObj : tagsArray) {
+          Tag tag;
+          // Serial.println("track2");
 
-    if (!tagsArray.isNull()) {
-      for (JsonObject tagObj : tagsArray) {
-        bool success;
-
-        tags.addTag(Tag(success, tagObj));
-        if (!success) {
-          return false;
+          if (tag.fromJson(tagObj)) {
+            tags.addTag(tag);
+          }
         }
       }
-    }
 
-    if (tags.size() == 0) {
+      // todo might need to find way to add back in pose and position marker
+      // settings?  dont want stateJson to call calculateMap?
+
+      return setTagPositions();
+    } catch (const std::exception& e) {
+      Serial.println("error");
+      std::cerr << e.what() << '\n';
       return false;
     }
-
-    // todo might need to find way to add back in pose and position marker
-    // settings?  dont want stateJson to call calculateMap?
-
-    return setTagPositions();
   }
 
   void toJson(JsonObject& obj) const {
@@ -103,7 +104,6 @@ class Track {
 
     for (int i = 0; i < tags.size(); i++) {
       JsonObject obj = tagsArray.add<JsonObject>();
-
       tags[i].toJson(obj);
     }
   }
@@ -140,6 +140,9 @@ class Track {
     this->include = !dontAdd;
 
     this->positioned = false;
+    Serial.println("add track");
+    Serial.println(this->length);
+
     tags.addTag(Tag(entranceAUid, connectEntranceAUid, Point()));
     tags.addTag(Tag(exitAUid, connectExitAUid, Point()));
     tags.addTag(Tag(entranceBUid, connectEntranceBUid, Point()));
@@ -201,8 +204,6 @@ class Track {
       std::cerr << e.what() << '\n';
       return false;
     }
-
-    return true;
   }
 
   void toCondensedJson(JsonObject& obj) const {
@@ -268,28 +269,44 @@ class Track {
   Tags& getTags() { return tags; }
 
   const Tags& getTags() const { return tags; }
-  bool operator!=(const Track& other) const { return !(*this == other); }
-
   // Equality operator for comparing two Track objects
   bool operator==(const Track& other) const {
-    if (trackType != other.trackType) return false;
-    if (length != other.length) return false;
-    if (radius != other.radius) return false;
-    if (branchAngle != other.branchAngle) return false;
-    if (branchRadius != other.branchRadius) return false;
-    if (branchLength != other.branchLength) return false;
-    if (direction != other.direction) return false;
-    if (include != other.include) return false;
-    if (positioned != other.positioned) return false;
+    if (!areFloatsEqual(trackType, other.trackType)) {
+      return false;
+    }
+    if (!areFloatsEqual(length, other.length)) {
+      return false;
+    }
+    if (!areFloatsEqual(radius, other.radius)) {
+      return false;
+    }
+    if (!areFloatsEqual(branchAngle, other.branchAngle)) {
+      return false;
+    }
+    if (!areFloatsEqual(branchRadius, other.branchRadius)) {
+      return false;
+    }
+    if (!areFloatsEqual(branchLength, other.branchLength)) {
+      return false;
+    }
+    if (direction != other.direction) {
+      return false;
+    }
+    if (include != other.include) {
+      return false;
+    }
+    if (positioned != other.positioned) {
+      return false;
+    }
 
     // Compare tags
-    if (tags.size() != other.tags.size()) return false;
-    for (size_t i = 0; i < tags.size(); i++) {
-      if (tags[i] != other.tags[i]) return false;
+    if (tags != other.tags) {
+      return false;
     }
 
     return true;
   }
+  bool operator!=(const Track& other) const { return !(*this == other); }
 
   bool stringToTrackType(const char*& type, TrackType& trackType) {
     if (type == nullptr) {
@@ -386,7 +403,7 @@ class Track {
     for (Tag& tag : tags) {
       tag.getPoint().transformPoint(originalDestination, target, rotation);
     }
-    Serial.println("positioned track");
+    // Serial.println("positioned track");
     positioned = true;
   }
 

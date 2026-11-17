@@ -122,6 +122,11 @@ Track* TrackMap::createTrack(TrackType type, float length, float radius,
     return &tracks->back();
   }
 }
+bool TrackMap::connectUid(Uid a, Uid b) {
+  Tag* tagA = app.getCurrentTracks()->findTagByUid(a);
+  Tag* tagB = app.getCurrentTracks()->findTagByUid(b);
+  return connectTags(tagA, tagB);
+}
 
 bool TrackMap::connectTags(Tag* a, Tag* b) {
   // Serial.print("connecting");
@@ -173,7 +178,7 @@ void TrackMap::mapToJson(JsonDocument& doc) {
   }
 }
 
-void TrackMap::JsonToMap(JsonArray doc) {
+void TrackMap::jsonToMap(JsonArray doc) {
   // todo find better way to prevent it creating multiple of same track
   // if (tracks->size() ==1 ) return;
   clearMap();
@@ -197,56 +202,112 @@ void TrackMap::JsonToMap(JsonArray doc) {
   trackMap.calculateMap();
 }
 
-void TrackMap::mapToCondensedJson(JsonArray& addTracksJson,
+void TrackMap::updatePastTracks() {
+  Tracks* tracks = app.getCurrentTracks();
 
+  if (tracks != nullptr) {
+    app.setPastTracks(*tracks);
+    Serial.println("[MapDiff] Updated previous map snapshot");
+  }
+}
+void TrackMap::mapToCondensedJson(JsonArray& addTracksJson,
                                   JsonArray& removeUidsFromMap) {
   Tracks* tracks = app.getCurrentTracks();
+
+  if (tracks == nullptr) {
+    return;
+  }
+
   Tracks pastTracks = app.getPastTracks();
-  std::vector<Uid> currentTracksUids;
+  Serial.println("\n========== MAP DIFF ==========");
 
-  // 1. Build the current map and populate IDs
-  // 2. Identify Additions (In currentTracksUids but not in pastTracks)
-  for (Track& currentTrack : *tracks) {
-    currentTracksUids.emplace_back(currentTrack.getTags()[0].getUid());
+  Serial.print("Current tracks: ");
+  Serial.println(tracks->size());
 
-    if (currentTrack.getInclude()) {
-      bool existsInPast = false;
-      for (Track& pastTrack : pastTracks) {
-        if (pastTrack == currentTrack) {
-          existsInPast = true;
-        }
+  Serial.print("Previous tracks: ");
+  Serial.println(pastTracks.size());
+
+  // ========================================================
+  // FIND NEW OR MODIFIED TRACKS
+  // ========================================================
+
+  for (const Track& currentTrack : *tracks) {
+    if (!currentTrack.getInclude()) {
+      continue;
+    }
+
+    const auto& currentTags = currentTrack.getTags();
+
+    if (currentTags.empty()) {
+      continue;
+    }
+
+    // Use the first tag UID as the track's identity.
+    Uid currentUid = currentTags[0].getUid();
+
+    const Track* previousTrack = nullptr;
+
+    // Find the previous version of THIS specific track.
+    for (const Track& pastTrack : pastTracks) {
+      const auto& pastTags = pastTrack.getTags();
+
+      if (pastTags.empty()) {
+        continue;
       }
-      if (!existsInPast) {
-        // Serial.println("found tracks to add");
-        JsonObject obj = addTracksJson.add<JsonObject>();
-        currentTrack.toCondensedJson(obj);
+
+      if (pastTags[0].getUid().equals(currentUid)) {
+        previousTrack = &pastTrack;
+        break;
       }
     }
-  }
-  // 2. Identify Removals (In pastTracks but not in currentTracksUids)
 
-  for (Track& pastTrack : pastTracks) {
-    Uid pastUid = pastTrack.getTags()[0].getUid();
+    // If no previous track exists, this is a new track.
+    // Otherwise, compare it against its previous version.
+    bool changed =
+        previousTrack == nullptr || !(*previousTrack == currentTrack);
+
+    if (changed) {
+      JsonObject obj = addTracksJson.add<JsonObject>();
+      currentTrack.toCondensedJson(obj);
+    } else {
+    }
+  }
+
+  // ========================================================
+  // FIND REMOVED TRACKS
+  // ========================================================
+
+  for (const Track& pastTrack : pastTracks) {
+    const auto& pastTags = pastTrack.getTags();
+
+    if (pastTags.empty()) {
+      continue;
+    }
+
+    Uid pastUid = pastTags[0].getUid();
+
     bool existsInCurrent = false;
 
-    for (Uid currentUid : currentTracksUids) {
-      if (pastUid.equals(currentUid)) {
+    for (const Track& currentTrack : *tracks) {
+      const auto& currentTags = currentTrack.getTags();
+
+      if (currentTags.empty()) {
+        continue;
+      }
+
+      if (currentTags[0].getUid().equals(pastUid)) {
         existsInCurrent = true;
+        break;
       }
     }
 
     if (!existsInCurrent) {
-      Serial.println("found tracks to remove");
-
       JsonObject obj = removeUidsFromMap.add<JsonObject>();
       obj["uid"] = pastUid.toString();
     }
   }
 }
-
-
 void TrackMap::condensedJsonToMap(JsonArray& addTracksJson,
-                                  // JsonArray& addStationsJson,
                                   JsonArray& removeUidsFromMap) {
   Tracks* tracks = app.getCurrentTracks();
 
@@ -259,6 +320,7 @@ void TrackMap::condensedJsonToMap(JsonArray& addTracksJson,
 
   for (const JsonObject& addTrackJson : addTracksJson) {
     if (tracks->size() >= MAX_TRACKS) {
+      Serial.println("reached max tracks");
       continue;
     } else {
       // Add to the tracks
@@ -292,7 +354,7 @@ void TrackMap::condensedJsonToMap(JsonArray& addTracksJson,
 
   Serial.println("map done");
   // TODO maybe should be in mapToCondensedJson?
-  app.setPastTracks(*tracks);
+  // app.setPastTracks(*tracks);
 
   trackMap.calculateMap();
 }

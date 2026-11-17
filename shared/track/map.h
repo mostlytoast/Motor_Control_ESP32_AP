@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "../SharedConfig.h"
 #include "../utils/AppState.hpp"
 #include "../utils/Math.hpp"
 #include "../utils/uidLogic.h"
@@ -34,16 +35,13 @@ class TrackMap {
    */
   void calculateMap();
   // bool connectStationToTag(Station* a, Tag* b);
-
+  bool connectUid(Uid a, Uid b);
   bool connectTags(Tag* a, Tag* b);
-
-
-
 
   void mapToJson(JsonDocument& doc);
 
-  void JsonToMap(JsonArray doc);
-
+  void jsonToMap(JsonArray doc);
+  void updatePastTracks();
   void mapToCondensedJson(JsonArray& addTracksJson,
                           // JsonArray& addStationsJson,
                           JsonArray& removeUidsFromMap);
@@ -54,9 +52,6 @@ class TrackMap {
   void clearMap();
 
  private:
-  static constexpr uint8_t MAX_TRACKS = 100;
-
-
   //  used when creating track that should not be added
   Track tempTrack;
 

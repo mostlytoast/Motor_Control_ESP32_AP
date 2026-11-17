@@ -4,6 +4,9 @@
 static float degreesToRadians(float degrees) { return degrees * M_PI / 180.0f; }
 
 static float radiansToDegrees(float radians) { return radians * 180.0f / M_PI; }
+static bool areFloatsEqual(float a, float b, float epsilon = 0.00001f) {
+  return std::fabs(a - b) < epsilon;
+}
 
 static int clampInt(int value, int minValue, int maxValue) {
   if (value < minValue) {

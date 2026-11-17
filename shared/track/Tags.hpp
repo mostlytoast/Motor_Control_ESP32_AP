@@ -33,7 +33,19 @@ class Tags {
   }
   int size() const { return tags.size(); }
   bool empty() const { return tags.size() == 0; }
-  //   bool operator==(const Tag& other) const {}
+  bool operator==(const Tags& other) const {
+    if (tags.size() != other.tags.size()) {
+      return false;
+    }
+    for (size_t i = 0; i < tags.size(); i++) {
+      if (tags[i] != other.tags[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+  bool operator!=(const Tags& other) const { return !(*this == other); }
+
   Tag& operator[](int idx) { return tags[idx]; }
   Tag operator[](int idx) const { return tags[idx]; }
   auto begin() { return tags.begin(); }

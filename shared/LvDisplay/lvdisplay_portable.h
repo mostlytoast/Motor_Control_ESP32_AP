@@ -60,24 +60,13 @@ class LvDisplayController {
   explicit LvDisplayController(ILvDisplayHost* host);
 
   ~LvDisplayController() = default;
-  void init(lv_obj_t* screen);
+  lv_obj_t* init(lv_obj_t* screen);
+
+
   void reset();
   void refresh();
 
   // const LvDisplayState& state() const { return state_; }
-  lv_obj_t* speedLabel() const { return speedLabel_; }
-  lv_obj_t* rampLabel() const { return rampLabel_; }
-  lv_obj_t* statusLabel() const { return statusLabel_; }
-
-  lv_obj_t* forwardButton() const { return forwardButton_; }
-  lv_obj_t* stopButton() const { return stopButton_; }
-  lv_obj_t* reverseButton() const { return reverseButton_; }
-  lv_obj_t* rampDownButton() const { return rampDownButton_; }
-  lv_obj_t* rampUpButton() const { return rampUpButton_; }
-  lv_obj_t* led1Button() const { return led1Button_; }
-  lv_obj_t* led2Button() const { return led2Button_; }
-  lv_obj_t* autoButton() const { return autoButton_; }
-  lv_obj_t* audioButton() const { return audioButton_; }
 
   void handleAction(LvDisplayAction action);
 
@@ -98,7 +87,7 @@ class LvDisplayController {
   void applyStateToUi();
 
  private:
-  SharedDisplayCalls display_;
+  SharedDisplayCalls sharedDisplay;
   void updateSpeedLabel();
   void updateRampLabel();
   void updateStatusLabel();
@@ -111,9 +100,10 @@ class LvDisplayController {
   lv_obj_t* screen_ = nullptr;
 
   lv_obj_t* titleLabel_ = nullptr;
+  lv_obj_t* mapButton_ = nullptr;
+  lv_obj_t* trackScannerButton = nullptr;
   lv_obj_t* speedLabel_ = nullptr;
   lv_obj_t* rampLabel_ = nullptr;
-  lv_obj_t* statusLabel_ = nullptr;
 
   lv_obj_t* forwardButton_ = nullptr;
   lv_obj_t* stopButton_ = nullptr;
@@ -124,9 +114,8 @@ class LvDisplayController {
   lv_obj_t* led2Button_ = nullptr;
   lv_obj_t* autoButton_ = nullptr;
   lv_obj_t* audioButton_ = nullptr;
-  lv_obj_t* mapButton_ = nullptr;
-  lv_obj_t* trackScannerButton = nullptr;
-
+  lv_obj_t* infoLabel_ = nullptr;
+lv_obj_t* grid_cont  = nullptr;
   lv_obj_t* trackMapContainer_ = nullptr;
   LvTrackMap* trackMapDisplay_ = nullptr;
   lv_obj_t* trackScanningContainer_ = nullptr;

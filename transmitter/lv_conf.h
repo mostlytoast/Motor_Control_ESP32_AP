@@ -16,9 +16,9 @@
 #define LV_USE_FLEX 1
 #define LV_USE_ANIMATION 1
 #define LV_USE_CHECKBOX 0
-#define LV_USE_BAR 0
+#define LV_USE_BAR 1
 #define LV_USE_SWITCH 0
-#define LV_USE_SLIDER 0
+#define LV_USE_SLIDER 1
 #define LV_USE_LIST 0
 #define LV_USE_TABLE 0
 #define LV_USE_WIN 0
@@ -28,7 +28,7 @@
 #define LV_USE_DROPDOWN 1
 #define LV_USE_CANVAS 0
 #define LV_USE_IMAGEBUTTON 0
-#define LV_USE_KEYBOARD 0
+#define LV_USE_KEYBOARD 1
 #define LV_USE_LED 0
 #define LV_USE_LINE 0
 #define LV_USE_ROLLER 0

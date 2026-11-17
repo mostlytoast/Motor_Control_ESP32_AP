@@ -6,9 +6,11 @@
 #include <vector>
 
 #include "Track.hpp"
+#include "../SharedConfig.h"
 
 class Tracks {
  public:
+  Tracks() { tracks.reserve(MAX_TRACKS); }
   Track* findTrackByUid(Uid uid) {
     if (!uid.isValid()) return nullptr;
 
@@ -86,7 +88,16 @@ class Tracks {
   Track& back() { return tracks.back(); }
 
   const Track& back() const { return tracks.back(); }
-  bool operator==(const Tracks& other) const { return tracks == other.tracks; }
+
+  bool operator==(const Tracks& other) const {
+    if (tracks.size() != other.tracks.size()) return false;
+    for (size_t i = 0; i < tracks.size(); ++i) {
+      if (tracks[i] != other.tracks[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   bool operator!=(const Tracks& other) const { return !(*this == other); }
 
@@ -97,4 +108,3 @@ class Tracks {
 extern Tracks tracks;
 
 #endif
- 

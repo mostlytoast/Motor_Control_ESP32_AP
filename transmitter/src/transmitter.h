@@ -8,3 +8,5 @@
 
 Display display;
 #endif  // TRANSMITTER_H
+
+void convertToAndFromJson();

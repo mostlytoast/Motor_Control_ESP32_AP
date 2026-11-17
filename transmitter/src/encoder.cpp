@@ -1,7 +1,5 @@
 #include "encoder.h"
 
-#define ENCODER_A 27
-#define ENCODER_B 22
 
 #define ENCODER_DETENTS_TO_FULL_SPEED 20
 std::atomic<int> encoderTransitions{0};

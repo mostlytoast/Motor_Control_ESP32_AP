@@ -10,8 +10,6 @@
 Tracks internalTracks;
 TrackScanner::TrackScanner(TrackMap& map)
     : trackMap(map), pathFinder(*app.getCurrentTracks()) {
-  app.setScannerMode(REGISTER_TRACKS);
-
   firstTagUid.clear();
   haveFirstTag = false;
 
@@ -33,31 +31,12 @@ void TrackScanner::begin() {
                                              0, true, emptyUid, emptyUid,
                                              emptyUid, emptyUid, true));
 
-  // app.setScannerMode(REGISTER_TRACKS);
-
   firstTagUid.clear();
   haveFirstTag = false;
 
   connectionTagUid.clear();
   haveConnectionTag = false;
-
-  // Serial.println();
-  // Serial.println("========================================");
-  // Serial.println("TRACK SCANNER");
-  // Serial.println("========================================");
-  // Serial.println();
-
-  // Serial.println("Scan two NFC tags to create a STRAIGHT track.");
-  // Serial.println("First tag = entranceA");
-  // Serial.println("Second tag = exitA");
-  // Serial.println();
-
-  // Serial.println("When all tracks have been scanned,");
-  // Serial.println("send D over Serial.");
-  // Serial.println();
-
   nfc.setupNFC();
-  // TrackPathFinder pathFinder(trackMap);
 }
 
 // ============================================================================
@@ -65,7 +44,7 @@ void TrackScanner::begin() {
 // ============================================================================
 
 void TrackScanner::processScans() {
-   app.setTargetSpeed(app.getUserSpeed());
+  app.setTargetSpeed(app.getUserSpeed());
   // if (app.getScannerMode() == NORMAL) {
   // }
   if (app.getScannerMode() == PATH_FINDING) {
@@ -79,17 +58,10 @@ void TrackScanner::processScans() {
   Uid uid;
 
   NFCReadResult nfcReadResults = nfc.readNFC(uid, tagJson);
- 
-  if (nfcReadResults == NFC_READ_FAILED) {
+
+  if (nfcReadResults == NFC_READ_FAILED || !uid.isValid()) {
     // app.setScannerStatusLabelText("Nfc Read failed");
 
-    return;
-  }
-
-  if (!uid.isValid()) {
-    app.setScannerStatusLabelText("Nfc Read failed");
-
-    Serial.println("Invalid UID.");
     return;
   }
 
@@ -266,6 +238,8 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
     // Todo might cause error???
     firstTagUid.clear();
     haveFirstTag = false;
+    connectionTagUid.clear();
+    haveConnectionTag = false;
   }
   Serial.println("Scanning track");
 
@@ -277,7 +251,7 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
   Track track;
   if (!app.getCurrentTracks()->doesTrackExist(uid)) {
     Serial.println("creating track");
-    serializeJsonPretty(jsonTag, Serial);
+    // serializeJsonPretty(jsonTag, Serial);
 
     // Serial.println(jsonTag);
 
@@ -298,7 +272,10 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
   if (!haveConnectionTag) {
     connectionTagUid = uid;
     haveConnectionTag = true;
-
+    // TODO maybe add skip protection so if we have 3 tracks but middle one only
+    // one connects you dont end up with 2 tracks connecting to one tag have to
+    // be able to detect impossible connections and then for cases like straight
+    // or curved just connect to the next tag
   } else if (app.getCurrentTracks()->doUidsBelongToSameTrack(connectionTagUid,
                                                              uid)) {
     connectionTagUid = uid;
@@ -327,11 +304,15 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
 
     trackMap.connectTags(tagConnection, tagCurrent);
     if (track.getTrackType() == STATION) {
+      app.setScannerStatusLabelText("Adding Station");
+
       Serial.println("skipping clear because is station");
-      // stations should just be added and connected but not mess with rest of
-      // track setup
+      // stations should just be added and connected but not mess with rest
+      // of track setup
       return;
     }
+    app.setScannerStatusLabelText("Adding Track and connection tags");
+
     connectionTagUid.clear();
 
     haveConnectionTag = false;

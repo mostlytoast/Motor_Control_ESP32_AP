@@ -2,14 +2,18 @@
 
 // TODO have special json funcitons that only output track when somethings
 // change?
+
 void getStateFromJson(JsonDocument& doc) {
-  // Serial.println("=== getStateFromJson INPUT ===");
-  // serializeJsonPretty(doc, Serial);
+  Serial.println("=== getStateFromJson INPUT ===");
+  serializeJsonPretty(doc, Serial);
   JsonObject state = doc["state"].as<JsonObject>();
+  // TODO returning null? why
   JsonArray tracks = doc["tracks"].as<JsonArray>();
 
   if (!tracks.isNull()) {
-    trackMap.JsonToMap(tracks);
+    // Serial.println("convert to map ");
+
+    trackMap.jsonToMap(tracks);
   }
 
   JsonObject templateTrackDoc = doc["templateTrack"].as<JsonObject>();
@@ -17,58 +21,55 @@ void getStateFromJson(JsonDocument& doc) {
   if (!templateTrackDoc.isNull()) {
     bool success = false;
 
-    Track temporaryTrack(success, templateTrackDoc);
-
+    Track temporaryTrack(success, templateTrackDoc, false);
     if (success) {
+      temporaryTrack.setInclude(false);
       app.setTemplateTrack(temporaryTrack);
+      // Serial.println("set template Track");
+    } else {
+      Serial.println("didn't set template Track");
     }
   }
-  if (state["scannerMode"].is<bool>()) {
-    app.setScannerMode(state["scannerMode"].as<ScannerMode>());
+
+  if (state["cur"].is<const char*>()) {
+    app.setCurrentUid(Uid(state["cur"].as<const char*>()));
   }
-  // ----------------------------------------------------
-  // LED 1
-  // ----------------------------------------------------
-
-  if (state["led1"].is<bool>()) {
-    app.setLed1State(state["led1"].as<bool>());
+  if (state["dest"].is<const char*>()) {
+    app.setDestinationUid(Uid(state["dest"].as<const char*>()));
   }
-
-  // ----------------------------------------------------
-  // LED 2
-  // ----------------------------------------------------
-
-  if (state["led2"].is<bool>()) {
-    app.setLed2State(state["led2"].as<bool>());
+  if (state["pf"].is<const char*>()) {
+    app.setPathFinderStatusText(state["pf"].as<const char*>());
   }
-
-  // ----------------------------------------------------
-  // AUTO MODE
-  // ----------------------------------------------------
-
-  if (state["auto"].is<bool>()) {
-    app.setAutoState(state["auto"].as<bool>());
+  if (state["ssl"].is<const char*>()) {
+    app.setScannerStatusLabelText(state["ssl"].as<const char*>());
+  }
+  if (state["sl"].is<const char*>()) {
+    // Do the same here
+    app.setStatusLabelText(state["sl"].as<const char*>());
   }
 
-  // ----------------------------------------------------
-  // MOTOR SPEED
-  // ----------------------------------------------------
-
-  if (state["speed"].is<int>() || state["speed"].is<long>() ||
-      state["speed"].is<float>()) {
-    app.setUserSpeed(state["speed"].as<int>());
+  if (state["s"].is<int>()) {
+    app.setScannerMode(static_cast<ScannerMode>(state["s"].as<int>()));
   }
 
-  // ----------------------------------------------------
-  // RAMP
-  //
-  // JSON uses seconds.
-  // Internal command uses milliseconds.
-  // ----------------------------------------------------
+  if (state["1"].is<bool>()) {
+    app.setLed1State(state["1"].as<bool>());
+  }
 
-  if (state["ramp"].is<int>() || state["ramp"].is<long>() ||
-      state["ramp"].is<float>()) {
-    float rampSeconds = state["ramp"].as<float>();
+  if (state["2"].is<bool>()) {
+    app.setLed2State(state["2"].as<bool>());
+  }
+
+  if (state["a"].is<bool>()) {
+    app.setAutoState(state["a"].as<bool>());
+  }
+
+  if (state["p"].is<int>() || state["p"].is<long>() || state["p"].is<float>()) {
+    app.setUserSpeed(state["p"].as<int>());
+  }
+
+  if (state["r"].is<int>() || state["r"].is<long>() || state["r"].is<float>()) {
+    float rampSeconds = state["r"].as<float>();
 
     if (rampSeconds < 0.0f) {
       rampSeconds = 0.0f;
@@ -76,34 +77,26 @@ void getStateFromJson(JsonDocument& doc) {
 
     app.setRampTime(static_cast<int>(rampSeconds * 1000.0f));
   }
-
-  // ----------------------------------------------------
-  // AUDIO
-  // ----------------------------------------------------
-
-  // if (state["audio"].is<bool>()) {
-  //   app.setAudioState(state["audio"].as<bool>());
-  // }
+  if (state["aa"].is<bool>()) {
+    app.setAmbianceAudioMode(state["aa"].as<bool>());
+  }
 }
 
 void getJsonFromState(JsonDocument& doc) {
-  // ----------------------------------------------------
-  // STATE
-  // ----------------------------------------------------
+  JsonObject state = doc["state"].to<JsonObject>();
+  state["cur"] = app.getCurrentUid().toString();
+  state["dest"] = app.getDestinationUid().toString();
+  state["pf"] = app.getPathFinderStatusText();
+  state["ssl"] = app.getScannerStatusLabelText();
+  state["sl"] = app.getStatusLabelText();
+  state["s"] = app.getScannerMode();
+  state["1"] = app.getLed1State();
+  state["2"] = app.getLed2State();
+  state["a"] = app.getAutoState();
+  state["p"] = app.getUserSpeed();
+  state["r"] = app.getRampTime() / 1000.0f;
+  state["aa"] = app.getAmbianceAudioMode();
 
-  JsonObject stateDoc = doc["state"].to<JsonObject>();
-  stateDoc["scannerMode"] = app.getScannerMode();
-  stateDoc["led1"] = app.getLed1State();
-  stateDoc["led2"] = app.getLed2State();
-  stateDoc["auto"] = app.getAutoState();
-  stateDoc["speed"] = app.getUserSpeed();
-  stateDoc["ramp"] = app.getRampTime() / 1000.0f;
-  // stateDoc["audio"] = app.getAudioState();
-
-  // ----------------------------------------------------
-  // TRACK MAP
-  // ----------------------------------------------------
-  // todo maybe store trackmap in appstate?
   JsonDocument mapDoc;
   trackMap.mapToJson(mapDoc);
 
@@ -115,13 +108,11 @@ void getJsonFromState(JsonDocument& doc) {
   if (const Track* track = app.getTemplateTrack()) {
     track->toJson(templateTrackDoc);
   }
-
-  // serializeJsonPretty(doc, Serial);
 }
 
 void getStateFromCondensedJson(JsonDocument& doc) {
-  // Serial.println("=== getStateFromCondensedJson INPUT ===");
-  // serializeJsonPretty(doc, Serial);
+  Serial.println("=== getStateFromCondensedJson INPUT ===");
+  serializeJsonPretty(doc, Serial);
   JsonObject state = doc["state"].as<JsonObject>();
   // TODO returning null? why
   JsonArray addTracks = doc["addTracks"].as<JsonArray>();
@@ -225,6 +216,7 @@ void getCondensedJsonFromState(JsonDocument& doc) {
   JsonArray removeUid = doc["removeUid"].to<JsonArray>();
 
   trackMap.mapToCondensedJson(addTracks, removeUid);
+  trackMap.updatePastTracks();
   // Serial.println("stateJson");
   // pastTracks = trackMap.getTracks();
 

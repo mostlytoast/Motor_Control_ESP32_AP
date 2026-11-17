@@ -30,6 +30,7 @@ class AppState {
     scannerMode = NORMAL;
     previousScanMode = scannerMode;
     currentTracks = {};
+
     initDefaults();
   }
 
@@ -163,11 +164,14 @@ class AppState {
   }
   TrackType getPreviousSelectedTrackType() { return previousSelectedTrackType; }
 
-  void setPastTracks(const Tracks& pastTracks_) { pastTracks = pastTracks_; }
+  void setPastTracks(const Tracks pastTracks_) {
+    pastTracks = pastTracks_;
+    hasPastTracks = true;
+  }
 
-  Tracks& getPastTracks() { return pastTracks; }
+  Tracks getPastTracks() { return pastTracks; }
 
-  const Tracks& getPastTracks() const { return pastTracks; }
+  const Tracks getPastTracks() const { return pastTracks; }
 
   Tracks* getCurrentTracks() { return &currentTracks; }
 
@@ -243,6 +247,10 @@ class AppState {
     currentTracks.clear();
     currentTracks = {};
 
+    pastTracks.clear();
+    pastTracks = {};
+    hasPastTracks = false;
+
     // display status label
     statusLabelText = "";
 
@@ -300,6 +308,7 @@ class AppState {
   TrackType previousSelectedTrackType;
 
   Tracks pastTracks;
+  bool hasPastTracks = false;
 
   Tracks currentTracks;
 

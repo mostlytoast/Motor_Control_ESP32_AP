@@ -67,29 +67,37 @@ class Tag {
   }
 
   bool operator==(const Tag& other) const {
-    if (!uid.equals(other.getUid())) return false;
-    if (!connectedTagUid.equals(other.getConnectedTagUid())) return false;
-    if (point != other.getPoint()) return false;
+    if (!uid.equals(other.getUid())) {
+      return false;
+    }
+    if (!connectedTagUid.equals(other.getConnectedTagUid())) {
+      return false;
+    }
+    if (point != other.getPoint()) {
+      return false;
+    }
 
     return true;
   }
 
   bool fromJson(JsonObject& obj) {
-    // Reset existing state before loading.
     internalConnectedTagUids.clear();
 
-    const char* uidString = obj["uid"] | "";
-    const char* connectedTagUidString = obj["connectedTagUid"] | "";
-    const char* pointString = obj["point"] | "";
-    if (strcmp(uidString, "") | strcmp(connectedTagUidString, "") |
-        strcmp(pointString, "")) {
+    if (obj["uid"].is<const char*>()) {
+      const char* uidString = obj["uid"] | "";
+      uid.fromString(uidString);
+    } else {
       return false;
     }
-    uid.fromString(uidString);
-    connectedTagUid.fromString(connectedTagUidString);
-    point.fromString(pointString);
+    if (obj["connectedTagUid"].is<const char*>()) {
+      const char* connectedTagUidString = obj["cu"] | "";
+      connectedTagUid.fromString(connectedTagUidString);
+    }
 
     if (!uid.isValid()) {
+      return false;
+    }
+    if (!obj["internalConnectedTagUids"].is<JsonArrayConst>()) {
       return false;
     }
     JsonArrayConst array = obj["internalConnectedTagUids"].as<JsonArrayConst>();
@@ -111,8 +119,9 @@ class Tag {
     }
 
     obj["uid"] = uid.toString();
-    obj["connectedTagUid"] = connectedTagUid.toString();
-    obj["point"] = point.toString();
+    if (connectedTagUid.isValid()) {
+      obj["connectedTagUid"] = connectedTagUid.toString();
+    }
 
     JsonArray connectionArray = obj["internalConnectedTagUids"].to<JsonArray>();
 
@@ -132,10 +141,6 @@ class Tag {
     if (obj["cu"].is<const char*>()) {
       const char* connectedTagUidString = obj["cu"] | "";
       connectedTagUid.fromString(connectedTagUidString);
-      // Serial.println("added connecting tag");
-      // Serial.println(connectedTagUid.toString());
-
-      // is optional
     }
 
     if (!uid.isValid()) {
@@ -211,5 +216,3 @@ class Tag {
 };
 
 #endif  // TAG_HPP
-
-

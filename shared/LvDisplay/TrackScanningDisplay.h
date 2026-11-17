@@ -28,6 +28,9 @@ class TrackScanningDisplay {
 
  private:
   lv_obj_t* root_;
+
+  lv_obj_t* grid_cont;
+  lv_obj_t* hide_button_;
   lv_obj_t* scan_status_label_;
   lv_obj_t* btn_register_;
   lv_obj_t* btn_write_;
@@ -35,7 +38,6 @@ class TrackScanningDisplay {
   lv_obj_t* btn_normal_;
   lv_obj_t* list_tracks_;
   lv_obj_t* list_tracks_options_ = nullptr;
-  lv_obj_t* hide_button_;
 
   lv_coord_t lastWidth_ = 0;
   lv_coord_t lastHeight_ = 0;
@@ -52,7 +54,7 @@ class TrackScanningDisplay {
   void refreshAndSend();
   void updateStatusLabel();
 
-  SharedDisplayCalls display_;
+  SharedDisplayCalls sharedDisplay;
 
   SendStateToReceiverCallback sendStateToReceiverCallback = nullptr;
   Track templateTrack;

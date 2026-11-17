@@ -9,6 +9,7 @@
 #include "../track/PathFinder.h"
 #include "../track/map.h"
 #include "../utils/AppState.hpp"
+#include "../utils/StateJson.h"
 #include "SharedDisplayCalls.h"
 
 /*
@@ -50,7 +51,6 @@ class LvTrackMap {
                       std::function<void()> sendStateToReceiverCallback_);
   ~LvTrackMap();
 
-
   void setConfig(const Config& config);
 
   const Config& config() const { return config_; }
@@ -83,8 +83,10 @@ class LvTrackMap {
   };
 
   lv_obj_t* hide_button_ = nullptr;
+  lv_obj_t* print_button_ = nullptr;
   lv_obj_t* auto_btn_ = nullptr;
   lv_obj_t* auto_label_ = nullptr;
+  lv_obj_t* grid_cont = nullptr;
   lv_obj_t* root_ = nullptr;
   lv_obj_t* hitBoxLayer_ = nullptr;
 
@@ -98,7 +100,7 @@ class LvTrackMap {
 
   Transform transform_;
 
-  SharedDisplayCalls display_;
+  SharedDisplayCalls sharedDisplay;
 
   SendStateToReceiverCallback sendStateToReceiverCallback = nullptr;
   std::vector<Uid> hitboxUid;
@@ -111,8 +113,6 @@ class LvTrackMap {
 
   Point worldToMap(Point p) const;
 
-
-
   void drawTrack(lv_layer_t* layer, const Track& track, size_t index);
   void createTagHitBox(const Uid destinationUid, const Point point);
 
@@ -124,7 +124,6 @@ class LvTrackMap {
   void drawTags(lv_layer_t* layer, const Track& track) const;
 
   void drawLabel(lv_layer_t* layer, const Track& track, size_t index) const;
-
 
   void drawSegment(lv_layer_t* layer, Point a, Point b, lv_color_t color,
                    uint8_t width) const;

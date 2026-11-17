@@ -1,7 +1,18 @@
 #pragma once
 
+#if defined(BOARD_DEV)
+
 #include "ConfigEsp32.h"
 
+#elif defined(BOARD_S3)
+
+#include "ConfigEsp32s3.h"
+
+#else
+
+#error "No board configuration selected! Define BOARD_A or BOARD_B."
+
+#endif
 
 // change import for audio files here:
 #include "audioFiles/SteamEnginePCM.h"
@@ -22,15 +33,12 @@ constexpr char AP_PASSWORD[] = "12345678";
 //   0  = stopped
 // +255 = full forward
 
-inline  int MIN_PWM = 100;
+inline int MIN_PWM = 100;
 constexpr int MAX_PWM = 255;
 
 // =====================================================
 // CONTROLLERS
 // =====================================================
-
-
-
 
 // =====================================================
 // AUDIO CONFIG

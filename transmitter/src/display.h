@@ -30,8 +30,6 @@ extern XPT2046_Touchscreen touch;
 
 // LVGL OBJECTS
 
-extern lv_obj_t* controllerButton;
-extern lv_obj_t* trackScannerButton;
 extern lv_obj_t* controllerMenu;
 extern lv_obj_t* controllerList;
 extern lv_obj_t* controllerStatus;
@@ -69,7 +67,7 @@ class Display {
   void selectReceiver(Peer* peer);
 
   // HOST WRAPPER
-  SharedDisplayCalls display_;
+  SharedDisplayCalls sharedDisplay;
 };
 
 void displayFlush(lv_display_t* display, const lv_area_t* area,

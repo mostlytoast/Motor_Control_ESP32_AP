@@ -2,38 +2,65 @@
 #define SHARED_DISPLAY_CALLS_H
 
 #include <lvgl.h>
+#include <src/widgets/keyboard/lv_keyboard.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <vector>
-#include <algorithm>
 
-
+// TODO have uniform call structure 
+// int width = 0, int height = 0, int x = 0, int y = 0, 
 class SharedDisplayCalls;
 // Non-templated button binding
 struct ActionBinding {
-  std::function<void()> action;
+  std::function<void(lv_event_t* event)> action;
+  std::function<bool()> getState;
+  std::function<const char*()> getText;
+  // std::function<bool()> getText;
+  // std::function<bool()> getOptions;
   SharedDisplayCalls* owner;
-
-  ActionBinding(std::function<void()> action_, SharedDisplayCalls* owner_)
-      : action(std::move(action_)), owner(owner_) {}
+  lv_obj_t* object;
+  lv_color_t activeColor;
+  lv_color_t inactiveColor;
+  lv_color_t pressedColor;
+  ActionBinding(std::function<void(lv_event_t* event)> action_,
+                std::function<bool()> getState_,
+                std::function<const char*()> getText_,
+                SharedDisplayCalls* owner_, lv_obj_t* object_,
+                lv_color_t activeColor_, lv_color_t inactiveColor_,
+                lv_color_t pressedColor_)
+      : action(std::move(action_)),
+        getState(std::move(getState_)),
+        getText(std::move(getText_)),
+        owner(owner_),
+        object(object_),
+        activeColor(activeColor_),
+        inactiveColor(inactiveColor_),
+        pressedColor(pressedColor_) {}
 };
+
 using ActionBindingPtr = std::unique_ptr<ActionBinding>;
+struct InternalColorConfig {
+  lv_color_t backgroundColor = lv_color_hex(0x101820);
+  lv_color_t labelColor = lv_color_hex(0x003249);
+  lv_color_t textColor = lv_color_hex(0xFFFFFF);
+  lv_color_t inactiveColor = lv_color_hex(0x444444);
+  lv_color_t activeColor = lv_color_hex(0x00AA55);
+  lv_color_t pressedColor = lv_color_hex(0x222222);
+  lv_color_t statusColor = lv_color_hex(0x00FFFF);
+  lv_color_t infoColor = lv_color_hex(0x888888);
+  lv_color_t forwardColor = lv_color_hex(0x0077CC);
+  lv_color_t reverseColor = lv_color_hex(0x0077CC);
+  lv_color_t stopColor = lv_color_hex(0xCC2222);
+  lv_color_t menuHeaderColor = lv_color_hex(0x005577);
+};
 
 class SharedDisplayCalls {
  public:
-  SharedDisplayCalls(uint32_t kColorBackground = 0x101820,
-                     uint32_t kColorButtonOff = 0x444444,
-                     uint32_t kColorButtonOn = 0x00AA55,
-                     uint32_t kColorPressed = 0x222222,
-                     uint32_t kColorText = 0xFFFFFF,
-                     uint32_t kColorStatus = 0x00FFFF,
-                     uint32_t kColorInfo = 0x888888,
-                     // uint32_t kColorForward = 0x0077CC,
-                     // uint32_t kColorReverse = 0x0077CC,
-                     //  uint32_t kColorStop = 0xCC2222,
-                     uint32_t kColorMenuHeader = 0x005577);
+  //  todo need to be able to call this and provide my own color config
+  SharedDisplayCalls();
 
   ~SharedDisplayCalls() = default;
 
@@ -41,47 +68,76 @@ class SharedDisplayCalls {
     postActionCallback_ = std::move(callback_);
   }
 
-  lv_obj_t* createLabel(lv_obj_t* parent, uint32_t normalColor, int x, int y,
-                        lv_part_t part, lv_align_t align, const char* text = "",
+  lv_obj_t* createLabel(lv_obj_t* parent, lv_color_t normalColor, int x = 0,
+                        int y = 0, lv_part_t part = LV_PART_MAIN,
+                        lv_align_t align = LV_ALIGN_CENTER,
+                        const char* text = "",
                         const lv_font_t* value = &lv_font_montserrat_16,
                         lv_style_selector_t selector = LV_PART_MAIN);
-  void setLabelText(lv_obj_t* label, const char* text);
-  // Create a button with any callable action
-  lv_obj_t* createActionButton(lv_obj_t* parent, const char* text, int x, int y,
-                               int width, int height,
-                               std::function<void()> action,
-                               uint32_t normalColor);
+  lv_obj_t* createLabel(lv_obj_t* parent, lv_color_t normalColor, int x = 0,
+                        int y = 0, lv_part_t part = LV_PART_MAIN,
+                        lv_align_t align = LV_ALIGN_CENTER,
+                        std::function<const char*()> getText = nullptr,
+                        const lv_font_t* value = &lv_font_montserrat_16,
+                        lv_style_selector_t selector = LV_PART_MAIN);
 
-  void setButtonState(lv_obj_t* button, bool state);
+  void setLabelText(lv_obj_t* label, const char* text);
+
+  lv_obj_t* createActionButton(
+      lv_obj_t* parent, const char* text,
+      std::function<void(lv_event_t* event)> action, lv_color_t normalColor,
+      std::function<bool()> getState = nullptr,
+      lv_color_t activeColor = lv_color_hex(0x00AA55),
+      lv_color_t inactiveColor = lv_color_hex(0x444444),
+      lv_color_t pressedColor = lv_color_hex(0x222222),
+      lv_color_t textColor = lv_color_hex(0xFFFFFF));
+
+  // Create a button with any callable action
+  lv_obj_t* createActionButton(
+      lv_obj_t* parent, const char* text, int x, int y, int width, int height,
+      std::function<void(lv_event_t* event)> action, lv_color_t normalColor,
+      std::function<bool()> getState = nullptr,
+      lv_color_t activeColor = lv_color_hex(0x00AA55),
+      lv_color_t inactiveColor = lv_color_hex(0x444444),
+      lv_color_t pressedColor = lv_color_hex(0x222222),
+      lv_color_t textColor = lv_color_hex(0xFFFFFF));
+
+  void setButtonState(lv_obj_t* button, bool state, lv_color_t activeColor,
+                      lv_color_t inactiveColor, lv_color_t pressedColor);
   struct DropdownItem {
     const char* text;
-    std::function<void()> action;
+    std::function<void(lv_event_t* event)> action;
   };
 
-  lv_obj_t* createActionDropdown(lv_obj_t* parent, const char* options, int x,
-                                 int y, int width, int height,
-                                 std::vector<std::function<void()>> actions);
+  lv_obj_t* createActionSlider(
+      lv_obj_t* parent, std::function<void(lv_event_t* event)> action,
+      lv_color_t normalColor, int width = 0, int height = 0, int x = 0, int y = 0,  std::function<bool()> getState = nullptr,
+      lv_color_t activeColor = lv_color_hex(0x00AA55),
+      lv_color_t inactiveColor = lv_color_hex(0x444444),
+      lv_color_t pressedColor = lv_color_hex(0x222222));
+
+  lv_obj_t* createActionDropdown(
+      lv_obj_t* parent, const char* options, int x, int y, int width,
+      int height, std::vector<std::function<void(lv_event_t* event)>> actions);
 
   lv_obj_t* createTagHitbox(lv_obj_t* parent, int x, int y, int hitboxRadius,
-                            std::function<void()> action);
+                            std::function<void(lv_event_t* event)> action);
+  lv_obj_t* createEditableTextBox(
+      lv_obj_t* parent, lv_obj_t* keyboard,
+      std::function<const char*(const char* text)> updateText, int x = 0,
+      int y = 0, int width = 0, int height = 0);
+  lv_obj_t* createKeyboard(lv_obj_t* parent, const char* text, int x, int y,
+                           int width, int height);
+
   static void bindingDeleteHandler(lv_event_t* event);
+  void updateStates();
 
  private:
   std::vector<ActionBindingPtr> bindings_;
   std::function<void()> postActionCallback_;
   static void actionHandler(lv_event_t* event);
 
-  uint32_t kColorBackground = 0x101820;
-  uint32_t kColorButtonOff = 0x444444;
-  uint32_t kColorButtonOn = 0x00AA55;
-  uint32_t kColorPressed = 0x222222;
-  uint32_t kColorText = 0xFFFFFF;
-  uint32_t kColorStatus = 0x00FFFF;
-  uint32_t kColorInfo = 0x888888;
-  // uint32_t kColorForward = 0x0077CC;
-  // uint32_t kColorReverse = 0x0077CC;
-  // uint32_t kColorStop = 0xCC2222;
-  uint32_t kColorMenuHeader = 0x005577;
+  InternalColorConfig internalColorConfig;
 };
 
 #endif  // SHARED_DISPLAY_CALLS_H

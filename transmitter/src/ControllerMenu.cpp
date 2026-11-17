@@ -9,6 +9,7 @@
 ControllerMenu::ControllerMenu(lv_obj_t* screen) { createMenu(screen); }
 void ControllerMenu::createMenu(lv_obj_t* screen) {
   root_ = lv_obj_create(screen);
+
   lv_obj_remove_style_all(root_);
 
   lv_obj_set_size(root_, LV_PCT(100), LV_PCT(100));
@@ -19,21 +20,20 @@ void ControllerMenu::createMenu(lv_obj_t* screen) {
 
   // lv_obj_set_scroll_edge(root_, LV_SCROLL_EDGE_NONE);
 
-  lv_obj_set_style_bg_color(root_, lv_color_hex(kColorBackground),
+  lv_obj_set_style_bg_color(root_, lv_color_hex(colorConfig.backgroundColor),
                             LV_PART_MAIN);
 
   lv_obj_set_style_bg_opa(root_, LV_OPA_COVER, LV_PART_MAIN);
-  // lv_obj_set_style_border_color(root_, lv_color_hex(COLOR_STATUS),
+  // lv_obj_set_style_border_color(root_, lv_color_hex(colorConfig.statusColor),
   //                               LV_PART_MAIN);
   // lv_obj_set_style_border_width(root_, 2, LV_PART_MAIN);
 
   lv_obj_set_scrollable(root_, false);
-
+  optionsMenuDisplay_ = new OptionsMenu(root_, [this]() {});
   // Header
   lv_obj_t* header = lv_label_create(root_);
-  lv_label_set_text(header, "SELECT RECEIVER");
-  lv_obj_set_style_text_color(header, lv_color_hex(COLOR_TEXT), LV_PART_MAIN);
-  lv_obj_align(header, LV_ALIGN_TOP_MID, 0, 0);
+  sharedDisplay.createLabel(header, lv_color_hex(colorConfig.textColor), 0, 0,
+                            LV_PART_MAIN, LV_ALIGN_TOP_MID, "SELECT RECEIVER");
 
   list_obj = lv_obj_create(root_);
   // Increase the height (250) to ensure there is room for multiple buttons
@@ -58,8 +58,10 @@ void ControllerMenu::createMenu(lv_obj_t* screen) {
 
   espnowController.setReceiverListNeedsRefresh(true);
 
-  hide_button = display_.createActionButton(
-      root_, "Hide", 215, 27, 100, 25, [this]() { toggle(); }, COLOR_MENU_HEADER);
+  hide_button = sharedDisplay.createActionButton(
+      root_, "Hide", 215, 27, 100, 25, [this](lv_event_t* event) { toggle(); },
+      lv_color_hex(colorConfig.menuHeaderColor));
+
   lv_obj_set_hidden(root_, true);
 }
 
@@ -71,9 +73,10 @@ void ControllerMenu::refreshList() {
 
   // Scan button
 
-  display_.createActionButton(
+  sharedDisplay.createActionButton(
       list_obj, "SCAN / DISCOVER", 220, 30, 250, 40,
-      [this]() { this->scanEvent(nullptr); }, COLOR_SCAN);
+      [this](lv_event_t* event) { this->scanEvent(nullptr); },
+      lv_color_hex(colorConfig.colorScan));
 
   // Receiver buttons
   for (const Peer& peer : espnowController.getPeers()) {
@@ -85,14 +88,16 @@ void ControllerMenu::refreshList() {
     bool selected = peer.getState() == PeerState::ACTIVE;
     snprintf(text, sizeof(text), "%s%s", selected ? "> " : "", peer.getName());
 
-    lv_obj_t* button = display_.createActionButton(
-        list_obj, text, 220, 36, 250, 40,
-        [this, mac]() { this->selectReceiverByMac(mac); }, COLOR_SCAN);
-
-    lv_obj_set_style_bg_color(button,
-                              selected ? lv_color_hex(COLOR_SELECTED)
-                                       : lv_color_hex(COLOR_BUTTON_OFF),
-                              LV_PART_MAIN);
+    lv_obj_t* button = sharedDisplay.createActionButton(
+        list_obj, text, 270, 36, 210, 40,
+        [this, mac](lv_event_t* event) { this->selectReceiverByMac(mac); },
+        lv_color_hex(colorConfig.colorScan),
+        [peer]() { return peer.getState() == PeerState::ACTIVE; });
+    lv_obj_t* settings = sharedDisplay.createActionButton(
+        list_obj, "settings", 220, 36, 40, 40,
+        [this, mac](lv_event_t* event) { optionsMenuDisplay_->toggle(); },
+        lv_color_hex(colorConfig.colorScan),
+        [peer]() { return peer.getState() == PeerState::ACTIVE; });
   }
 
   if (espnowController.getNumberOfReceivers() == 0) {
@@ -100,7 +105,8 @@ void ControllerMenu::refreshList() {
 
     lv_label_set_text(none, "No receivers found");
 
-    lv_obj_set_style_text_color(none, lv_color_hex(COLOR_INFO), LV_PART_MAIN);
+    lv_obj_set_style_text_color(none, lv_color_hex(colorConfig.infoColor),
+                                LV_PART_MAIN);
   }
 }
 
