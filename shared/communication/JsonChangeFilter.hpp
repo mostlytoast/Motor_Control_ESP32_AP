@@ -3,110 +3,191 @@
 
 #include <ArduinoJson.h>
 #include <string.h>
+#include <stdlib.h>
+
 class JsonChangeFilter {
  public:
-  // Compares a new state against the previous state.
-  // Returns only the changed values.
-  static JsonDocument createDelta(JsonVariantConst previous,
-                                  JsonVariantConst current) {
+
+  // Creates a delta containing only changes between two JSON values.
+  static JsonDocument createDelta(
+      JsonVariantConst previous,
+      JsonVariantConst current) {
+
     JsonDocument delta;
 
-    if (!previous.is<JsonObjectConst>() || !current.is<JsonObjectConst>()) {
+    // Currently, the root must be an object.
+    if (!previous.is<JsonObjectConst>() ||
+        !current.is<JsonObjectConst>()) {
       return delta;
     }
 
-    JsonObjectConst oldObj = previous.as<JsonObjectConst>();
-    JsonObjectConst newObj = current.as<JsonObjectConst>();
-
     JsonObject changes = delta.to<JsonObject>();
 
-    for (JsonPairConst pair : newObj) {
+    compareObjects(
+        previous.as<JsonObjectConst>(),
+        current.as<JsonObjectConst>(),
+        changes
+    );
+
+    return delta;
+  }
+
+  // Recursively compares two JSON objects.
+  static void compareObjects(
+      JsonObjectConst previous,
+      JsonObjectConst current,
+      JsonObject changes) {
+
+    // Check for new or modified properties.
+    for (JsonPairConst pair : current) {
+
       const char* key = pair.key().c_str();
 
-      JsonVariantConst oldValue = oldObj[key];
+      JsonVariantConst oldValue = previous[key];
       JsonVariantConst newValue = pair.value();
 
-      // New key: send the entire value.
+      // New property: send the entire value.
       if (oldValue.isUnbound()) {
         changes[key].set(newValue);
         continue;
       }
 
-      // Arrays: only send changed elements.
-      if (newValue.is<JsonArrayConst>() && oldValue.is<JsonArrayConst>()) {
-        JsonArrayConst oldArray = oldValue.as<JsonArrayConst>();
+      // Both are objects: recursively compare.
+      if (oldValue.is<JsonObjectConst>() &&
+          newValue.is<JsonObjectConst>()) {
 
-        JsonArrayConst newArray = newValue.as<JsonArrayConst>();
+        JsonObject nestedChanges = changes[key].to<JsonObject>();
 
-        JsonObject arrayChanges = changes[key].to<JsonObject>();
+        compareObjects(
+            oldValue.as<JsonObjectConst>(),
+            newValue.as<JsonObjectConst>(),
+            nestedChanges
+        );
 
-        bool changed = false;
-
-        for (size_t i = 0; i < newArray.size(); i++) {
-          // New array element.
-          if (i >= oldArray.size()) {
-            arrayChanges[String(i)].set(newArray[i]);
-            changed = true;
-            continue;
-          }
-
-          // Existing element changed.
-          if (newArray[i] != oldArray[i]) {
-            arrayChanges[String(i)].set(newArray[i]);
-            changed = true;
-          }
-        }
-
-        // Array was shortened.
-        if (newArray.size() < oldArray.size()) {
-          arrayChanges["_size"] = newArray.size();
-          changed = true;
-        }
-
-        if (!changed) {
+        // Remove empty deltas.
+        if (nestedChanges.size() == 0) {
           changes.remove(key);
         }
 
         continue;
       }
 
-      // Nested objects: recursively compare.
-      if (newValue.is<JsonObjectConst>() && oldValue.is<JsonObjectConst>()) {
-        JsonDocument nestedDelta = createDelta(oldValue, newValue);
+      // Both are arrays: recursively compare.
+      if (oldValue.is<JsonArrayConst>() &&
+          newValue.is<JsonArrayConst>()) {
 
-        if (!nestedDelta.as<JsonObject>().isNull() &&
-            !nestedDelta.as<JsonObject>().size()) {
-          continue;
-        }
+        JsonObject arrayChanges = changes[key].to<JsonObject>();
 
-        if (nestedDelta.as<JsonObject>().size() > 0) {
-          changes[key].set(nestedDelta.as<JsonObject>());
+        compareArrays(
+            oldValue.as<JsonArrayConst>(),
+            newValue.as<JsonArrayConst>(),
+            arrayChanges
+        );
+
+        if (arrayChanges.size() == 0) {
+          changes.remove(key);
         }
 
         continue;
       }
 
-      // Everything else: compare and send whole value.
-      if (newValue != oldValue) {
+      // Different types or primitive values:
+      // Replace the entire value.
+      if (oldValue != newValue) {
         changes[key].set(newValue);
       }
     }
 
-    // Handle removed top-level keys.
-    for (JsonPairConst pair : oldObj) {
+    // Check for deleted properties.
+    for (JsonPairConst pair : previous) {
+
       const char* key = pair.key().c_str();
 
-      if (newObj[key].isUnbound()) {
+      if (current[key].isUnbound()) {
         changes[key]["_deleted"] = true;
       }
     }
-
-    return delta;
   }
 
-  // Applies a delta to an existing state.
-  static void applyDelta(JsonVariant destination, JsonVariantConst delta) {
-    if (!destination.is<JsonObject>() || !delta.is<JsonObjectConst>()) {
+  // Recursively compares two arrays.
+  static void compareArrays(
+      JsonArrayConst previous,
+      JsonArrayConst current,
+      JsonObject changes) {
+
+    // Compare existing and new elements.
+    for (size_t i = 0; i < current.size(); i++) {
+
+      String index = String(i);
+
+      // New element: send the entire value.
+      if (i >= previous.size()) {
+        changes[index].set(current[i]);
+        continue;
+      }
+
+      JsonVariantConst oldValue = previous[i];
+      JsonVariantConst newValue = current[i];
+
+      // Nested objects.
+      if (oldValue.is<JsonObjectConst>() &&
+          newValue.is<JsonObjectConst>()) {
+
+        JsonObject nestedChanges =
+            changes[index].to<JsonObject>();
+
+        compareObjects(
+            oldValue.as<JsonObjectConst>(),
+            newValue.as<JsonObjectConst>(),
+            nestedChanges
+        );
+
+        if (nestedChanges.size() == 0) {
+          changes.remove(index);
+        }
+
+        continue;
+      }
+
+      // Nested arrays.
+      if (oldValue.is<JsonArrayConst>() &&
+          newValue.is<JsonArrayConst>()) {
+
+        JsonObject nestedChanges =
+            changes[index].to<JsonObject>();
+
+        compareArrays(
+            oldValue.as<JsonArrayConst>(),
+            newValue.as<JsonArrayConst>(),
+            nestedChanges
+        );
+
+        if (nestedChanges.size() == 0) {
+          changes.remove(index);
+        }
+
+        continue;
+      }
+
+      // Primitive or different type.
+      if (oldValue != newValue) {
+        changes[index].set(newValue);
+      }
+    }
+
+    // Handle shortened arrays.
+    if (current.size() < previous.size()) {
+      changes["_size"] = current.size();
+    }
+  }
+
+  // Applies a delta to an existing JSON document.
+  static void applyDelta(
+      JsonVariant destination,
+      JsonVariantConst delta) {
+
+    if (!destination.is<JsonObject>() ||
+        !delta.is<JsonObjectConst>()) {
       return;
     }
 
@@ -114,52 +195,101 @@ class JsonChangeFilter {
     JsonObjectConst changes = delta.as<JsonObjectConst>();
 
     for (JsonPairConst pair : changes) {
+
       const char* key = pair.key().c_str();
       JsonVariantConst change = pair.value();
 
-      // Deleted property.
-      if (change.is<JsonObjectConst>() && change["_deleted"].as<bool>()) {
+      // Property deletion.
+      if (change.is<JsonObjectConst>() &&
+          change["_deleted"].as<bool>()) {
+
         target.remove(key);
         continue;
       }
 
       // Array delta.
-      if (change.is<JsonObjectConst>() && target[key].is<JsonArray>()) {
-        JsonArray array = target[key].as<JsonArray>();
-        JsonObjectConst arrayChanges = change.as<JsonObjectConst>();
+      if (change.is<JsonObjectConst>() &&
+          target[key].is<JsonArray>()) {
 
-        for (JsonPairConst item : arrayChanges) {
-          const char* indexKey = item.key().c_str();
-
-          if (strcmp(indexKey, "_size") == 0) {
-            size_t newSize = item.value().as<size_t>();
-
-            while (array.size() > newSize) {
-              array.remove(array.size() - 1);
-            }
-            continue;
-          }
-
-          size_t index = atoi(indexKey);
-
-          while (array.size() <= index) {
-            array.add(nullptr);
-          }
-
-          array[index].set(item.value());
-        }
+        applyArrayDelta(
+            target[key].as<JsonArray>(),
+            change.as<JsonObjectConst>()
+        );
 
         continue;
       }
 
       // Nested object delta.
-      if (change.is<JsonObjectConst>() && target[key].is<JsonObject>()) {
+      if (change.is<JsonObjectConst>() &&
+          target[key].is<JsonObject>()) {
+
         applyDelta(target[key], change);
         continue;
       }
 
-      // Primitive, new property, or replacement object.
+      // Primitive, new property, or replacement object/array.
       target[key].set(change);
+    }
+  }
+
+  // Applies a delta to an existing array.
+  static void applyArrayDelta(
+      JsonArray target,
+      JsonObjectConst changes) {
+
+    for (JsonPairConst pair : changes) {
+
+      const char* indexKey = pair.key().c_str();
+      JsonVariantConst change = pair.value();
+
+      // Resize array.
+      if (strcmp(indexKey, "_size") == 0) {
+
+        size_t newSize = change.as<size_t>();
+
+        while (target.size() > newSize) {
+          target.remove(target.size() - 1);
+        }
+
+        while (target.size() < newSize) {
+          target.add(nullptr);
+        }
+
+        continue;
+      }
+
+      // Array index.
+      size_t index = atoi(indexKey);
+
+      // Ensure element exists.
+      while (target.size() <= index) {
+        target.add(nullptr);
+      }
+
+      JsonVariant element = target[index];
+
+      // Nested object.
+      if (change.is<JsonObjectConst>() &&
+          element.is<JsonObject>()) {
+
+        applyDelta(element, change);
+        continue;
+      }
+
+      // Nested array.
+      if (change.is<JsonObjectConst>() &&
+          element.is<JsonArray>()) {
+
+        applyArrayDelta(
+            element.as<JsonArray>(),
+            change.as<JsonObjectConst>()
+        );
+
+        continue;
+      }
+
+      // Primitive or replacement value.
+      element.set(change);
     }
   }
 };

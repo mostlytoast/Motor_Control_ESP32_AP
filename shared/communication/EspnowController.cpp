@@ -338,7 +338,9 @@ void EspnowController::ESPNowCheckFailsafe() {
 }
 void EspnowController::processStateChanges() {
   // Todo need to fix peers.getActivePeers() and use it here
+
   for (Peer& peer : peers.getActivePeers()) {  // Changed Peer* to Peer&
+    sendServerState(&peer);
   }
 }
 
@@ -892,10 +894,10 @@ bool EspnowController::sendPairRequest(Peer* peer) {
 void EspnowController::resetDiscover() {
   // Reset receiver list
   Serial.println("resetDiscover");
-  // previousState.clear();
-  // currentState.clear();
-  // hasReceivedInitialState = false;
-  // hasSentInitialState = false;
+  previousState.clear();
+  currentState.clear();
+  hasReceivedInitialState = false;
+  hasSentInitialState = false;
   resetStateCallback();
 
   discoveryActive = true;
