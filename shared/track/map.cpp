@@ -129,15 +129,11 @@ bool TrackMap::connectUid(Uid a, Uid b) {
 }
 
 bool TrackMap::connectTags(Tag* a, Tag* b) {
-  // Serial.print("connecting");
 
   if (!a || !b || a == b) {
     Serial.println("ERROR: Invalid tags");
     return false;
   }
-
-  // Serial.print(a->getUid().toString());
-  // Serial.print(b->getUid().toString());
 
   Track* trackA = app.getCurrentTracks()->findTrackByUid(a->getUid());
   Track* trackB = app.getCurrentTracks()->findTrackByUid(b->getUid());

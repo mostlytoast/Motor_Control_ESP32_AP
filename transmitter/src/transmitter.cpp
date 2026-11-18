@@ -18,29 +18,29 @@ void setup() {
   setupEncoder();
 
   
-  // Uid entrance0("AA:AA:AA:AA:AA:AA:A0");
-  // Uid exit0("AA:AA:AA:AA:AA:AA:B0");
-  // Uid entrance1("AA:AA:AA:AA:AA:AA:A1");
-  // Uid exit1("AA:AA:AA:AA:AA:AA:B1");
-  // Uid entrance2("AA:AA:AA:AA:AA:AA:A2");
-  // Uid exit2("AA:AA:AA:AA:AA:AA:B2");
-  // Uid entrance3("AA:AA:AA:AA:AA:AA:A3");
-  // Uid exit3("AA:AA:AA:AA:AA:AA:B3");
-  // Track* trackA =
-  //     trackMap.createTrack(STRAIGHT, 10, 0, 0, 0, 0, true, entrance0, exit0);
+  Uid entrance0("AA:AA:AA:AA:AA:AA:A0");
+  Uid exit0("AA:AA:AA:AA:AA:AA:B0");
+  Uid entrance1("AA:AA:AA:AA:AA:AA:A1");
+  Uid exit1("AA:AA:AA:AA:AA:AA:B1");
+  Uid entrance2("AA:AA:AA:AA:AA:AA:A2");
+  Uid exit2("AA:AA:AA:AA:AA:AA:B2");
+  Uid entrance3("AA:AA:AA:AA:AA:AA:A3");
+  Uid exit3("AA:AA:AA:AA:AA:AA:B3");
+  Track* trackA =
+      trackMap.createTrack(STRAIGHT, 10, 0, 0, 0, 0, true, entrance0, exit0);
 
-  // Track* trackB =
-  //     trackMap.createTrack(CURVED, 10, 19, 0, 0, 0, true, entrance1, exit1);
+  Track* trackB =
+      trackMap.createTrack(CURVED, 10, 19, 0, 0, 0, true, entrance1, exit1);
 
-  // Track* trackC =
-  //     trackMap.createTrack(STRAIGHT, 10, 0, 0, 0, 0, true, entrance2, exit2);
+  Track* trackC =
+      trackMap.createTrack(STRAIGHT, 10, 0, 0, 0, 0, true, entrance2, exit2);
 
 
-  // trackMap.connectUid(exit0, entrance1);
+  trackMap.connectUid(exit0, entrance1);
 
-  // trackMap.connectUid(exit1, entrance2);
-  // // trackMap.connectUid(exit2, entrance3);
-  // trackMap.calculateMap();
+  trackMap.connectUid(exit1, entrance2);
+  // trackMap.connectUid(exit2, entrance3);
+  trackMap.calculateMap();
 
   // convertToAndFromJson();
 }

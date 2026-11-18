@@ -253,14 +253,8 @@ void EspnowController::processESPNowEvents() {
         if (esp_now_is_peer_exist(mac)) {
           esp_now_del_peer(mac);
         }
-        // if (resetStateCallback) resetStateCallback();
-        resetDiscover();
 
-        // if (wasKnown) {
-        //   app.setStatusLabelText("NO PEER");
-        // } else {
-        //   app.setStatusLabelText("FAIL");
-        // }
+        resetDiscover();
       }
 
       // SEND SUCCESS
@@ -389,11 +383,6 @@ bool EspnowController::sendServerState(Peer* peer) {
 
   send["type"] = CMD_SERVER_STATE;
   send["full"] = isFullUpdate;
-
-  // Debug: inspect exactly what is being transmitted.
-  Serial.println("============== sent ==============");
-  serializeJson(send, Serial);
-  Serial.println();
 
   bool success = sendJsonDocument(peer, send);
 
@@ -814,13 +803,6 @@ bool EspnowController::processReceivedJsonFragment(Peer* peer,
     Serial.println("[STATE] Complete message has no data");
     return true;
   }
-  Serial.println("[STATE] Reassembled JSON:");
-
-  serializeJsonPretty(doc, Serial);
-  Serial.println();
-
-  Serial.println("[STATE] Contains data:");
-  Serial.println(doc.containsKey("data"));
   if (peer->getState() != PeerState::PAIRED &&
       peer->getState() != PeerState::ACTIVE) {
     Serial.println("peer invalid ");
@@ -856,10 +838,6 @@ bool EspnowController::processReceivedJsonFragment(Peer* peer,
     // Merge changes into the existing state.
     JsonChangeFilter::applyDelta(currentState.as<JsonVariant>(), incoming);
   }
-  Serial.println("============== received ==============");
-
-  serializeJsonPretty(currentState, Serial);
-  Serial.println();
 
   getStateFromJsonCallback(currentState);
 
@@ -879,20 +857,12 @@ void EspnowController::sendHeartbeat() {
 
   ESPNowCommand command;
   command.type = CMD_HEARTBEAT;
-  // command.value = 0;
-
-  // The controller sends heartbeats to its active receivers.
-
   for (Peer& peer : peers.getActiveReceiverPeers()) {
-    // Serial.println("sending heartbeat");
-
     sendCommandToPeer(&peer, command);
   }
 }
 validateSelectedPeerState EspnowController::validateSelectedPeer(Peer* peer) {
-  Serial.println("[SELECT] Entered validateSelectedPeer");
   if (peer == nullptr) {
-    Serial.println("[SELECT] ERROR: peer is null");
     return PEER_ERROR;
   }
 
@@ -903,7 +873,6 @@ validateSelectedPeerState EspnowController::validateSelectedPeer(Peer* peer) {
     return PEER_ERROR;
   }
   if (esp_now_is_peer_exist(peer->getMac())) {
-    Serial.println("Peer already registered with ESP-NOW");
     return PASS_CHECK;
   }
   return PASS_CHECK;
@@ -930,10 +899,7 @@ void EspnowController::resetDiscover() {
   // Reset receiver list
   Serial.println("resetDiscover");
 
-  // peers.removePeers();
-
   resetStateCallback();
-  // Start discovery
 
   discoveryActive = true;
 

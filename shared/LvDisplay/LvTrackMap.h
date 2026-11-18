@@ -116,7 +116,9 @@ class LvTrackMap {
 
   void drawTrack(lv_layer_t* layer, const Track& track, size_t index);
   void createTagHitBox(const Uid destinationUid, const Point point);
-
+  void calculatePointsForCurvedOrStraight(const Point entrance,
+                                          const Point exit,
+                                          std::vector<Point>& points) const;
   void drawCurveOrStraight(lv_layer_t* layer, const Point entrance,
                            const Point exit) const;
 

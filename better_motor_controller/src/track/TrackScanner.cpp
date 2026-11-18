@@ -102,7 +102,7 @@ void TrackScanner::processScans() {
   if (app.getScannerMode() == SCANNING_TRACKS &&
       nfcReadResults == NFC_READ_SUCCESS) {
     // app.setScannerStatusLabelText("Nfc tag read");
-    Serial.println("scanning track");
+    // Serial.println("scanning track");
 
     addTrack(uid, tagJson);
     // app.setTargetSpeed(app.getUserSpeed());
@@ -249,7 +249,7 @@ void TrackScanner::addTrack(const Uid& uid, JsonObject& jsonTag) {
     connectionTagUid.clear();
     haveConnectionTag = false;
   }
-  Serial.println("Scanning track");
+  // Serial.println("Scanning track");
 
   if (jsonTag.size() == 0) {
     app.setScannerStatusLabelText("Track scanner failed to add track");

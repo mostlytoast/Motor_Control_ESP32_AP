@@ -111,8 +111,8 @@ void getJsonFromState(JsonDocument& doc) {
 }
 
 void getStateFromCondensedJson(JsonDocument& doc) {
-  Serial.println("=== getStateFromCondensedJson INPUT ===");
-  serializeJsonPretty(doc, Serial);
+  // Serial.println("=== getStateFromCondensedJson INPUT ===");
+  // serializeJsonPretty(doc, Serial);
   JsonObject state = doc["state"].as<JsonObject>();
   // TODO returning null? why
   JsonArray tracks = doc["tracks"].as<JsonArray>();

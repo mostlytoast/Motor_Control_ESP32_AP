@@ -489,7 +489,7 @@ bool JsonAssembler::jsonFragmentToJson(const uint8_t* sourceMac,
 
 bool JsonAssembler::disassembleJson(JsonDocument& doc, uint8_t*& packets,
                                     size_t& totalChunks) {
-  Serial.println("[JsonAssembler] Chunking JSON");
+  // Serial.println("[JsonAssembler] Chunking JSON");
 
   totalChunks = 0;
 
@@ -599,14 +599,14 @@ bool JsonAssembler::disassembleJson(JsonDocument& doc, uint8_t*& packets,
     memcpy(packet + sizeof(header), serializationBuffer + offset, chunkLength);
   }
 
-  Serial.print("[JsonAssembler] JSON length: ");
-  Serial.println(written);
+  // Serial.print("[JsonAssembler] JSON length: ");
+  // Serial.println(written);
 
-  Serial.print("[JsonAssembler] Message ID: ");
-  Serial.println(nextMessageId);
+  // Serial.print("[JsonAssembler] Message ID: ");
+  // Serial.println(nextMessageId);
 
-  Serial.print("[JsonAssembler] Total chunks: ");
-  Serial.println(totalChunks);
+  // Serial.print("[JsonAssembler] Total chunks: ");
+  // Serial.println(totalChunks);
 
   return true;
 }

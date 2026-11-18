@@ -198,8 +198,6 @@ void LvTrackMap::refresh() {
 
     pastTracks = *currentTracks;
     hasPastTracks = true;
-
-    Serial.println("Tracks changed");
   }
   sharedDisplay.updateStates();
 
@@ -212,7 +210,6 @@ void LvTrackMap::refresh() {
 // VIEW / TRANSFORM
 // ============================================================
 void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
-  Serial.println("calculateTransform");
   transform_ = {};
   transform_.scale = 1.0f;
 
@@ -252,31 +249,39 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
     foundGeometry = true;
   };
 
-  constexpr int CURVE_SEGMENTS = 48;
   const Tracks* tracks = app.getCurrentTracks();
 
   if (!tracks) return;
 
   for (const Track& track : *tracks) {
-    Serial.printf("\nTRACK positioned=%d type=%d\n", track.getPositioned(),
-                  track.getTrackType());
-
     if (!track.getPositioned()) continue;
+    if (track.getTrackType() == CURVED) {
+      std::vector<Point> points;
 
+      calculatePointsForCurvedOrStraight(track.getTags()[0].getPoint(),
+                                         track.getTags()[1].getPoint(), points);
+
+      for (int i = 0; i < points.size(); ++i) {
+        includePoint(points[i].getX(), points[i].getY());
+      }
+    } else if (track.getTrackType() == SWITCH) {
+      std::vector<Point> points;
+
+      calculatePointsForCurvedOrStraight(track.getTags()[0].getPoint(),
+                                         track.getTags()[1].getPoint(), points);
+      calculatePointsForCurvedOrStraight(track.getTags()[2].getPoint(),
+                                         track.getTags()[3].getPoint(), points);
+      for (int i = 0; i < points.size(); ++i) {
+        includePoint(points[i].getX(), points[i].getY());
+      }
+    }
     for (const Tag& tag : track.getTags()) {
       const Point& p = tag.getPoint();
-
-      Serial.printf("  TAG: X=%.2f Y=%.2f H=%.2f\n", p.getX(), p.getY(),
-                    p.getHeading());
 
       includePoint(p.getX(), p.getY());
     }
   }
 
-  Serial.printf(
-      "\nWORLD BOUNDS: minX=%.2f maxX=%.2f "
-      "minY=%.2f maxY=%.2f\n",
-      minX, maxX, minY, maxY);
   if (!foundGeometry) {
     return;
   }
@@ -313,11 +318,6 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
   transform_.offsetX = padding + (availableWidth - scaledWidth) * 0.5f;
 
   transform_.offsetY = padding + (availableHeight - scaledHeight) * 0.5f;
-  Serial.printf(
-      "TRANSFORM: found=%d minX=%.2f minY=%.2f "
-      "scale=%.2f offsetX=%.2f offsetY=%.2f\n",
-      foundGeometry, minX, minY, transform_.scale, transform_.offsetX,
-      transform_.offsetY);
 }
 
 LvTrackMap::Point LvTrackMap::worldToMap(Point point) const {
@@ -388,7 +388,6 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
   size_t index = 0;
 
   for (const Track& track : *tracks) {
-    Serial.println("updating tracks");
     self->drawTrack(layer, track, index++);
   }
 }
@@ -399,11 +398,9 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
 void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
                            size_t index) {
   if (!track.getPositioned()) {
-    // Serial.println("track has not been positioned");
-
     return;
   }
-  drawCurveOrStraight(layer, Point(0, 0, 0), Point(10, 10, 0));
+
   switch (track.getTrackType()) {
     case BUMPER:
       drawBumper(layer, track);
@@ -473,9 +470,8 @@ void LvTrackMap::createTagHitBox(const Uid destinationUid, const Point point) {
                                   refreshAndSend();
                                 });
 }
-
-void LvTrackMap::drawCurveOrStraight(lv_layer_t* layer, const Point entrance,
-                                     const Point exit) const {
+void LvTrackMap::calculatePointsForCurvedOrStraight(
+    const Point entrance, const Point exit, std::vector<Point>& points) const {
   constexpr int MIN_SEGMENTS = 4;
   constexpr int MAX_SEGMENTS = 32;
   constexpr float MAX_SEGMENT_LENGTH = 30.0f;
@@ -501,7 +497,8 @@ void LvTrackMap::drawCurveOrStraight(lv_layer_t* layer, const Point entrance,
 
   // Parallel normals indicate a straight track.
   if (fabsf(denominator) < 0.0001f) {
-    drawSegment(layer, (entrance), (exit), lv_color_hex(0x00FF00), 4);
+    points.emplace_back(entrance);
+    points.emplace_back(exit);
     return;
   }
 
@@ -516,7 +513,8 @@ void LvTrackMap::drawCurveOrStraight(lv_layer_t* layer, const Point entrance,
   const float radius = hypotf(x1 - cx, y1 - cy);
 
   if (radius < 0.001f) {
-    drawSegment(layer, (entrance), (exit), lv_color_hex(0x00FF00), 4);
+    points.emplace_back(entrance);
+    points.emplace_back(exit);
     return;
   }
 
@@ -544,15 +542,23 @@ void LvTrackMap::drawCurveOrStraight(lv_layer_t* layer, const Point entrance,
 
     Point worldPoint(cx + radius * cosf(angle), cy + radius * sinf(angle),
                      0.0f);
-
     Point current = (worldPoint);
-
-    drawSegment(layer, previous, current, lv_color_hex(0x00FF00), 4);
-
+    points.emplace_back(previous);
+    points.emplace_back(current);
     previous = current;
   }
 }
 
+void LvTrackMap::drawCurveOrStraight(lv_layer_t* layer, const Point entrance,
+                                     const Point exit) const {
+  std::vector<Point> points;
+
+  calculatePointsForCurvedOrStraight(entrance, exit, points);
+
+  for (int i = 0; i < points.size(); i+=2) {
+    drawSegment(layer, points[i], points[i+1], lv_color_hex(0x00FF00), 4);
+  }
+}
 // ============================================================
 // BUMPER
 // ============================================================
@@ -790,10 +796,6 @@ void LvTrackMap::drawSegment(lv_layer_t* layer, Point a, Point b,
 
   dsc.p2.x = static_cast<float>(rootArea.x1) + b.getX();
   dsc.p2.y = static_cast<float>(rootArea.y1) + b.getY();
-  Serial.printf("DRAW SEGMENT: (%.2f, %.2f) -> (%.2f, %.2f)\n", a.getX(),
-                a.getY(), b.getX(), b.getY());
-  Serial.printf("ROOT: (%d,%d) SIZE: (%d,%d)\n", rootArea.x1, rootArea.y1,
-                lv_area_get_width(&rootArea), lv_area_get_height(&rootArea));
 
   lv_draw_line(layer, &dsc);
 }
