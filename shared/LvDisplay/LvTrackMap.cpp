@@ -33,6 +33,8 @@ LvTrackMap::LvTrackMap(lv_obj_t* parent,
   lv_obj_set_style_bg_color(root_, lv_color_hex(colorConfig.backgroundColor),
                             LV_PART_MAIN);
   lv_obj_set_style_bg_opa(root_, LV_OPA_COVER, LV_PART_MAIN);
+  // / lv_obj_set_style_bg_color(
+  //     grid_cont, lv_color_hex(colorConfig.backgroundColor), LV_PART_MAIN);
   lv_obj_set_scrollable(root_, false);
 
   installCallbacks();
@@ -43,23 +45,34 @@ LvTrackMap::LvTrackMap(lv_obj_t* parent,
 
   /* Center the container on the screen */
   lv_obj_center(grid_cont);
-  lv_obj_set_style_bg_color(
-      grid_cont, lv_color_hex(colorConfig.backgroundColor), LV_PART_MAIN);
+
+  lv_obj_set_style_bg_opa(grid_cont, LV_OPA_TRANSP, LV_PART_MAIN);
+
   static int32_t col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
                               LV_GRID_TEMPLATE_LAST};
 
   /* Define 2 rows: equal height */
   static int32_t row_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
-                              LV_GRID_FR(6), LV_GRID_TEMPLATE_LAST};
+                              LV_GRID_FR(7), LV_GRID_TEMPLATE_LAST};
 
   lv_obj_set_grid_dsc_array(grid_cont, col_dsc, row_dsc);
   lv_obj_set_layout(grid_cont, LV_LAYOUT_GRID);
 
+  count_label_ = sharedDisplay.createLabel(
+      grid_cont, lv_color_hex(colorConfig.statusColor), 8, 53, LV_PART_MAIN,
+      LV_ALIGN_TOP_LEFT, [this]() -> const char* {
+        static char text[32];
+        snprintf(text, sizeof(text), "Tracks: %u",
+                 static_cast<unsigned>(app.getCurrentTracks()->size()));
+        return text;
+      });
+  lv_obj_set_grid_cell(count_label_, LV_GRID_ALIGN_CENTER, 1, 1,
+                       LV_GRID_ALIGN_CENTER, 0, 1);
   hide_button_ = sharedDisplay.createActionButton(
       grid_cont, "Hide", [this](lv_event_t* event) { toggle(); },
       lv_color_hex(colorConfig.menuHeaderColor));
   lv_obj_set_grid_cell(hide_button_, LV_GRID_ALIGN_STRETCH, 0, 1,
-                       LV_GRID_ALIGN_STRETCH, 0, 1);
+                       LV_GRID_ALIGN_STRETCH, 1, 1);
   print_button_ = sharedDisplay.createActionButton(
       grid_cont, "Print",
       [this](lv_event_t* event) {
@@ -70,17 +83,18 @@ LvTrackMap::LvTrackMap(lv_obj_t* parent,
       },
       lv_color_hex(colorConfig.menuHeaderColor));
   lv_obj_set_grid_cell(print_button_, LV_GRID_ALIGN_STRETCH, 1, 1,
-                       LV_GRID_ALIGN_STRETCH, 0, 1);
+                       LV_GRID_ALIGN_STRETCH, 1, 1);
   auto_btn_ = sharedDisplay.createActionButton(
       grid_cont, "Auto", [this](lv_event_t* event) { togglePathFind(); },
-      lv_color_hex(colorConfig.menuHeaderColor));
+      lv_color_hex(colorConfig.menuHeaderColor),
+      [this]() { return app.getScannerMode() == PATH_FINDING; });
   lv_obj_set_grid_cell(auto_btn_, LV_GRID_ALIGN_STRETCH, 2, 1,
-                       LV_GRID_ALIGN_STRETCH, 0, 1);
-  auto_label_ =
-      sharedDisplay.createLabel(grid_cont, lv_color_hex(colorConfig.statusColor), 8,
-                                53, LV_PART_MAIN, LV_ALIGN_TOP_LEFT, "Auto status");
-  lv_obj_set_grid_cell(auto_label_, LV_GRID_ALIGN_STRETCH, 2, 1,
-                       LV_GRID_ALIGN_STRETCH, 2, 1);
+                       LV_GRID_ALIGN_STRETCH, 1, 1);
+  auto_label_ = sharedDisplay.createLabel(
+      grid_cont, lv_color_hex(colorConfig.statusColor), 8, 53, LV_PART_MAIN,
+      LV_ALIGN_TOP_LEFT, "Auto status");
+  lv_obj_set_grid_cell(auto_label_, LV_GRID_ALIGN_CENTER, 2, 1,
+                       LV_GRID_ALIGN_CENTER, 2, 1);
 
   hitBoxLayer_ = lv_obj_create(grid_cont);
 
@@ -187,6 +201,7 @@ void LvTrackMap::refresh() {
 
     Serial.println("Tracks changed");
   }
+  sharedDisplay.updateStates();
 
   if (root_) {
     lv_obj_invalidate(root_);
@@ -197,7 +212,7 @@ void LvTrackMap::refresh() {
 // VIEW / TRANSFORM
 // ============================================================
 void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
-  // Serial.println("calculateTransform");
+  Serial.println("calculateTransform");
   transform_ = {};
   transform_.scale = 1.0f;
 
@@ -238,63 +253,30 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
   };
 
   constexpr int CURVE_SEGMENTS = 48;
-
   const Tracks* tracks = app.getCurrentTracks();
 
+  if (!tracks) return;
+
   for (const Track& track : *tracks) {
-    if (!track.getPositioned()) {
-      continue;
+    Serial.printf("\nTRACK positioned=%d type=%d\n", track.getPositioned(),
+                  track.getTrackType());
+
+    if (!track.getPositioned()) continue;
+
+    for (const Tag& tag : track.getTags()) {
+      const Point& p = tag.getPoint();
+
+      Serial.printf("  TAG: X=%.2f Y=%.2f H=%.2f\n", p.getX(), p.getY(),
+                    p.getHeading());
+
+      includePoint(p.getX(), p.getY());
     }
-
-    const auto& tags = track.getTags();
-
-    // Include all calculated track points.
-    for (const Tag& tag : tags) {
-      includePoint(tag.getPoint().getX(), tag.getPoint().getY());
-    }
-
-    // // Include the actual geometry of curved tracks.
-    // if (track.getTrackType() != CURVED || tags.empty()) {
-    //   continue;
-    // }
-
-    // const float radius = track.getRadius();
-    // const float length = track.getLength();
-
-    // if (radius <= 0.0f || length <= 0.0f) {
-    //   continue;
-    // }
-
-    // // if (tags.size() < 1) return;
-    // // TODO replace with logic that was used in other calc for straight
-    // const Point& entrance = tags[0].getPoint();
-
-    // const float direction = track.getDirection() ? -1.0f : 1.0f;
-
-    // const float heading = entrance.getHeading() * DEG_TO_RAD_F;
-
-    // const float centerHeading = heading + direction * (M_PI * 0.5f);
-
-    // const float centerX = entrance.getX() + cosf(centerHeading) * radius;
-
-    // const float centerY = entrance.getY() + sinf(centerHeading) * radius;
-
-    // const float startAngle =
-    //     atan2f(entrance.getY() - centerY, entrance.getX() - centerX);
-
-    // const float delta = direction * (length / radius);
-
-    // // Sample the same curve that drawCurve() renders.
-    // for (int segment = 0; segment <= CURVE_SEGMENTS; ++segment) {
-    //   const float t = static_cast<float>(segment) / CURVE_SEGMENTS;
-
-    //   const float angle = startAngle + delta * t;
-
-    //   includePoint(centerX + cosf(angle) * radius,
-    //                centerY + sinf(angle) * radius);
-    // }
   }
 
+  Serial.printf(
+      "\nWORLD BOUNDS: minX=%.2f maxX=%.2f "
+      "minY=%.2f maxY=%.2f\n",
+      minX, maxX, minY, maxY);
   if (!foundGeometry) {
     return;
   }
@@ -331,6 +313,11 @@ void LvTrackMap::calculateTransform(lv_coord_t width, lv_coord_t height) {
   transform_.offsetX = padding + (availableWidth - scaledWidth) * 0.5f;
 
   transform_.offsetY = padding + (availableHeight - scaledHeight) * 0.5f;
+  Serial.printf(
+      "TRANSFORM: found=%d minX=%.2f minY=%.2f "
+      "scale=%.2f offsetX=%.2f offsetY=%.2f\n",
+      foundGeometry, minX, minY, transform_.scale, transform_.offsetX,
+      transform_.offsetY);
 }
 
 LvTrackMap::Point LvTrackMap::worldToMap(Point point) const {
@@ -367,7 +354,6 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
   if (!layer) {
     return;
   }
-
   lv_area_t area;
   lv_obj_get_coords(self->root_, &area);
 
@@ -384,8 +370,10 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
   const bool resized = width != self->lastWidth_ || height != self->lastHeight_;
 
   const bool tracksModified = trackCount != self->lastTrackCount_;
+  self->calculateTransform(width, height);
 
   if (self->transformDirty_ || resized || tracksModified) {
+    Serial.println("called calculate transform");
     self->calculateTransform(width, height);
 
     self->lastWidth_ = width;
@@ -400,17 +388,9 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
   size_t index = 0;
 
   for (const Track& track : *tracks) {
+    Serial.println("updating tracks");
     self->drawTrack(layer, track, index++);
   }
-
-  char countText[24];
-
-  snprintf(countText, sizeof(countText), "Tracks: %u",
-           static_cast<unsigned>(app.getCurrentTracks()->size()));
-  // TODO check angle
-
-  self->drawText(layer, {static_cast<float>(width) / 2.0f, 10.0f, 0.0f},
-                 countText, lv_color_hex(colorConfig.textColor));
 }
 // ============================================================
 // TRACK DRAWING
@@ -423,7 +403,7 @@ void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
 
     return;
   }
-
+  drawCurveOrStraight(layer, Point(0, 0, 0), Point(10, 10, 0));
   switch (track.getTrackType()) {
     case BUMPER:
       drawBumper(layer, track);
@@ -810,6 +790,10 @@ void LvTrackMap::drawSegment(lv_layer_t* layer, Point a, Point b,
 
   dsc.p2.x = static_cast<float>(rootArea.x1) + b.getX();
   dsc.p2.y = static_cast<float>(rootArea.y1) + b.getY();
+  Serial.printf("DRAW SEGMENT: (%.2f, %.2f) -> (%.2f, %.2f)\n", a.getX(),
+                a.getY(), b.getX(), b.getY());
+  Serial.printf("ROOT: (%d,%d) SIZE: (%d,%d)\n", rootArea.x1, rootArea.y1,
+                lv_area_get_width(&rootArea), lv_area_get_height(&rootArea));
 
   lv_draw_line(layer, &dsc);
 }

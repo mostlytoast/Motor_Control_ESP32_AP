@@ -46,13 +46,13 @@ void OptionsMenu::createMenu(lv_obj_t* parent) {
 
   // lv_obj_set_style_bg_color(
   //     grid_cont_, lv_color_hex(colorConfig.backgroundColor), LV_PART_MAIN);
-  static int32_t col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(4),
+  static int32_t col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(2),
                               LV_GRID_TEMPLATE_LAST};
 
   /* Define 2 rows: equal height */
-  static int32_t row_dsc[] = {LV_GRID_FR(2), LV_GRID_FR(1),
-                              LV_GRID_FR(1), LV_GRID_FR(1),
-                              LV_GRID_FR(1),LV_GRID_FR(4), LV_GRID_TEMPLATE_LAST};
+  static int32_t row_dsc[] = {
+      LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
+      LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(5), LV_GRID_TEMPLATE_LAST};
 
   lv_obj_set_grid_dsc_array(grid_cont_, col_dsc, row_dsc);
   lv_obj_set_layout(grid_cont_, LV_LAYOUT_GRID);
@@ -62,44 +62,90 @@ void OptionsMenu::createMenu(lv_obj_t* parent) {
   lv_obj_t* keyboard =
       sharedDisplay.createKeyboard(root_, "", 0, 0, lv_pct(100), lv_pct(60));
   lv_obj_set_hidden(keyboard, true);
-
-  lv_obj_t* min_pwm_ta = sharedDisplay.createEditableTextBox(
-      grid_cont_, keyboard, [this](const char* text) { return "type here"; });
-  lv_obj_set_grid_cell(min_pwm_ta, LV_GRID_ALIGN_STRETCH, 1, 2,
+  lv_obj_t* hide_button = sharedDisplay.createActionButton(
+      grid_cont_, "Hide", 215, 27, 150, 25,
+      [this](lv_event_t* event) { toggle(); },
+      lv_color_hex(colorConfig.menuHeaderColor));
+  lv_obj_set_grid_cell(hide_button, LV_GRID_ALIGN_STRETCH, 1, 0,
                        LV_GRID_ALIGN_STRETCH, 0, 1);
-
-  lv_obj_t* low_audio_offset_ta = sharedDisplay.createActionSlider(
-      grid_cont_, [this](lv_event_t* event) { return false; },
-      lv_color_hex(colorConfig.infoColor));
-  lv_obj_set_grid_cell(low_audio_offset_ta, LV_GRID_ALIGN_STRETCH, 1, 1,
+  //  ============================= MIN PWM =============================
+  lv_obj_t* min_pwm_label = sharedDisplay.createLabel(
+      grid_cont_, lv_color_hex(colorConfig.textColor), 0, 2, LV_PART_MAIN,
+      LV_ALIGN_CENTER, app.getMinPwmLabelLambda);
+  lv_obj_set_grid_cell(min_pwm_label, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 1, 1);
 
-  lv_obj_t* high_audio_offset_ta = sharedDisplay.createActionSlider(
-      grid_cont_, [this](lv_event_t* event) { return false; },
+  lv_obj_t* min_pwm_ta = sharedDisplay.createActionSlider(
+      grid_cont_, app.setMinPwmLambda, app.getMinPwmLambda, 0.0, 255.0,
       lv_color_hex(colorConfig.infoColor));
-  lv_obj_set_grid_cell(high_audio_offset_ta, LV_GRID_ALIGN_STRETCH, 1, 1,
+  lv_obj_set_grid_cell(min_pwm_ta, LV_GRID_ALIGN_STRETCH, 1, 1,
+                       LV_GRID_ALIGN_STRETCH, 1, 1);
+  //  ============================= LOW AUDIO =============================
+
+  lv_obj_t* low_audio_offset_label = sharedDisplay.createLabel(
+      grid_cont_, lv_color_hex(colorConfig.textColor), 0, 2, LV_PART_MAIN,
+      LV_ALIGN_CENTER, app.getLowAudioOffsetLabelLambda);
+  lv_obj_set_grid_cell(low_audio_offset_label, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 2, 1);
 
-  lv_obj_t* ambiance_sound_volume_ta = sharedDisplay.createActionSlider(
-      grid_cont_, [this](lv_event_t* event) { return false; },
-      lv_color_hex(colorConfig.infoColor));
-  lv_obj_set_grid_cell(ambiance_sound_volume_ta, LV_GRID_ALIGN_STRETCH, 1, 1,
+  lv_obj_t* low_audio_offset_ta = sharedDisplay.createActionSlider(
+      grid_cont_, app.setLowAudioOffsetLambda, app.getLowAudioOffsetLambda, 0.0,
+      5.0, lv_color_hex(colorConfig.infoColor));
+  lv_obj_set_grid_cell(low_audio_offset_ta, LV_GRID_ALIGN_STRETCH, 1, 1,
+                       LV_GRID_ALIGN_STRETCH, 2, 1);
+
+  //  ============================= HIGH AUDIO =============================
+
+  lv_obj_t* high_audio_offset_label = sharedDisplay.createLabel(
+      grid_cont_, lv_color_hex(colorConfig.textColor), 0, 2, LV_PART_MAIN,
+      LV_ALIGN_CENTER, app.getHighAudioOffsetLabelLambda);
+  lv_obj_set_grid_cell(high_audio_offset_label, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 3, 1);
-  lv_obj_t* movement_sound_volume = sharedDisplay.createActionSlider(
-      grid_cont_, [this](lv_event_t* event) { return false; },
-      lv_color_hex(colorConfig.infoColor));
-  lv_obj_set_grid_cell(movement_sound_volume, LV_GRID_ALIGN_STRETCH, 1, 1,
+
+  lv_obj_t* high_audio_offset_ta = sharedDisplay.createActionSlider(
+      grid_cont_, app.setHighAudioOffsetLambda, app.getHighAudioOffsetLambda,
+      0.0, 5.0, lv_color_hex(colorConfig.infoColor));
+  lv_obj_set_grid_cell(high_audio_offset_ta, LV_GRID_ALIGN_STRETCH, 1, 1,
+                       LV_GRID_ALIGN_STRETCH, 3, 1);
+  //  ============================= AMBIANCE =============================
+
+  lv_obj_t* ambiance_sound_volume_ta = sharedDisplay.createLabel(
+      grid_cont_, lv_color_hex(colorConfig.textColor), 0, 2, LV_PART_MAIN,
+      LV_ALIGN_CENTER, app.getAmbianceSoundVolumeLabelLambda);
+  lv_obj_set_grid_cell(ambiance_sound_volume_ta, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 4, 1);
+
+  lv_obj_t* ambiance_sound_volume_label = sharedDisplay.createActionSlider(
+      grid_cont_, app.setAmbianceSoundVolumeLambda,
+      app.getAmbianceSoundVolumeLambda, 0.0, 11.0,
+      lv_color_hex(colorConfig.infoColor));
+  lv_obj_set_grid_cell(ambiance_sound_volume_label, LV_GRID_ALIGN_STRETCH, 1, 1,
+                       LV_GRID_ALIGN_STRETCH, 4, 1);
+
+  //  ============================= MOVEMENT =============================
+
+  lv_obj_t* movement_sound_volume_ta = sharedDisplay.createLabel(
+      grid_cont_, lv_color_hex(colorConfig.textColor), 0, 2, LV_PART_MAIN,
+      LV_ALIGN_CENTER, app.getMovementSoundVolumeLabelLambda);
+  lv_obj_set_grid_cell(movement_sound_volume_ta, LV_GRID_ALIGN_STRETCH, 0, 1,
+                       LV_GRID_ALIGN_STRETCH, 5, 1);
+
+  lv_obj_t* movement_sound_volume_label = sharedDisplay.createActionSlider(
+      grid_cont_, app.setMovementSoundVolumeLambda,
+      app.getMovementSoundVolumeLambda, 0.0, 11.0,
+      lv_color_hex(colorConfig.infoColor));
+  lv_obj_set_grid_cell(movement_sound_volume_label, LV_GRID_ALIGN_STRETCH, 1, 1,
+                       LV_GRID_ALIGN_STRETCH, 5, 1);
   lv_obj_set_hidden(root_, true);
-
-
 }
+
 void OptionsMenu::refreshAndSend() {
   refresh();
   if (sendStateToReceiverCallback != nullptr) {
     sendStateToReceiverCallback();
   }
 }
+
 // ============================================================
 // REFRESH
 // ============================================================
@@ -108,6 +154,7 @@ void OptionsMenu::refresh() {
   if (!root_ || lv_obj_is_hidden(root_)) {
     return;
   }
+  sharedDisplay.updateStates();
   if (root_) {
     lv_obj_invalidate(root_);
   }

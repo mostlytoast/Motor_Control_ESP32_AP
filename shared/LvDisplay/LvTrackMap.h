@@ -82,6 +82,7 @@ class LvTrackMap {
     float offsetY = 0.0f;
   };
 
+  lv_obj_t* count_label_ = nullptr;
   lv_obj_t* hide_button_ = nullptr;
   lv_obj_t* print_button_ = nullptr;
   lv_obj_t* auto_btn_ = nullptr;

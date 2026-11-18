@@ -3,7 +3,7 @@
 
 #include <lvgl.h>
 
-#include "../../shared/utils/AppState.hpp"  // Assuming this exists
+#include "../utils/AppState.hpp"    // Assuming this exists
 #include "SharedDisplayCalls.h"
 
 class OptionsMenu {
@@ -21,7 +21,6 @@ class OptionsMenu {
   SendStateToReceiverCallback sendStateToReceiverCallback = nullptr;
 
   SharedDisplayCalls sharedDisplay;
-
   lv_obj_t* root_;       // The main container
   lv_obj_t* grid_cont_;  // The main container
 };

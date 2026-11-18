@@ -208,11 +208,10 @@ static bool initTouch() {
 void Display::setupDisplay() {
   if (!espnowController.setupESPNow(
           getCondensedJsonFromStateTransmitter, getStateFromCondensedJson,
-          [this]() { this->reset(); }, true)) {
+          [this]() { this->reset(); },
+          [this]() { trackMap.updatePastTracks(); }, true)) {
     app.setStatusLabelText("ERROR");
   }
-
-  // setupEncoder();
 
   app.setTargetSpeed(0);
   app.setRampTime(0);
@@ -304,8 +303,8 @@ void Display::createUI() {
   // Initialize motor controls.
   // Keep the original screen argument.
 
-  lv_obj_t* mainGrid =  gDisplayController->init(screen);
-  if (!mainGrid){
+  lv_obj_t* mainGrid = gDisplayController->init(screen);
+  if (!mainGrid) {
     Serial.println("failed to get main grid");
     return;
   }
@@ -336,14 +335,19 @@ void Display::createUI() {
       mainGrid, lv_color_hex(colorConfig.statusColor), 0, 0, LV_PART_MAIN,
       LV_ALIGN_CENTER, [this]() -> const char* {
         if (!app.getStatusLabelText().equals("")) {
-          return app.getStatusLabelText().c_str();
+          static char text[32];
+
+          std::snprintf(text, sizeof(text), "%s",
+                        app.getStatusLabelText().c_str());
+
+          return text;
         }
 
-        return "NO PEERS";
+        return "NO PEER";
       });
 
-  lv_obj_set_grid_cell(statusLabel_, LV_GRID_ALIGN_STRETCH, 2, 1,
-                       LV_GRID_ALIGN_STRETCH, 2, 1);
+  lv_obj_set_grid_cell(statusLabel_, LV_GRID_ALIGN_CENTER, 2, 1,
+                       LV_GRID_ALIGN_CENTER, 2, 1);
   lv_obj_move_foreground(controllerButton);
   lv_obj_move_to_index(controllerButton, -1);
   lv_obj_move_to_index(statusLabel_, -1);
@@ -355,7 +359,13 @@ void Display::createUI() {
 // REFRESH
 // ============================================================
 
+unsigned long lastRefresh = 0;
+
+const unsigned long refreshWaitTime = 10;
+
 void Display::refresh() {
+  // sharedDisplay.updateStates();
+
   // Serial.print("Free Heap: ");
   // Serial.println(ESP.getFreeHeap());
 
@@ -375,7 +385,12 @@ void Display::refresh() {
 
   delay(sleepTime);
 
-  gDisplayController->refresh();
+  if ((millis() - lastRefresh) > refreshWaitTime) {
+    sharedDisplay.updateStates();
+    controllerMenuInstance->refresh();
+    gDisplayController->refresh();
+    lastRefresh = millis();
+  }
 }
 
 // ============================================================

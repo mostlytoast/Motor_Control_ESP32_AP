@@ -8,8 +8,8 @@
 #include "../../../shared/track/map.h"
 #include "../../../shared/utils/AppState.hpp"
 #include "../../../shared/utils/uidLogic.h"
-#include "../hardware/NFC.h"
 #include "../Config.h"
+#include "../hardware/NFC.h"
 
 class TrackScanner {
  public:
@@ -25,6 +25,7 @@ class TrackScanner {
   void processSerial();
 
  private:
+ bool nfcEnabled = false;
   TrackMap& trackMap;
   NFC nfc;
 

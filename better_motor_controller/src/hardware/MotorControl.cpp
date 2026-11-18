@@ -53,7 +53,7 @@ void updateMotorRamp() {
   // ===================================================
   // Target changed
   // ===================================================
-
+  
   if (app.getTargetSpeed() != app.getLastTargetSpeed()) {
     // Remember starting speed
     app.setRampStartSpeed((int)app.getCurrentSpeed());

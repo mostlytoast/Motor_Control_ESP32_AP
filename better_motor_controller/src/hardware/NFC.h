@@ -27,7 +27,7 @@ enum NFCWriteResult {
 class NFC {
  public:
   NFC();
-  void setupNFC();
+  bool setupNFC();
 
   NFCWriteResult writeNFC(JsonObject& json, const Uid& uid);
   NFCReadResult readNFC(Uid& uid, JsonObject& tagJson);

@@ -31,44 +31,44 @@ class ControllerMenu {
   ControllerMenu(lv_obj_t* screen);
   ~ControllerMenu() = default;
 
-  /**
-   * @brief Rebuilds the list of buttons based on current discovered peers.
-   * Call this whenever the list needs refreshing.
-   */
-  void refreshList();
+  void refresh() ;
+    /**
+     * @brief Rebuilds the list of buttons based on current discovered peers.
+     * Call this whenever the list needs refreshing.
+     */
+    void refreshList();
 
-  /**
-   * @brief Toggles the visibility of the menu.
-   */
-  void toggle();
+    /**
+     * @brief Toggles the visibility of the menu.
+     */
+    void toggle();
 
- private:
-  // Internal UI Construction
-  void createMenu(lv_obj_t* screen);
+   private:
+    // Internal UI Construction
+    void createMenu(lv_obj_t * screen);
 
-  // Event Handlers
-  // Note: These are static or handled via lambdas to be compatible with LVGL's
-  // C-style callbacks
-  // static void scanEvent_Static(lv_event_t* event);
-  // static void receiverSelectEvent_Static(lv_event_t* event);
+    // Event Handlers
+    // Note: These are static or handled via lambdas to be compatible with
+    // LVGL's C-style callbacks static void scanEvent_Static(lv_event_t* event);
+    // static void receiverSelectEvent_Static(lv_event_t* event);
 
-  // Internal Logic
-  static void scanEvent(lv_event_t* event);
-  void selectReceiverByMac(const uint8_t* mac);
-  // static void receiverSelectEvent(lv_event_t* event);
-  void selectReceiver(Peer* peer);
-  void updateStatus();
+    // Internal Logic
+    static void scanEvent(lv_event_t * event);
+    void selectReceiverByMac(const uint8_t* mac);
+    // static void receiverSelectEvent(lv_event_t* event);
+    void selectReceiver(Peer * peer);
+    void updateStatus();
 
-  // Members
-  lv_obj_t* root_;         // The main container
-  lv_obj_t* list_obj;      // The scrollable list
-  lv_obj_t* status_label;  // The text label for current status
-  lv_obj_t* hide_button;
-  // Internal helper to handle the fact that LVGL callbacks don't easily
-  // support "this" pointers unless wrapped in a static wrapper.
-  OptionsMenu* optionsMenuDisplay_;
-  void handleScan(lv_event_t* event);
-  SharedDisplayCalls sharedDisplay;
-};
+    // Members
+    lv_obj_t* root_;         // The main container
+    lv_obj_t* list_obj;      // The scrollable list
+
+    lv_obj_t* hide_button;
+    // Internal helper to handle the fact that LVGL callbacks don't easily
+    // support "this" pointers unless wrapped in a static wrapper.
+    OptionsMenu* optionsMenuDisplay_;
+    void handleScan(lv_event_t * event);
+    SharedDisplayCalls sharedDisplay;
+  };
 
 #endif  // CONTROLLER_MENU_H

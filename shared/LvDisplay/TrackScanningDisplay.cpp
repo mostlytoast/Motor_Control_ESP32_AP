@@ -56,22 +56,22 @@ TrackScanningDisplay::TrackScanningDisplay(
                        LV_GRID_ALIGN_STRETCH, 1, 1);
   btn_register_ = sharedDisplay.createActionButton(
       grid_cont, "Register", [this](lv_event_t* event) { registerTracks(); },
-      lv_color_hex(colorConfig.inactiveColor));
+      lv_color_hex(colorConfig.inactiveColor), [this]() { return app.getScannerMode() == REGISTER_TRACKS ; });
   lv_obj_set_grid_cell(btn_register_, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 2, 1);
   btn_write_ = sharedDisplay.createActionButton(
       grid_cont, "Write", [this](lv_event_t* event) { writeTracks(); },
-      lv_color_hex(colorConfig.inactiveColor));
+      lv_color_hex(colorConfig.inactiveColor),[this]() { return app.getScannerMode() == WRITING_TRACKS ; });
   lv_obj_set_grid_cell(btn_write_, LV_GRID_ALIGN_STRETCH, 1, 1,
                        LV_GRID_ALIGN_STRETCH, 2, 1);
   btn_scan_ = sharedDisplay.createActionButton(
       grid_cont, "Scan", [this](lv_event_t* event) { scanNewLayout(); },
-      lv_color_hex(colorConfig.inactiveColor));
+      lv_color_hex(colorConfig.inactiveColor),[this]() { return app.getScannerMode() == SCANNING_TRACKS ; });
   lv_obj_set_grid_cell(btn_scan_, LV_GRID_ALIGN_STRETCH, 2, 1,
                        LV_GRID_ALIGN_STRETCH, 2, 1);
   btn_normal_ = sharedDisplay.createActionButton(
       grid_cont, "Normal", [this](lv_event_t* event) { normal(); },
-      lv_color_hex(colorConfig.inactiveColor));
+      lv_color_hex(colorConfig.inactiveColor),[this]() { return app.getScannerMode() == NORMAL ; });
   lv_obj_set_grid_cell(btn_normal_, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 3, 1);
 
@@ -157,8 +157,8 @@ void TrackScanningDisplay::refreshList() {
   if (list_tracks_options_ != nullptr) {
     lv_obj_del_async(list_tracks_options_);
     list_tracks_options_ = nullptr;
-    lv_obj_set_grid_cell(list_tracks_options_, LV_GRID_ALIGN_STRETCH, 2, 1,
-                         LV_GRID_ALIGN_STRETCH, 3, 1);
+    // lv_obj_set_grid_cell(list_tracks_options_, LV_GRID_ALIGN_STRETCH, 2, 1,
+    //                      LV_GRID_ALIGN_STRETCH, 3, 1);
     if (app.getSelectedTrackType() == CURVED &&
         app.getPreviousSelectedTrackType() != CURVED) {
       app.setSelectedTrackType(CURVED);

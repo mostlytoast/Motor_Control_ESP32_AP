@@ -825,7 +825,7 @@ String NFC::readMifareText(const Uid& uid) {
 // NFC SETUP
 // ============================================================================
 
-void NFC::setupNFC() {
+bool NFC::setupNFC() {
   Serial.begin(115200);
 
   Serial.println();
@@ -845,7 +845,7 @@ void NFC::setupNFC() {
     Serial.println();
     Serial.println("ERROR: Didn't find PN53x board!");
 
-    return;
+    return false;
   }
 
   Serial.print("Found PN5");
@@ -869,6 +869,7 @@ void NFC::setupNFC() {
   Serial.println();
   Serial.println("NFC ready.");
   Serial.println("Waiting for Type 2 / NTAG card...");
+  return true;
 }
 
 // ============================================================================

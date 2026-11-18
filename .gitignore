@@ -2,3 +2,5 @@ better_motor_controller/vendor/*
 better_motor_controller/.pio-mcp-workspace/*
 transmitter/.pio-mcp-workspace/*
 .pio-mcp-workspace/*
+better_motor_controller/web/.DS_Store
+*.DS_Store

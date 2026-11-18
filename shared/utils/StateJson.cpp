@@ -115,14 +115,12 @@ void getStateFromCondensedJson(JsonDocument& doc) {
   serializeJsonPretty(doc, Serial);
   JsonObject state = doc["state"].as<JsonObject>();
   // TODO returning null? why
-  JsonArray addTracks = doc["addTracks"].as<JsonArray>();
-  // JsonArray addStations = doc["addStation"].as<JsonArray>();
-  JsonArray removeUid = doc["removeUid"].as<JsonArray>();
+  JsonArray tracks = doc["tracks"].as<JsonArray>();
 
-  if (!addTracks.isNull()) {
+  if (!tracks.isNull()) {
     // Serial.println("convert to map ");
 
-    trackMap.condensedJsonToMap(addTracks, removeUid);
+    trackMap.condensedJsonToMap(tracks);
   }
 
   JsonObject templateTrackDoc = doc["templateTrack"].as<JsonObject>();
@@ -152,7 +150,9 @@ void getStateFromCondensedJson(JsonDocument& doc) {
   if (state["ssl"].is<const char*>()) {
     app.setScannerStatusLabelText(state["ssl"].as<const char*>());
   }
-  if (state["sl"].is<const char*>()) {
+
+  if (state["sl"].is<const char*>() &&
+      strcmp(state["sl"].as<const char*>(), "") != 0) {
     // Do the same here
     app.setStatusLabelText(state["sl"].as<const char*>());
   }
@@ -210,13 +210,13 @@ void getCondensedJsonFromState(JsonDocument& doc) {
   state["p"] = app.getUserSpeed();
   state["r"] = app.getRampTime() / 1000.0f;
   state["aa"] = app.getAmbianceAudioMode();
+  JsonDocument mapDoc;
+  trackMap.mapToCondensedJson(mapDoc);
 
-  JsonArray addTracks = doc["addTracks"].to<JsonArray>();
-  // JsonArray addStations = doc["addStations"].to<JsonArray>();
-  JsonArray removeUid = doc["removeUid"].to<JsonArray>();
+  // mapToJson() already creates the "tracks" property.
+  doc["tracks"] = mapDoc["tracks"];
 
-  trackMap.mapToCondensedJson(addTracks, removeUid);
-  trackMap.updatePastTracks();
+  // trackMap.updatePastTracks();
   // Serial.println("stateJson");
   // pastTracks = trackMap.getTracks();
 

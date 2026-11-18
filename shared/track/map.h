@@ -42,13 +42,8 @@ class TrackMap {
 
   void jsonToMap(JsonArray doc);
   void updatePastTracks();
-  void mapToCondensedJson(JsonArray& addTracksJson,
-                          // JsonArray& addStationsJson,
-                          JsonArray& removeUidsFromMap);
-  void condensedJsonToMap(JsonArray& addTracksJson,
-
-                          // JsonArray& addStationsJson,
-                          JsonArray& removeUidsFromMap);
+  void mapToCondensedJson(JsonDocument& doc);
+  void condensedJsonToMap(JsonArray doc);
   void clearMap();
 
  private:

@@ -22,7 +22,6 @@ lv_obj_t* LvDisplayController::init(lv_obj_t* screen) {
 
   Serial.printf("[DISPLAY] Screen: %p\n", screen_);
 
-  
   trackMapDisplay_ =
       new LvTrackMap(screen_, [this]() { this->sendStateToReceiver(); });
 
@@ -30,6 +29,8 @@ lv_obj_t* LvDisplayController::init(lv_obj_t* screen) {
 
   trackScanningDisplay_ = new TrackScanningDisplay(
       screen_, [this]() { this->sendStateToReceiver(); });
+  lv_obj_set_scrollable(screen_, false);
+
   // lv_obj_set_style_bg_color(screen_,
   // lv_color_hex(colorConfig.backgroundColor),
   //                           LV_PART_MAIN);
@@ -53,8 +54,8 @@ lv_obj_t* LvDisplayController::init(lv_obj_t* screen) {
 
   /* Define 2 rows: equal height */
   static int32_t row_dsc[] = {
-      LV_GRID_FR(1), LV_GRID_FR(2), LV_GRID_FR(2), LV_GRID_FR(6),
-      LV_GRID_FR(6), LV_GRID_FR(6), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
+      LV_GRID_FR(2), LV_GRID_FR(4), LV_GRID_FR(4), LV_GRID_FR(6),
+      LV_GRID_FR(6), LV_GRID_FR(6), LV_GRID_FR(2), LV_GRID_TEMPLATE_LAST};
 
   lv_obj_set_grid_dsc_array(grid_cont, col_dsc, row_dsc);
   lv_obj_set_layout(grid_cont, LV_LAYOUT_GRID);
@@ -62,8 +63,9 @@ lv_obj_t* LvDisplayController::init(lv_obj_t* screen) {
   titleLabel_ = sharedDisplay.createLabel(
       grid_cont, lv_color_hex(colorConfig.textColor), 0, 2, LV_PART_MAIN,
       LV_ALIGN_CENTER, "MOTOR CONTROLS V8");
-  lv_obj_set_grid_cell(titleLabel_, LV_GRID_ALIGN_STRETCH, 1, 1,
-                       LV_GRID_ALIGN_STRETCH, 0, 1);
+
+  lv_obj_set_grid_cell(titleLabel_, LV_GRID_ALIGN_CENTER, 1, 0,
+                       LV_GRID_ALIGN_CENTER, 0, 0);
 
   mapButton_ = sharedDisplay.createActionButton(
       grid_cont, "show Map",
@@ -87,24 +89,16 @@ lv_obj_t* LvDisplayController::init(lv_obj_t* screen) {
 
   speedLabel_ = sharedDisplay.createLabel(
       grid_cont, lv_color_hex(colorConfig.textColor), 8, 53, LV_PART_MAIN,
-      LV_ALIGN_TOP_LEFT, [this]() -> const char* {
-        static char text[32];
-        std::snprintf(text, sizeof(text), "Speed: %d",
-        abs(app.getUserSpeed())); return text;
-      });
-  lv_obj_set_grid_cell(speedLabel_, LV_GRID_ALIGN_STRETCH, 0, 1,
-                       LV_GRID_ALIGN_STRETCH, 2, 1);
+      LV_ALIGN_TOP_LEFT, app.getUserSpeedLabelLambda);
+  lv_obj_set_grid_cell(speedLabel_, LV_GRID_ALIGN_CENTER, 0, 1,
+                       LV_GRID_ALIGN_CENTER, 2, 1);
 
   rampLabel_ = sharedDisplay.createLabel(
       grid_cont, lv_color_hex(colorConfig.textColor), 0, 53, LV_PART_MAIN,
-      LV_ALIGN_TOP_MID, [this]() -> const char* {
-        static char text[32];
-        std::snprintf(text, sizeof(text), "Ramp: %lu",
-                      app.getRampTime() / 1000);
-        return text;
-      });
-  lv_obj_set_grid_cell(rampLabel_, LV_GRID_ALIGN_STRETCH, 1, 1,
-                       LV_GRID_ALIGN_STRETCH, 2, 1);
+      LV_ALIGN_TOP_MID, app.getRampTimeLabelLambda);
+
+  lv_obj_set_grid_cell(rampLabel_, LV_GRID_ALIGN_CENTER, 1, 1,
+                       LV_GRID_ALIGN_CENTER, 2, 1);
   // TODO make this show on top of everything
   // lv_obj_t * top_obj = lv_obj_create(lv_layer_top());
 
@@ -113,6 +107,7 @@ lv_obj_t* LvDisplayController::init(lv_obj_t* screen) {
   forwardButton_ = sharedDisplay.createActionButton(
       grid_cont, "FORWARD",
       [this](lv_event_t* event) {
+        // TODO use the min and max for the lambda
         app.setUserSpeed(clampInt(app.getUserSpeed() + 10, -255, 255));
         sendStateToReceiver();
       },
@@ -185,7 +180,6 @@ lv_obj_t* LvDisplayController::init(lv_obj_t* screen) {
       grid_cont, "AUTO",
       [this](lv_event_t* event) {
         app.setAutoState(!app.getAutoState());
-        app.setStatusLabelText("");
         sendStateToReceiver();
       },
       lv_color_hex(colorConfig.inactiveColor),
@@ -206,8 +200,8 @@ lv_obj_t* LvDisplayController::init(lv_obj_t* screen) {
   infoLabel_ = sharedDisplay.createLabel(
       grid_cont, lv_color_hex(colorConfig.infoColor), 0, -3, LV_PART_MAIN,
       LV_ALIGN_CENTER, "ESP-NOW");
-  lv_obj_set_grid_cell(infoLabel_, LV_GRID_ALIGN_STRETCH, 1, 1,
-                       LV_GRID_ALIGN_STRETCH, 6, 1);
+  lv_obj_set_grid_cell(infoLabel_, LV_GRID_ALIGN_CENTER, 1, 1,
+                       LV_GRID_ALIGN_CENTER, 6, 1);
 
   // lv_obj_move_to_index(grid_cont, 1);
   applyStateToUi();

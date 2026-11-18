@@ -4,7 +4,9 @@ EspnowController espnowController;
 EspnowController* EspnowController::callbackInstance = nullptr;
 namespace {
 JsonDocument previousState;
-bool previousStateUpdated = false;
+JsonDocument currentState;
+bool hasReceivedInitialState = false;
+bool hasSentInitialState = false;
 }  // namespace
 
 // SETUP
@@ -12,10 +14,12 @@ bool previousStateUpdated = false;
 bool EspnowController::setupESPNow(
     GetJsonFromStateCallback getJsonFromStateCallback_,
     GetStateFromJsonCallback getStateFromJsonCallback_,
-    ResetStateCallback resetStateCallback_, bool wifi) {
+    ResetStateCallback resetStateCallback_,
+    UpdateStateCallback updateStateCallback_, bool wifi) {
   getJsonFromStateCallback = getJsonFromStateCallback_;
   getStateFromJsonCallback = getStateFromJsonCallback_;
   resetStateCallback = resetStateCallback_;
+  updateStateCallback = updateStateCallback_;
 
   callbackInstance = this;
   Serial.println("Initializing ESP-NOW");
@@ -252,11 +256,11 @@ void EspnowController::processESPNowEvents() {
         // if (resetStateCallback) resetStateCallback();
         resetDiscover();
 
-        if (wasKnown) {
-          app.setStatusLabelText("NO PEER");
-        } else {
-          app.setStatusLabelText("FAIL");
-        }
+        // if (wasKnown) {
+        //   app.setStatusLabelText("NO PEER");
+        // } else {
+        //   app.setStatusLabelText("FAIL");
+        // }
       }
 
       // SEND SUCCESS
@@ -269,7 +273,7 @@ void EspnowController::processESPNowEvents() {
 }
 
 void EspnowController::handleUnkownPacket(Peer* peer, EspNowEvent& event) {
-  Serial.printf("Unknown ESP-NOW packet from %s ( %d bytes)",
+  Serial.printf("Unknown ESP-NOW packet from %s ( %d bytes)\n",
                 macToString(peer->getMac()), event.len);
   // TODO unpair
   ESPNowCommand command = {};
@@ -327,6 +331,10 @@ void EspnowController::ESPNowCheckFailsafe() {
       // Remove from your peer manager.
       peers.removePeer(mac);
       recentlyTimedOut = true;
+      previousState = {};
+      currentState = {};
+      hasReceivedInitialState = false;
+      hasSentInitialState = false;
     }
   }
   if (peers.getActiveControllerPeers().size() == 0 && recentlyTimedOut) {
@@ -340,36 +348,62 @@ void EspnowController::processStateChanges() {
   // Todo need to fix peers.getActivePeers() and use it here
   for (Peer& peer : peers.getActivePeers()) {  // Changed Peer* to Peer&
 
-    sendServerState(&peer);
+    if (sendServerState(&peer) && updateStateCallback) {
+      updateStateCallback();
+    }
   }
 }
 
 bool EspnowController::sendServerState(Peer* peer) {
-  JsonDocument fullState;
+  if (peer == nullptr) {
+    return false;
+  }
 
+  JsonDocument fullState;
   getJsonFromStateCallback(fullState);
+
+  // Make sure we actually have a JSON object.
   if (fullState.isNull()) {
     return false;
   }
 
-  if (!previousStateUpdated) {
-    previousState = fullState;  // Ensure previousState is a JsonDocument type
-    previousStateUpdated = true;
-    return false;  // Return false because nothing was sent yet
-  }
-
-  if (previousState == fullState) {
-    return false;
-  }
-
-  previousState = fullState;
-
   JsonDocument send;
-  send["data"] = fullState;
+
+  bool isFullUpdate = !hasSentInitialState;
+
+  if (isFullUpdate) {
+    // First transmission: send everything.
+    send["data"] = fullState;
+
+  } else {
+    // Subsequent transmissions: only send changes.
+    JsonDocument delta = JsonChangeFilter::createDelta(
+        previousState.as<JsonVariantConst>(), fullState.as<JsonVariantConst>());
+
+    if (delta.as<JsonObject>().size() == 0) {
+      return false;
+    }
+
+    send["data"] = delta;
+  }
+
   send["type"] = CMD_SERVER_STATE;
-  return sendJsonDocument(peer, send);
-  send.clear();
-  fullState.clear();
+  send["full"] = isFullUpdate;
+
+  // Debug: inspect exactly what is being transmitted.
+  Serial.println("============== sent ==============");
+  serializeJson(send, Serial);
+  Serial.println();
+
+  bool success = sendJsonDocument(peer, send);
+
+  // Only update our previous state if transmission succeeds.
+  if (success) {
+    previousState.set(fullState);
+    hasSentInitialState = true;
+  }
+
+  return success;
 }
 
 // PEER MANAGEMENT
@@ -549,7 +583,10 @@ bool EspnowController::sendJsonDocument(Peer* peer, JsonDocument& doc) {
       uint8_t* packet = packets + (i * JSON_FRAGMENT_PACKET_SIZE);
 
       memcpy(command.data, packet, JSON_FRAGMENT_PACKET_SIZE);
+      Serial.println("sending CMD_SERVER_STATE");
       if (!sendCommandToPeer(peer, command)) {
+        Serial.println("failed sending CMD_SERVER_STATE");
+
         free(packets);
         return false;
       }
@@ -657,18 +694,12 @@ bool EspnowController::sendControllerClaim(Peer* peer) {
 
   ESPNowCommand command = {};
   command.type = CMD_CONTROLLER_CLAIM;
-  // TODO does not copy full name
-  if (sizeof(peer->getName()) < sizeof(command.name)) {
-    memcpy(&command.name, peer->getName(), sizeof(peer->getName()));
-  } else {
-    memcpy(&command.name, peer->getName(), sizeof(command.name));
-  }
+  snprintf(command.name, sizeof(command.name), "%s", peer->getName());
   // command.value = 0;
   return sendCommandToPeer(peer, command);
 }
 
 bool EspnowController::sendCommandToPeer(Peer* peer, ESPNowCommand command) {
-  // Serial.println("sending");
   if (peer == nullptr || peer->getMac() == nullptr) {
     Serial.println("Invalid peer pointer or MAC");
     return false;
@@ -741,8 +772,9 @@ bool EspnowController::processReceivedControllerBinaryPacket(
 
     if (!sendControllerClaim(peer)) {
       Serial.println("Failed to send controller claim");
+      resetDiscover();
+      // if (resetStateCallback) resetStateCallback();
     }
-    if (resetStateCallback) resetStateCallback();
 
     Serial.println("Successfully sent controller claim");
     return true;
@@ -759,40 +791,81 @@ bool EspnowController::processReceivedJsonFragment(Peer* peer,
     return false;
   }
 
-  // DISCOVERY RESPONSE - UPDATED TO UPDATE LAST SEEN
-
   ESPNowCommand command = {};
   memcpy(&command, data, sizeof(command));
 
-  if (command.type == CMD_SERVER_STATE) {
-    JsonDocument doc;
+  if (command.type != CMD_SERVER_STATE) {
+    return false;
+  }
 
-    if (!jsonAssembler.jsonFragmentToJson(peer->getMac(), command.data,
-                                          sizeof(command.data), doc)) {
-      doc.clear();
-      return false;
-    }
+  JsonDocument doc;
 
-    if (peer == nullptr || (peer->getState() != PeerState::PAIRED &&
-                            peer->getState() != PeerState::ACTIVE)) {
-      doc.clear();
-      return false;
-    }
+  if (!jsonAssembler.jsonFragmentToJson(peer->getMac(), command.data,
+                                        sizeof(command.data), doc)) {
+    Serial.println("failed to fragment");
+    return false;
+  }
+  if (doc.isNull()) {
+    Serial.println("[STATE] Waiting for remaining fragments");
+    return true;  // Packet handled, not an unknown packet!
+  }
 
-    peer->setLastSeen(millis());
-
-    JsonDocument stateData = doc["data"];
-
-    if (!stateData.isNull()) {
-      getStateFromJsonCallback(stateData);
-    }
-    stateData.clear();
-    doc.clear();
-
+  if (doc["data"].isNull()) {
+    Serial.println("[STATE] Complete message has no data");
     return true;
   }
-  return false;
+  Serial.println("[STATE] Reassembled JSON:");
+
+  serializeJsonPretty(doc, Serial);
+  Serial.println();
+
+  Serial.println("[STATE] Contains data:");
+  Serial.println(doc.containsKey("data"));
+  if (peer->getState() != PeerState::PAIRED &&
+      peer->getState() != PeerState::ACTIVE) {
+    Serial.println("peer invalid ");
+
+    return false;
+  }
+
+  peer->setLastSeen(millis());
+
+  JsonVariantConst incoming = doc["data"];
+
+  if (incoming.isNull()) {
+    Serial.println("data invalid ");
+
+    return false;
+  }
+
+  bool isFullUpdate = doc["full"] | false;
+
+  if (isFullUpdate) {
+    // Replace the entire existing state.
+    currentState.set(incoming);
+
+    hasReceivedInitialState = true;
+
+  } else {
+    if (!hasReceivedInitialState) {
+      Serial.println(
+          "[STATE] Delta received before initial full state. Ignoring.");
+      return true;
+    }
+
+    // Merge changes into the existing state.
+    JsonChangeFilter::applyDelta(currentState.as<JsonVariant>(), incoming);
+  }
+  Serial.println("============== received ==============");
+
+  serializeJsonPretty(currentState, Serial);
+  Serial.println();
+
+  getStateFromJsonCallback(currentState);
+
+  return true;
 }
+
 void EspnowController::sendHeartbeat() {
   static unsigned long lastHeartbeat = 0;
 

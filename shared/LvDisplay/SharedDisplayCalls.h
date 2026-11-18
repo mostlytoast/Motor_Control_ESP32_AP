@@ -2,7 +2,7 @@
 #define SHARED_DISPLAY_CALLS_H
 
 #include <lvgl.h>
-#include <src/widgets/keyboard/lv_keyboard.h>
+// #include <src/widgets/keyboard/lv_keyboard.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -10,8 +10,8 @@
 #include <memory>
 #include <vector>
 
-// TODO have uniform call structure 
-// int width = 0, int height = 0, int x = 0, int y = 0, 
+// TODO have uniform call structure
+// int width = 0, int height = 0, int x = 0, int y = 0,
 class SharedDisplayCalls;
 // Non-templated button binding
 struct ActionBinding {
@@ -42,6 +42,22 @@ struct ActionBinding {
 };
 
 using ActionBindingPtr = std::unique_ptr<ActionBinding>;
+
+struct ActionBindingSlider {
+  std::function<void(float value)> action;
+  std::function<float()> getState;
+  SharedDisplayCalls* owner;
+  lv_obj_t* object;
+  ActionBindingSlider(std::function<void(float value)> action_,
+                      std::function<float()> getState_,
+                      SharedDisplayCalls* owner_, lv_obj_t* object_)
+      : action(std::move(action_)),
+        getState(std::move(getState_)),
+        owner(owner_),
+        object(object_) {}
+};
+
+using ActionBindingSliderPtr = std::unique_ptr<ActionBindingSlider>;
 struct InternalColorConfig {
   lv_color_t backgroundColor = lv_color_hex(0x101820);
   lv_color_t labelColor = lv_color_hex(0x003249);
@@ -110,8 +126,9 @@ class SharedDisplayCalls {
   };
 
   lv_obj_t* createActionSlider(
-      lv_obj_t* parent, std::function<void(lv_event_t* event)> action,
-      lv_color_t normalColor, int width = 0, int height = 0, int x = 0, int y = 0,  std::function<bool()> getState = nullptr,
+      lv_obj_t* parent, std::function<void(float value)> action,
+      std::function<float()> getState, float min, float max, lv_color_t normalColor,
+      int width = 0, int height = 0, int x = 0, int y = 0,
       lv_color_t activeColor = lv_color_hex(0x00AA55),
       lv_color_t inactiveColor = lv_color_hex(0x444444),
       lv_color_t pressedColor = lv_color_hex(0x222222));
@@ -134,8 +151,10 @@ class SharedDisplayCalls {
 
  private:
   std::vector<ActionBindingPtr> bindings_;
+  std::vector<ActionBindingSliderPtr> bindingsSlider_;
   std::function<void()> postActionCallback_;
   static void actionHandler(lv_event_t* event);
+  static void actionHandlerSlider(lv_event_t* event);
 
   InternalColorConfig internalColorConfig;
 };

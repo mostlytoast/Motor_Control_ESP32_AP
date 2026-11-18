@@ -19,6 +19,26 @@ void SharedDisplayCalls::actionHandler(lv_event_t* event) {
   }
 }
 
+void SharedDisplayCalls::actionHandlerSlider(lv_event_t* event) {
+  auto* binding =
+      static_cast<ActionBindingSlider*>(lv_event_get_user_data(event));
+  // todo maybe flip action and getState
+  if (!binding || !binding->action || !binding->owner) {
+    return;
+  }
+
+  if (lv_event_get_code(event) != LV_EVENT_VALUE_CHANGED) {
+    return;
+  }
+
+  float value = static_cast<float>(lv_slider_get_value(binding->object)/10.0f);
+
+  binding->action(value);
+  if (binding->owner->postActionCallback_) {
+    binding->owner->postActionCallback_();
+  }
+}
+
 // todo have way for this and other functions to use align as optional to
 // position? or have no position
 
@@ -115,15 +135,15 @@ lv_obj_t* SharedDisplayCalls::createActionButton(
 }
 
 lv_obj_t* SharedDisplayCalls::createActionSlider(
-    lv_obj_t* parent, std::function<void(lv_event_t* event)> action,
+    lv_obj_t* parent, std::function<void(float value)> action,
+    std::function<float()> getState, float min, float max,
     lv_color_t normalColor, int width, int height, int x, int y,
-    std::function<bool()> getState, lv_color_t activeColor,
-    lv_color_t inactiveColor, lv_color_t pressedColor) {
+    lv_color_t activeColor, lv_color_t inactiveColor, lv_color_t pressedColor) {
   lv_obj_t* slider = lv_slider_create(parent);
 
   lv_obj_set_pos(slider, x, y);
   lv_obj_set_size(slider, width, height);
-
+  lv_slider_set_range(slider, min* 10.0f, max* 10.0f);
   // slider colors
   lv_obj_set_style_bg_color(slider, normalColor,
                             LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -132,15 +152,14 @@ lv_obj_t* SharedDisplayCalls::createActionSlider(
                             LV_PART_MAIN | LV_STATE_PRESSED);
 
   // Create and store callback binding
-  auto binding = std::make_unique<ActionBinding>(
-      std::move(action), getState, nullptr, this, slider, activeColor,
-      inactiveColor, pressedColor);
+  auto binding = std::make_unique<ActionBindingSlider>(std::move(action),
+                                                       getState, this, slider);
 
-  ActionBinding* bindingPtr = binding.get();
+  ActionBindingSlider* bindingPtr = binding.get();
 
-  bindings_.push_back(std::move(binding));
+  bindingsSlider_.push_back(std::move(binding));
 
-  lv_obj_add_event_cb(slider, actionHandler, LV_EVENT_VALUE_CHANGED,
+  lv_obj_add_event_cb(slider, actionHandlerSlider, LV_EVENT_VALUE_CHANGED,
                       bindingPtr);
   lv_obj_add_event_cb(slider, bindingDeleteHandler, LV_EVENT_DELETE,
                       bindingPtr);
@@ -360,6 +379,12 @@ void SharedDisplayCalls::updateStates() {
           binding->getText != nullptr) {
         setLabelText(binding->object, binding->getText());
       }
+    }
+  }
+  for (const auto& binding : bindingsSlider_) {
+    if (lv_obj_check_type(binding->object, &lv_slider_class) &&
+        binding->getState != nullptr) {
+      lv_slider_set_value(binding->object, binding->getState(), LV_ANIM_OFF);
     }
   }
 }

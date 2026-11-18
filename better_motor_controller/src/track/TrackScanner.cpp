@@ -3,7 +3,7 @@
 
 // TODO fix issue where if track is scanned it does not get sent to display
 // unless you connect to website
-
+NFC nfc;
 // ============================================================================
 // CONSTRUCTOR
 // ============================================================================
@@ -36,7 +36,7 @@ void TrackScanner::begin() {
 
   connectionTagUid.clear();
   haveConnectionTag = false;
-  nfc.setupNFC();
+  nfcEnabled = nfc.setupNFC();
 }
 
 // ============================================================================
@@ -44,7 +44,12 @@ void TrackScanner::begin() {
 // ============================================================================
 
 void TrackScanner::processScans() {
+  // TODO maybe want this else where? or have another var that when present overrides userspeed in motor controls
   app.setTargetSpeed(app.getUserSpeed());
+
+  if (!nfcEnabled) {
+    return;
+  }
   // if (app.getScannerMode() == NORMAL) {
   // }
   if (app.getScannerMode() == PATH_FINDING) {
@@ -107,9 +112,12 @@ void TrackScanner::processScans() {
 }
 Uid previousUid;
 void TrackScanner::pathFind() {
+  if (!nfcEnabled) {
+    return;
+  }
   Uid startUid;
   if (!forwardsUid.isValid() && !backwardsUid.isValid()) {
-    Serial.println("No valid uids:");
+    // Serial.println("No valid uids:");
 
     return;
   }

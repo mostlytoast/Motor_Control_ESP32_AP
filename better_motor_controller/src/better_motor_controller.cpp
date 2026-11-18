@@ -7,7 +7,7 @@
 char serialBuffer[SERIAL_BUFFER_SIZE];
 size_t serialBufferLength = 0;
 
-NFC nfc;
+
 TrackMap trackMap;
 TrackScanner trackScanner(trackMap);
 
@@ -84,19 +84,19 @@ void setup() {
 
   LedControl_begin();
 
-  nfc.setupNFC();
 
   setupWifi();
 
   if (!espnowController.setupESPNow(getCondensedJsonFromState,
                                     getStateFromCondensedJson,
-                                    []() { app.reset(); })) {
+                                    []() { app.reset(); }, []() { trackMap.updatePastTracks(); })) {
     app.setStatusLabelText("ERROR");
   }
 
   WebServer_begin();
-
+  
   trackScanner.begin();
+
   Uid emptyUid;
 
   audio.setupAudio();

@@ -11,7 +11,7 @@
 #include "../../shared/utils/StateJson.h"
 #include "hardware/LedControl.h"
 #include "hardware/MotorControl.h"
-#include "hardware/NFC.h"
+
 #include "managers/AudioManager.h"
 #include "managers/WifiManager.h"
 #include "track/TrackScanner.h"

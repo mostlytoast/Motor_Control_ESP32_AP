@@ -32,8 +32,10 @@ void ControllerMenu::createMenu(lv_obj_t* screen) {
   optionsMenuDisplay_ = new OptionsMenu(root_, [this]() {});
   // Header
   lv_obj_t* header = lv_label_create(root_);
-  sharedDisplay.createLabel(header, lv_color_hex(colorConfig.textColor), 0, 0,
-                            LV_PART_MAIN, LV_ALIGN_TOP_MID, "SELECT RECEIVER");
+  lv_obj_t* title = sharedDisplay.createLabel(
+      header, lv_color_hex(colorConfig.textColor), 0, 0, LV_PART_MAIN,
+      LV_ALIGN_TOP_MID, "SELECT RECEIVER");
+  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 2);
 
   list_obj = lv_obj_create(root_);
   // Increase the height (250) to ensure there is room for multiple buttons
@@ -61,8 +63,25 @@ void ControllerMenu::createMenu(lv_obj_t* screen) {
   hide_button = sharedDisplay.createActionButton(
       root_, "Hide", 215, 27, 100, 25, [this](lv_event_t* event) { toggle(); },
       lv_color_hex(colorConfig.menuHeaderColor));
+  lv_obj_align(hide_button, LV_ALIGN_TOP_MID, 0, 10);
+  lv_obj_t* settings = sharedDisplay.createActionButton(
+      root_, "settings", 215, 27, 150, 25,
+      [this](lv_event_t* event) { optionsMenuDisplay_->toggle(); },
+      lv_color_hex(colorConfig.colorScan), []() { return false; });
+  lv_obj_align(settings, LV_ALIGN_TOP_RIGHT, 0, 10);
 
   lv_obj_set_hidden(root_, true);
+}
+
+void ControllerMenu::refresh() {
+  if (!root_ || lv_obj_is_hidden(root_)) {
+    return;
+  }
+
+  optionsMenuDisplay_->refresh();
+  if (root_) {
+    lv_obj_invalidate(root_);
+  }
 }
 
 void ControllerMenu::refreshList() {
@@ -89,13 +108,8 @@ void ControllerMenu::refreshList() {
     snprintf(text, sizeof(text), "%s%s", selected ? "> " : "", peer.getName());
 
     lv_obj_t* button = sharedDisplay.createActionButton(
-        list_obj, text, 270, 36, 210, 40,
+        list_obj, text, 220, 30, 250, 40,
         [this, mac](lv_event_t* event) { this->selectReceiverByMac(mac); },
-        lv_color_hex(colorConfig.colorScan),
-        [peer]() { return peer.getState() == PeerState::ACTIVE; });
-    lv_obj_t* settings = sharedDisplay.createActionButton(
-        list_obj, "settings", 220, 36, 40, 40,
-        [this, mac](lv_event_t* event) { optionsMenuDisplay_->toggle(); },
         lv_color_hex(colorConfig.colorScan),
         [peer]() { return peer.getState() == PeerState::ACTIVE; });
   }
@@ -165,8 +179,7 @@ void ControllerMenu::selectReceiver(Peer* peer) {
 }
 
 void ControllerMenu::updateStatus() {
-  if (!status_label) return;
-  if (espnowController.hasActiveReceiver()) {
+  if (!espnowController.hasActiveReceiver()) {
     app.setStatusLabelText("NO PEER");
   } else {
     Peer* peer = espnowController.getActiveReceiverPeer();

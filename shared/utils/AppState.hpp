@@ -118,6 +118,19 @@ class AppState {
   int getUserSpeed() const { return userSpeed; }
 
   void setUserSpeed(int speed) { userSpeed = speed; }
+  // std::function<void(lv_event_t*)> setUserSpeedLambda = [this](lv_event_t*
+  // event) {
+  //   setUserSpeed(static_cast<int>(value));
+  // };
+
+  // std::function<float()> getUserSpeedLambda = [this] {
+  //   return static_cast<float>(getUserSpeed());
+  // };
+  std::function<const char*()> getUserSpeedLabelLambda = [this] {
+    static char text[32];
+    std::snprintf(text, sizeof(text), "Speed: %d", abs(getUserSpeed()));
+    return text;
+  };
 
   float getCurrentSpeed() const { return currentSpeed; }
 
@@ -130,6 +143,12 @@ class AppState {
   unsigned long getRampTime() const { return rampTime; }
 
   void setRampTime(unsigned long time) { rampTime = time; }
+
+  std::function<const char*()> getRampTimeLabelLambda = [this] {
+    static char text[32];
+    std::snprintf(text, sizeof(text), "Ramp: %lu", getRampTime() / 1000);
+    return text;
+  };
 
   unsigned long getRampStartTime() const { return rampStartTime; }
 
@@ -186,6 +205,7 @@ class AppState {
   String getStatusLabelText() { return statusLabelText; }
   void setStatusLabelText(String statusLabelText_) {
     statusLabelText = statusLabelText_;
+    Serial.println(statusLabelText);
   }
 
   Uid getDestinationUid() { return destinationUid; };
@@ -197,6 +217,103 @@ class AppState {
 
   Uid getCurrentUid() { return currentUid; };
   void setCurrentUid(Uid currentUid_) { currentUid = currentUid_; };
+  // settings
+  int getMinPwm() { return minPwm; };
+  void setMinPwm(int minPwm_) {
+    minPwm = minPwm_;
+    Serial.println(minPwm);
+  };
+  std::function<void(float)> setMinPwmLambda = [this](float value) {
+    setMinPwm(static_cast<int>(value));
+  };
+
+  std::function<float()> getMinPwmLambda = [this] {
+    return static_cast<float>(getMinPwm());
+  };
+
+  std::function<const char*()> getMinPwmLabelLambda = [this] {
+    static char text[32];
+    std::snprintf(text, sizeof(text), "Min PWM: %d", abs(getMinPwm()));
+    return text;
+  };
+
+  float getLowAudioOffset() { return lowAudioOffset; };
+  void setLowAudioOffset(float lowAudioOffset_) {
+    lowAudioOffset = lowAudioOffset_;
+  };
+
+  std::function<void(float)> setLowAudioOffsetLambda = [this](float value) {
+    setLowAudioOffset(value);
+  };
+
+  std::function<float()> getLowAudioOffsetLambda = [this] {
+    return static_cast<float>(getLowAudioOffset());
+  };
+
+  std::function<const char*()> getLowAudioOffsetLabelLambda = [this] {
+    static char text[32];
+    std::snprintf(text, sizeof(text), "Low Offset: %.2f",
+                  abs(getLowAudioOffset()));
+    return text;
+  };
+
+  float getHighAudioOffset() { return highAudioOffset; };
+  void setHighAudioOffset(float highAudioOffset_) {
+    highAudioOffset = highAudioOffset_;
+  };
+
+  std::function<void(float)> setHighAudioOffsetLambda = [this](float value) {
+    setHighAudioOffset(value);
+  };
+
+  std::function<float()> getHighAudioOffsetLambda = [this] {
+    return static_cast<float>(getHighAudioOffset());
+  };
+
+  std::function<const char*()> getHighAudioOffsetLabelLambda = [this] {
+    static char text[32];
+    std::snprintf(text, sizeof(text), "High Offset: %.2f",
+                  abs(getHighAudioOffset()));
+    return text;
+  };
+
+  float getAmbianceSoundVolume() { return ambianceSoundVolume; };
+  void setAmbianceSoundVolume(float ambianceSoundVolume_) {
+    ambianceSoundVolume = ambianceSoundVolume_;
+  };
+
+  std::function<void(float)> setAmbianceSoundVolumeLambda =
+      [this](float value) { setAmbianceSoundVolume(value); };
+
+  std::function<float()> getAmbianceSoundVolumeLambda = [this] {
+    return static_cast<float>(getAmbianceSoundVolume());
+  };
+
+  std::function<const char*()> getAmbianceSoundVolumeLabelLambda = [this] {
+    static char text[32];
+    std::snprintf(text, sizeof(text), "Ambiance Vol: %.2f",
+                  abs(getAmbianceSoundVolume()));
+    return text;
+  };
+
+  float getMovementSoundVolume() { return movementSoundVolume; };
+  void setMovementSoundVolume(float movementSoundVolume_) {
+    movementSoundVolume = movementSoundVolume_;
+  };
+
+  std::function<void(float)> setMovementSoundVolumeLambda =
+      [this](float value) { setMovementSoundVolume(value); };
+
+  std::function<float()> getMovementSoundVolumeLambda = [this] {
+    return static_cast<float>(getMovementSoundVolume());
+  };
+
+  std::function<const char*()> getMovementSoundVolumeLabelLambda = [this] {
+    static char text[32];
+    std::snprintf(text, sizeof(text), "Movement Vol: %.2f",
+                  abs(getMovementSoundVolume()));
+    return text;
+  };
 
  private:
   void initDefaults() {
@@ -227,15 +344,11 @@ class AppState {
     ambianceAudioSpeed = 0;
 
     // Speed
-    targetSpeed = 0;
+
     userSpeed = 0;
-    currentSpeed = 0.0;
 
     // Ramp
     rampTime = 0;
-    rampStartTime = 0;
-    rampStartSpeed = 0;
-    lastTargetSpeed = 0;
 
     // template track
     Track templateTrack_;
@@ -261,6 +374,13 @@ class AppState {
 
     // Path find
     path.clear();
+
+    // settings
+    minPwm = 0;
+    lowAudioOffset = 0;
+    highAudioOffset = 0;
+    ambianceSoundVolume = 0;
+    movementSoundVolume = 0;
   }
 
   // LEDs
@@ -321,6 +441,14 @@ class AppState {
   // location
   Uid destinationUid;
   Uid currentUid;
+
+  // settings
+  int minPwm;
+  float lowAudioOffset;
+  float highAudioOffset;
+  float ambianceSoundVolume;
+
+  float movementSoundVolume;
 };
 extern AppState app;
 

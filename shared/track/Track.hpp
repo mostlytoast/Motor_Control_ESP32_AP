@@ -140,9 +140,6 @@ class Track {
     this->include = !dontAdd;
 
     this->positioned = false;
-    Serial.println("add track");
-    Serial.println(this->length);
-
     tags.addTag(Tag(entranceAUid, connectEntranceAUid, Point()));
     tags.addTag(Tag(exitAUid, connectExitAUid, Point()));
     tags.addTag(Tag(entranceBUid, connectEntranceBUid, Point()));
