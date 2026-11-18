@@ -79,7 +79,6 @@ class EspnowController {
   using GetJsonFromStateCallback = void (*)(JsonDocument&);
   using GetStateFromJsonCallback = void (*)(JsonDocument&);
   using ResetStateCallback = std::function<void()>;
-  using UpdateStateCallback = std::function<void()>;
 
   // Event Queue
   void queueEspNowEvent(EspNowEventType type, const uint8_t* mac,
@@ -96,7 +95,7 @@ class EspnowController {
   // Initialization
   bool setupESPNow(GetJsonFromStateCallback getJsonFromStateCallback_,
                    GetStateFromJsonCallback getStateFromJsonCallback_,
-                   ResetStateCallback resetStateCallback_,UpdateStateCallback updateStateCallback_, bool wifi = false);
+                   ResetStateCallback resetStateCallback_, bool wifi = false);
 
   // Periodic communication
   void espnowUpdate();
@@ -208,7 +207,6 @@ class EspnowController {
   GetJsonFromStateCallback getJsonFromStateCallback = nullptr;
   GetStateFromJsonCallback getStateFromJsonCallback = nullptr;
   ResetStateCallback resetStateCallback = nullptr;
-  UpdateStateCallback updateStateCallback = nullptr;
 };
 extern EspnowController espnowController;
 

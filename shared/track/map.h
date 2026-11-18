@@ -10,7 +10,7 @@
 #include "../SharedConfig.h"
 #include "../utils/AppState.hpp"
 #include "../utils/Math.hpp"
-#include "../utils/uidLogic.h"
+#include "../utils/Uid.hpp"
 #include "Arduino.h"
 #include "Station.hpp"
 #include "Tracks.hpp"
@@ -41,7 +41,7 @@ class TrackMap {
   void mapToJson(JsonDocument& doc);
 
   void jsonToMap(JsonArray doc);
-  void updatePastTracks();
+
   void mapToCondensedJson(JsonDocument& doc);
   void condensedJsonToMap(JsonArray doc);
   void clearMap();
@@ -56,32 +56,6 @@ class TrackMap {
    * This supports connections to BOTH entrances and exits.
    */
   bool positionConnectedTrack(Track& source, Tag& sourceTag);
-
-  /*
-   * Straight-track geometry.
-   */
-  void calculateStraightPose(Track& track);
-
-  /*
-   * Calculate a track when its entrance position and heading
-   * are known.
-   */
-  void calculateFromEntrance(Track& track);
-
-  /*
-   * Curve geometry.
-   */
-  void calculateCurvePose(Track& track);
-
-  /*
-   * Switch geometry.
-   */
-  void calculateSwitchPose(Track& track);
-
-  /*
-   * Cross geometry.
-   */
-  void calculateCrossPose(Track& track);
 };
 
 extern TrackMap trackMap;

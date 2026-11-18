@@ -4,7 +4,6 @@
 // #include <lvgl.h>
 // constexpr char AP_SSID[] = "ESP32-Access-Point";
 // constexpr char AP_PASSWORD[] = "12345678";
-static constexpr uint8_t MAX_TRACKS = 100;
 
 constexpr uint8_t WIFI_CHANNEL = 6;
 constexpr int MAX_CONTROLLERS = 8;
@@ -37,5 +36,9 @@ struct ColorConfig {
   uint32_t stopColor = 0xCC2222;
   uint32_t menuHeaderColor = 0x005577;
   uint32_t colorScan = 0xAA6600;
+  uint32_t trackColor = 0x27A3F5;
+  uint32_t pathColor = 0x49F527;
+
+
 };
 static ColorConfig colorConfig;

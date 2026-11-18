@@ -4,7 +4,7 @@ TrackPathFinder::TrackPathFinder(const Tracks& tracks) : tracks(tracks) {}
 // Find the shortest path between two tags.
 // Returns true if a path exists.
 bool TrackPathFinder::findPath(const Uid& startUid, const Uid& destinationUid,
-                               std::vector<Uid>& path) const {
+                               Uids& path) const {
   path.clear();
 
   // --------------------------------------------------
@@ -133,8 +133,8 @@ size_t TrackPathFinder::findNode(const std::vector<const Tag*>& nodes,
 bool TrackPathFinder::reconstructPath(const std::vector<const Tag*>& nodes,
                                       const std::vector<size_t>& parent,
                                       size_t start, size_t destination,
-                                      std::vector<Uid>& path) const {
-  std::vector<Uid> reversePath;
+                                      Uids& path) const {
+  Uids reversePath;
 
   size_t current = destination;
 

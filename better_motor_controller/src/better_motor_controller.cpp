@@ -89,7 +89,7 @@ void setup() {
 
   if (!espnowController.setupESPNow(getCondensedJsonFromState,
                                     getStateFromCondensedJson,
-                                    []() { app.reset(); }, []() { trackMap.updatePastTracks(); })) {
+                                    []() { app.reset(); })) {
     app.setStatusLabelText("ERROR");
   }
 

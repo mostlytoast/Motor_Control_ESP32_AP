@@ -127,9 +127,9 @@ class SharedDisplayCalls {
 
   lv_obj_t* createActionSlider(
       lv_obj_t* parent, std::function<void(float value)> action,
-      std::function<float()> getState, float min, float max, lv_color_t normalColor,
-      int width = 0, int height = 0, int x = 0, int y = 0,
-      lv_color_t activeColor = lv_color_hex(0x00AA55),
+      std::function<float()> getState, float min, float max,
+      lv_color_t normalColor, int width = 0, int height = 0, int x = 0,
+      int y = 0, lv_color_t activeColor = lv_color_hex(0x00AA55),
       lv_color_t inactiveColor = lv_color_hex(0x444444),
       lv_color_t pressedColor = lv_color_hex(0x222222));
 
@@ -138,7 +138,11 @@ class SharedDisplayCalls {
       int height, std::vector<std::function<void(lv_event_t* event)>> actions);
 
   lv_obj_t* createTagHitbox(lv_obj_t* parent, int x, int y, int hitboxRadius,
-                            std::function<void(lv_event_t* event)> action);
+                            std::function<void(lv_event_t* event)> action,
+                            std::function<bool()> getState = nullptr,
+                            lv_color_t activeColor = lv_color_hex(0x00AA55),
+                            lv_color_t inactiveColor = lv_color_hex(0x444444),
+                            lv_color_t pressedColor = lv_color_hex(0x222222));
   lv_obj_t* createEditableTextBox(
       lv_obj_t* parent, lv_obj_t* keyboard,
       std::function<const char*(const char* text)> updateText, int x = 0,

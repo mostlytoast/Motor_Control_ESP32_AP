@@ -4,7 +4,7 @@
 #include <ArduinoJson.h>
 #include <string.h>
 
-#include "../utils/uidLogic.h"
+#include "../utils/Uids.hpp"
 #include "Point.hpp"
 class Tag {
  public:
@@ -20,7 +20,7 @@ class Tag {
   }
 
   Tag(Uid uid_, Uid connectedTagUid_, Point point_,
-      std::vector<Uid> internalConnectedTagUids_ = {}) {
+      Uids internalConnectedTagUids_ = {}) {
     uid = uid_;
     connectedTagUid = connectedTagUid_;
     internalConnectedTagUids = internalConnectedTagUids_;
@@ -33,7 +33,7 @@ class Tag {
 
   Uid getConnectedTagUid() const { return connectedTagUid; }
 
-  const std::vector<Uid>& getInternalConnectedTagUids() const {
+  const Uids& getInternalConnectedTagUids() const {
     return internalConnectedTagUids;
   }
 
@@ -210,7 +210,7 @@ class Tag {
  private:
   Uid uid;
   Uid connectedTagUid;
-  std::vector<Uid> internalConnectedTagUids;
+  Uids internalConnectedTagUids;
   Point point;
   //   TODO think of moving point from tracks to tag
 };

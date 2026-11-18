@@ -4,7 +4,10 @@
 #include <Arduino.h>
 
 #include "../../shared/communication/EspnowController.h"
+#include "../../shared/track/PathFinder.h"
 #include "display.h"
+
+
 
 Display display;
 #endif  // TRANSMITTER_H

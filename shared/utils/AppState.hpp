@@ -8,7 +8,7 @@
 #include "../track/Point.hpp"
 #include "../track/Tag.hpp"
 #include "../track/Tracks.hpp"
-#include "uidLogic.h"
+#include "Uids.hpp"
 enum AutoMode { AUTO_IDLE, AUTO_MOVING, AUTO_WAITING, AUTO_DEPARTING };
 
 enum ScannerMode {
@@ -183,20 +183,11 @@ class AppState {
   }
   TrackType getPreviousSelectedTrackType() { return previousSelectedTrackType; }
 
-  void setPastTracks(const Tracks pastTracks_) {
-    pastTracks = pastTracks_;
-    hasPastTracks = true;
-  }
-
-  Tracks getPastTracks() { return pastTracks; }
-
-  const Tracks getPastTracks() const { return pastTracks; }
-
   Tracks* getCurrentTracks() { return &currentTracks; }
 
   // const Tracks* getCurrentTracks() const { return &currentTracks; }
-  void setPath(std::vector<Uid> path_) { path = path_; }
-  std::vector<Uid>& getPath() {
+  void setPath(Uids path_) { path = path_; }
+  Uids& getPath() {
     return path;
   }  // -------------------------
      // display
@@ -205,14 +196,11 @@ class AppState {
   String getStatusLabelText() { return statusLabelText; }
   void setStatusLabelText(String statusLabelText_) {
     statusLabelText = statusLabelText_;
-    Serial.println(statusLabelText);
   }
 
   Uid getDestinationUid() { return destinationUid; };
   void setDestinationUid(Uid destinationUid_) {
     destinationUid = destinationUid_;
-    // Serial.println("destinationUid");
-    // if (destinationUid.isValid()) Serial.println(destinationUid.toString());
   };
 
   Uid getCurrentUid() { return currentUid; };
@@ -360,10 +348,6 @@ class AppState {
     currentTracks.clear();
     currentTracks = {};
 
-    pastTracks.clear();
-    pastTracks = {};
-    hasPastTracks = false;
-
     // display status label
     statusLabelText = "";
 
@@ -427,13 +411,10 @@ class AppState {
   TrackType selectedTrackType;
   TrackType previousSelectedTrackType;
 
-  Tracks pastTracks;
-  bool hasPastTracks = false;
-
   Tracks currentTracks;
 
   // Path finding
-  std::vector<Uid> path;
+  Uids path;
 
   // display status label
   String statusLabelText;

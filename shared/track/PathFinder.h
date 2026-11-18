@@ -5,6 +5,8 @@
 #include <vector>
 
 #include "Tracks.hpp"
+#include "../utils/Uids.hpp"
+
 
 class TrackPathFinder {
  public:
@@ -19,7 +21,7 @@ class TrackPathFinder {
    * @return true if a path was found, false otherwise.
    */
   bool findPath(const Uid& startUid, const Uid& destinationUid,
-                std::vector<Uid>& path) const;
+                Uids& path) const;
 
  private:
   static constexpr size_t INVALID_INDEX = static_cast<size_t>(-1);
@@ -36,7 +38,7 @@ class TrackPathFinder {
    */
   bool reconstructPath(const std::vector<const Tag*>& nodes,
                        const std::vector<size_t>& parent, size_t start,
-                       size_t destination, std::vector<Uid>& path) const;
+                       size_t destination, Uids& path) const;
 };
 
 #endif  // TRACK_PATH_FINDER_H

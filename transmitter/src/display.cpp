@@ -208,8 +208,7 @@ static bool initTouch() {
 void Display::setupDisplay() {
   if (!espnowController.setupESPNow(
           getCondensedJsonFromStateTransmitter, getStateFromCondensedJson,
-          [this]() { this->reset(); },
-          [this]() { trackMap.updatePastTracks(); }, true)) {
+          [this]() { this->reset(); }, true)) {
     app.setStatusLabelText("ERROR");
   }
 

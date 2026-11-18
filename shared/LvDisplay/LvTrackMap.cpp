@@ -395,6 +395,11 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
 // TRACK DRAWING
 // ============================================================
 
+lv_color_t generateColorForTrack(Tag tagA, Tag tagB) {
+  bool inPath = app.getPath().findUid(tagA.getUid()) ||
+                app.getPath().findUid(tagB.getUid());
+  return lv_color_hex(inPath ? colorConfig.pathColor : colorConfig.trackColor);
+}
 void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
                            size_t index) {
   if (!track.getPositioned()) {
@@ -407,35 +412,45 @@ void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
     case STRAIGHT:
     case CURVED:
       // if (track.getTags().size() < 2) return;
-      drawCurveOrStraight(layer, worldToMap(track.getTags()[0].getPoint()),
-                          worldToMap(track.getTags()[1].getPoint()));
+
+      drawCurveOrStraight(
+          layer, worldToMap(track.getTags()[0].getPoint()),
+          worldToMap(track.getTags()[1].getPoint()),
+          generateColorForTrack(track.getTags()[0], track.getTags()[1]));
 
       break;
 
     case SWITCH:
       // if (track.getTags().size() < 4) return;
 
-      drawCurveOrStraight(layer, worldToMap(track.getTags()[0].getPoint()),
-                          worldToMap(track.getTags()[1].getPoint()));
-      drawCurveOrStraight(layer, worldToMap(track.getTags()[2].getPoint()),
-                          worldToMap(track.getTags()[3].getPoint()));
+      drawCurveOrStraight(
+          layer, worldToMap(track.getTags()[0].getPoint()),
+          worldToMap(track.getTags()[1].getPoint()),
+          generateColorForTrack(track.getTags()[0], track.getTags()[1]));
+      drawCurveOrStraight(
+          layer, worldToMap(track.getTags()[2].getPoint()),
+          worldToMap(track.getTags()[3].getPoint()),
+          generateColorForTrack(track.getTags()[2], track.getTags()[3]));
       break;
 
     case CROSS:
       // if (track.getTags().size() < 4) return;
-
-      drawCurveOrStraight(layer, worldToMap(track.getTags()[0].getPoint()),
-                          worldToMap(track.getTags()[1].getPoint()));
-      drawCurveOrStraight(layer, worldToMap(track.getTags()[2].getPoint()),
-                          worldToMap(track.getTags()[3].getPoint()));
+      drawCurveOrStraight(
+          layer, worldToMap(track.getTags()[0].getPoint()),
+          worldToMap(track.getTags()[1].getPoint()),
+          generateColorForTrack(track.getTags()[0], track.getTags()[1]));
+      drawCurveOrStraight(
+          layer, worldToMap(track.getTags()[2].getPoint()),
+          worldToMap(track.getTags()[3].getPoint()),
+          generateColorForTrack(track.getTags()[2], track.getTags()[3]));
       break;
     case STATION:
-      drawCurveOrStraight(layer, worldToMap(track.getTags()[0].getPoint()),
-                          worldToMap(track.getTags()[0].getPoint()));
       const Point point = worldToMap(track.getTags()[0].getPoint());
+      // drawCurveOrStraight(layer, worldToMap(track.getTags()[0].getPoint()),
+      //                     worldToMap(track.getTags()[0].getPoint()));
 
-      drawCircle(layer, point, config_.tagRadius, config_.tagConnected, true,
-                 point.getHeading());
+      drawCircle(layer, point, config_.tagRadius * 4, config_.tagConnected,
+                 true, point.getHeading());
       const Uid destinationUid = track.getTags()[0].getUid();
       createTagHitBox(destinationUid, point);
 
@@ -449,6 +464,12 @@ void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
 }
 void LvTrackMap::createTagHitBox(const Uid destinationUid, const Point point) {
   // need to clear out when ui gets refreshed
+  lv_area_t rootArea;
+  lv_obj_get_coords(root_, &rootArea);
+
+  const float cx = rootArea.x1 + point.getX();
+  const float cy = rootArea.y1 + point.getY();
+
   if (!destinationUid.isValid()) {
     return;
   }
@@ -462,13 +483,16 @@ void LvTrackMap::createTagHitBox(const Uid destinationUid, const Point point) {
   }
 
   hitboxUid.emplace_back(destinationUid);
-  sharedDisplay.createTagHitbox(hitBoxLayer_, point.getX(), point.getY(),
-                                config_.tagRadius * 4,
-                                [this, destinationUid](lv_event_t* event) {
-                                  Serial.println("touch hitbox");
-                                  app.setDestinationUid(destinationUid);
-                                  refreshAndSend();
-                                });
+  sharedDisplay.createTagHitbox(
+      hitBoxLayer_, cx, cy, config_.tagRadius * 4,
+      [this, destinationUid](lv_event_t* event) {
+        Serial.println("touch hitbox");
+        app.setDestinationUid(destinationUid);
+        refreshAndSend();
+      },
+      [this, destinationUid]() {
+        return app.getDestinationUid().equals(destinationUid);
+      });
 }
 void LvTrackMap::calculatePointsForCurvedOrStraight(
     const Point entrance, const Point exit, std::vector<Point>& points) const {
@@ -550,13 +574,13 @@ void LvTrackMap::calculatePointsForCurvedOrStraight(
 }
 
 void LvTrackMap::drawCurveOrStraight(lv_layer_t* layer, const Point entrance,
-                                     const Point exit) const {
+                                     const Point exit, lv_color_t color) const {
   std::vector<Point> points;
 
   calculatePointsForCurvedOrStraight(entrance, exit, points);
 
-  for (int i = 0; i < points.size(); i+=2) {
-    drawSegment(layer, points[i], points[i+1], lv_color_hex(0x00FF00), 4);
+  for (int i = 0; i < points.size(); i += 2) {
+    drawSegment(layer, points[i], points[i + 1], color, 4);
   }
 }
 // ============================================================

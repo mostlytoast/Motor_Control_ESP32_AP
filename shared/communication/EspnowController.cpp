@@ -14,12 +14,10 @@ bool hasSentInitialState = false;
 bool EspnowController::setupESPNow(
     GetJsonFromStateCallback getJsonFromStateCallback_,
     GetStateFromJsonCallback getStateFromJsonCallback_,
-    ResetStateCallback resetStateCallback_,
-    UpdateStateCallback updateStateCallback_, bool wifi) {
+    ResetStateCallback resetStateCallback_, bool wifi) {
   getJsonFromStateCallback = getJsonFromStateCallback_;
   getStateFromJsonCallback = getStateFromJsonCallback_;
   resetStateCallback = resetStateCallback_;
-  updateStateCallback = updateStateCallback_;
 
   callbackInstance = this;
   Serial.println("Initializing ESP-NOW");
@@ -341,10 +339,6 @@ void EspnowController::ESPNowCheckFailsafe() {
 void EspnowController::processStateChanges() {
   // Todo need to fix peers.getActivePeers() and use it here
   for (Peer& peer : peers.getActivePeers()) {  // Changed Peer* to Peer&
-
-    if (sendServerState(&peer) && updateStateCallback) {
-      updateStateCallback();
-    }
   }
 }
 
@@ -572,7 +566,7 @@ bool EspnowController::sendJsonDocument(Peer* peer, JsonDocument& doc) {
       uint8_t* packet = packets + (i * JSON_FRAGMENT_PACKET_SIZE);
 
       memcpy(command.data, packet, JSON_FRAGMENT_PACKET_SIZE);
-      Serial.println("sending CMD_SERVER_STATE");
+      // Serial.println("sending CMD_SERVER_STATE");
       if (!sendCommandToPeer(peer, command)) {
         Serial.println("failed sending CMD_SERVER_STATE");
 
@@ -898,7 +892,10 @@ bool EspnowController::sendPairRequest(Peer* peer) {
 void EspnowController::resetDiscover() {
   // Reset receiver list
   Serial.println("resetDiscover");
-
+  // previousState.clear();
+  // currentState.clear();
+  // hasReceivedInitialState = false;
+  // hasSentInitialState = false;
   resetStateCallback();
 
   discoveryActive = true;

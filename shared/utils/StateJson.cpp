@@ -216,10 +216,6 @@ void getCondensedJsonFromState(JsonDocument& doc) {
   // mapToJson() already creates the "tracks" property.
   doc["tracks"] = mapDoc["tracks"];
 
-  // trackMap.updatePastTracks();
-  // Serial.println("stateJson");
-  // pastTracks = trackMap.getTracks();
-
   JsonObject templateTrackDoc = doc["templateTrack"].to<JsonObject>();
 
   if (const Track* track = app.getTemplateTrack()) {

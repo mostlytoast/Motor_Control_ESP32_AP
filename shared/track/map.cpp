@@ -113,7 +113,7 @@ Track* TrackMap::createTrack(TrackType type, float length, float radius,
 
     return &tempTrack;
 
-  } else if (tracks == nullptr || tracks->size() >= MAX_TRACKS && !dontAdd) {
+  } else if (tracks == nullptr || tracks->isFull() && !dontAdd) {
     return nullptr;
   } else {
     // Add to the tracks array
@@ -186,7 +186,7 @@ void TrackMap::jsonToMap(JsonArray doc) {
   }
 
   for (uint8_t i = 0; i < doc.size(); i++) {
-    if (tracks->size() >= MAX_TRACKS) {
+    if (tracks->isFull()) {
       continue;
     } else {
       // Add to the tracks array
@@ -198,14 +198,7 @@ void TrackMap::jsonToMap(JsonArray doc) {
   trackMap.calculateMap();
 }
 
-void TrackMap::updatePastTracks() {
-  Tracks* tracks = app.getCurrentTracks();
 
-  if (tracks != nullptr) {
-    app.setPastTracks(*tracks);
-    // Serial.println("[MapDiff] Updated previous map snapshot");
-  }
-}
 void TrackMap::mapToCondensedJson(JsonDocument& doc) {
   Tracks* tracks = app.getCurrentTracks();
 
@@ -236,7 +229,7 @@ void TrackMap::condensedJsonToMap(JsonArray doc) {
   }
 
   for (uint8_t i = 0; i < doc.size(); i++) {
-    if (tracks->size() >= MAX_TRACKS) {
+    if (tracks->isFull()) {
       continue;
     } else {
       // Add to the tracks array
@@ -250,6 +243,4 @@ void TrackMap::condensedJsonToMap(JsonArray doc) {
 
 void TrackMap::clearMap() {
   (*app.getCurrentTracks()).clear();
-  (app.getPastTracks()).clear();
-  app.setPastTracks({});
 }

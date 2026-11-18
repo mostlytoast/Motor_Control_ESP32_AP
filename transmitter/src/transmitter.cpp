@@ -5,7 +5,25 @@
 // =====================================================
 // SETUP
 // =====================================================
+Uid pastUid;
+bool hasPastUid = false;
 
+void addAndConnectTrack(TrackType type, float length, float radius,
+                        float branchAngle, float branchLength,
+                        float branchRadius, bool direction) {
+  Uid uidA;
+  uidA.random();
+  Uid uidB;
+  uidB.random();
+  trackMap.createTrack(type, length, radius, branchAngle, branchLength,
+                       branchRadius, direction, uidA, uidB);
+  if (!hasPastUid) {
+    pastUid = uidB;
+    hasPastUid = true;
+  } else {
+    trackMap.connectUid(pastUid, uidB);
+  }
+}
 void setup() {
   Serial.begin(115200);
 
@@ -17,30 +35,56 @@ void setup() {
   display.setupDisplay();
   setupEncoder();
 
+  // Uid entrance0("AA:AA:AA:AA:AA:AA:A0");
+  // Uid exit0("AA:AA:AA:AA:AA:AA:B0");
+  // trackMap.createTrack(STRAIGHT, 10, 0, 0, 0, 0, true, entrance0, exit0);
+
+  // Uid entrance1("AA:AA:AA:AA:AA:AA:A1");
+  // Uid exit1("AA:AA:AA:AA:AA:AA:B1");
+
+  // trackMap.createTrack(CURVED, 10, 19, 0, 0, 0, true, entrance1, exit1);
+  // Uid entrance2("AA:AA:AA:AA:AA:AA:A2");
+  // Uid exit2("AA:AA:AA:AA:AA:AA:B2");
+
+  // trackMap.createTrack(STATION, 10, 0, 0, 0, 0, true, entrance2, exit2);
   
-  Uid entrance0("AA:AA:AA:AA:AA:AA:A0");
-  Uid exit0("AA:AA:AA:AA:AA:AA:B0");
-  Uid entrance1("AA:AA:AA:AA:AA:AA:A1");
-  Uid exit1("AA:AA:AA:AA:AA:AA:B1");
-  Uid entrance2("AA:AA:AA:AA:AA:AA:A2");
-  Uid exit2("AA:AA:AA:AA:AA:AA:B2");
-  Uid entrance3("AA:AA:AA:AA:AA:AA:A3");
-  Uid exit3("AA:AA:AA:AA:AA:AA:B3");
-  Track* trackA =
-      trackMap.createTrack(STRAIGHT, 10, 0, 0, 0, 0, true, entrance0, exit0);
+  // Uid entrance3("AA:AA:AA:AA:AA:AA:A3");
+  // Uid exit3("AA:AA:AA:AA:AA:AA:B3");
+  // trackMap.createTrack(CURVED, 18, 14, 0, 0, 0, true, entrance3, exit3);
 
-  Track* trackB =
-      trackMap.createTrack(CURVED, 10, 19, 0, 0, 0, true, entrance1, exit1);
+  // trackMap.connectUid(exit0, entrance1);
+  // trackMap.connectUid(entrance1, entrance2);
 
-  Track* trackC =
-      trackMap.createTrack(STRAIGHT, 10, 0, 0, 0, 0, true, entrance2, exit2);
+  // // trackMap.connectUid(exit1, entrance2);
+  // trackMap.connectUid(exit1, entrance3);
+  // trackMap.calculateMap();
+  // app.setDestinationUid(entrance2);
+  // app.setCurrentUid(entrance0);
 
+  // // addAndConnectTrack(STRAIGHT, 10, 0, 0, 0, 0, true);
+  // // addAndConnectTrack(CURVED, 18, 14, 0, 0, 0, true);
+  // // addAndConnectTrack(CURVED, 18, 14, 0, 0, 0, true);
+  // // addAndConnectTrack(CURVED, 18, 14, 0, 0, 0, true);
+  // // addAndConnectTrack(STRAIGHT, 10, 0, 0, 0, 0, true);
+  // // addAndConnectTrack(STRAIGHT, 10, 0, 0, 0, 0, true);
+  // // addAndConnectTrack(STRAIGHT, 10, 0, 0, 0, 0, true);
+  // // addAndConnectTrack(STRAIGHT, 10, 0, 0, 0, 0, true);
+  // // addAndConnectTrack(SWITCH, 18, 0, 0, 18, 14, true);
+  // // addAndConnectTrack(STRAIGHT, 10, 0, 0, 0, 0, true);
+  // // addAndConnectTrack(STRAIGHT, 10, 0, 0, 0, 0, true);
 
-  trackMap.connectUid(exit0, entrance1);
+  // trackMap.calculateMap();
+  // app.setCurrentUid(
+  //     app.getCurrentTracks()->operator[](0).getTags().operator[](0).getUid());
 
-  trackMap.connectUid(exit1, entrance2);
-  // trackMap.connectUid(exit2, entrance3);
-  trackMap.calculateMap();
+  // app.setDestinationUid(
+  //     app.getCurrentTracks()->operator[](8).getTags().operator[](0).getUid());
+  // // const Tracks* tracks = app.getCurrentTracks();
+  // TrackPathFinder pathFinder(*app.getCurrentTracks());
+  // // pathFinder(*app.getCurrentTracks());
+  // bool result = pathFinder.findPath(app.getCurrentUid(),
+  //                                   app.getDestinationUid(), app.getPath());
+  // Serial.println(result);
 
   // convertToAndFromJson();
 }

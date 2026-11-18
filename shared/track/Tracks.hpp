@@ -5,10 +5,13 @@
 #include <algorithm>
 #include <vector>
 
-#include "Track.hpp"
 #include "../SharedConfig.h"
+#include "Track.hpp"
 
 class Tracks {
+ protected:
+  static constexpr uint8_t MAX_TRACKS = 100;
+
  public:
   Tracks() { tracks.reserve(MAX_TRACKS); }
   Track* findTrackByUid(Uid uid) {
@@ -22,7 +25,9 @@ class Tracks {
 
     return nullptr;
   }
-
+  bool isFull(){
+    return tracks.size() >= MAX_TRACKS;
+  }
   Tag* findTagByUid(Uid uid) {
     if (!uid.isValid()) return nullptr;
 

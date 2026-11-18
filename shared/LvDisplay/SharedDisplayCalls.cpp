@@ -31,7 +31,7 @@ void SharedDisplayCalls::actionHandlerSlider(lv_event_t* event) {
     return;
   }
 
-  float value = static_cast<float>(lv_slider_get_value(binding->object)/10.0f);
+  float value = static_cast<float>(lv_slider_get_value(binding->object));
 
   binding->action(value);
   if (binding->owner->postActionCallback_) {
@@ -143,7 +143,7 @@ lv_obj_t* SharedDisplayCalls::createActionSlider(
 
   lv_obj_set_pos(slider, x, y);
   lv_obj_set_size(slider, width, height);
-  lv_slider_set_range(slider, min* 10.0f, max* 10.0f);
+  lv_slider_set_range(slider, min, max);
   // slider colors
   lv_obj_set_style_bg_color(slider, normalColor,
                             LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -230,10 +230,12 @@ lv_obj_t* SharedDisplayCalls::createActionDropdown(
 
 lv_obj_t* SharedDisplayCalls::createTagHitbox(
     lv_obj_t* parent, int x, int y, int hitboxRadius,
-    std::function<void(lv_event_t* event)> action) {
+    std::function<void(lv_event_t* event)> action,
+    std::function<bool()> getState, lv_color_t activeColor,
+    lv_color_t inactiveColor, lv_color_t pressedColor) {
   lv_obj_t* hitbox = lv_button_create(parent);
 
-  lv_obj_set_size(hitbox, hitboxRadius * 2, hitboxRadius * 2);
+  lv_obj_set_size(hitbox, hitboxRadius, hitboxRadius);
 
   // Position relative to root.
   lv_obj_set_pos(hitbox, static_cast<int32_t>(x - hitboxRadius),
@@ -252,9 +254,8 @@ lv_obj_t* SharedDisplayCalls::createTagHitbox(
 
   // Create and store callback binding
   auto binding = std::make_unique<ActionBinding>(
-      std::move(action), nullptr, nullptr, this, hitbox,
-      internalColorConfig.activeColor, internalColorConfig.activeColor,
-      internalColorConfig.activeColor);
+      std::move(action), getState, nullptr, this, hitbox, activeColor,
+      inactiveColor, pressedColor);
 
   ActionBinding* bindingPtr = binding.get();
 

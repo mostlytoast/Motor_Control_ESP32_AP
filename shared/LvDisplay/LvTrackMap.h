@@ -104,7 +104,7 @@ class LvTrackMap {
   SharedDisplayCalls sharedDisplay;
 
   SendStateToReceiverCallback sendStateToReceiverCallback = nullptr;
-  std::vector<Uid> hitboxUid;
+  Uids hitboxUid;
 
   void installCallbacks();
 
@@ -120,7 +120,8 @@ class LvTrackMap {
                                           const Point exit,
                                           std::vector<Point>& points) const;
   void drawCurveOrStraight(lv_layer_t* layer, const Point entrance,
-                           const Point exit) const;
+                           const Point exit,
+                           lv_color_t color = lv_color_hex(0x00FF00)) const;
 
   void drawBumper(lv_layer_t* layer, const Track& track) const;
 

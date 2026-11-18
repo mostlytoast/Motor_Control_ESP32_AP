@@ -6,7 +6,7 @@
 #include <string>
 
 #include "../utils/Math.hpp"
-#include "../utils/uidLogic.h"
+#include "../utils/Uid.hpp"
 #include "Arduino.h"
 #include "Point.hpp"
 #include "Tags.hpp"

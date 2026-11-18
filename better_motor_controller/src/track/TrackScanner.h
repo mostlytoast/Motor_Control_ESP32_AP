@@ -7,7 +7,7 @@
 #include "../../../shared/track/PathFinder.h"
 #include "../../../shared/track/map.h"
 #include "../../../shared/utils/AppState.hpp"
-#include "../../../shared/utils/uidLogic.h"
+#include "../../../shared/utils/Uid.hpp"
 #include "../Config.h"
 #include "../hardware/NFC.h"
 
@@ -25,7 +25,7 @@ class TrackScanner {
   void processSerial();
 
  private:
- bool nfcEnabled = false;
+  bool nfcEnabled = false;
   TrackMap& trackMap;
   NFC nfc;
 
