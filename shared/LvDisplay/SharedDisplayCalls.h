@@ -15,27 +15,32 @@
 class SharedDisplayCalls;
 // Non-templated button binding
 struct ActionBinding {
-  std::function<void(lv_event_t* event)> action;
+  std::function<void()> action;
   std::function<bool()> getState;
   std::function<const char*()> getText;
+  std::function<const char*(const char* text)> updateText;
+
   // std::function<bool()> getText;
   // std::function<bool()> getOptions;
   SharedDisplayCalls* owner;
   lv_obj_t* object;
+  lv_obj_t* associatedObject;
   lv_color_t activeColor;
   lv_color_t inactiveColor;
   lv_color_t pressedColor;
-  ActionBinding(std::function<void(lv_event_t* event)> action_,
-                std::function<bool()> getState_,
+  ActionBinding(std::function<void()> action_, std::function<bool()> getState_,
                 std::function<const char*()> getText_,
+                std::function<const char*(const char* text)> updateText_,
                 SharedDisplayCalls* owner_, lv_obj_t* object_,
-                lv_color_t activeColor_, lv_color_t inactiveColor_,
-                lv_color_t pressedColor_)
+                lv_obj_t* associatedObject_, lv_color_t activeColor_,
+                lv_color_t inactiveColor_, lv_color_t pressedColor_)
       : action(std::move(action_)),
         getState(std::move(getState_)),
         getText(std::move(getText_)),
+        updateText(std::move(updateText_)),
         owner(owner_),
         object(object_),
+        associatedObject(associatedObject_),
         activeColor(activeColor_),
         inactiveColor(inactiveColor_),
         pressedColor(pressedColor_) {}
@@ -100,9 +105,8 @@ class SharedDisplayCalls {
   void setLabelText(lv_obj_t* label, const char* text);
 
   lv_obj_t* createActionButton(
-      lv_obj_t* parent, const char* text,
-      std::function<void(lv_event_t* event)> action, lv_color_t normalColor,
-      std::function<bool()> getState = nullptr,
+      lv_obj_t* parent, const char* text, std::function<void()> action,
+      lv_color_t normalColor, std::function<bool()> getState = nullptr,
       lv_color_t activeColor = lv_color_hex(0x00AA55),
       lv_color_t inactiveColor = lv_color_hex(0x444444),
       lv_color_t pressedColor = lv_color_hex(0x222222),
@@ -111,7 +115,7 @@ class SharedDisplayCalls {
   // Create a button with any callable action
   lv_obj_t* createActionButton(
       lv_obj_t* parent, const char* text, int x, int y, int width, int height,
-      std::function<void(lv_event_t* event)> action, lv_color_t normalColor,
+      std::function<void()> action, lv_color_t normalColor,
       std::function<bool()> getState = nullptr,
       lv_color_t activeColor = lv_color_hex(0x00AA55),
       lv_color_t inactiveColor = lv_color_hex(0x444444),
@@ -120,10 +124,7 @@ class SharedDisplayCalls {
 
   void setButtonState(lv_obj_t* button, bool state, lv_color_t activeColor,
                       lv_color_t inactiveColor, lv_color_t pressedColor);
-  struct DropdownItem {
-    const char* text;
-    std::function<void(lv_event_t* event)> action;
-  };
+
 
   lv_obj_t* createActionSlider(
       lv_obj_t* parent, std::function<void(float value)> action,
@@ -135,10 +136,10 @@ class SharedDisplayCalls {
 
   lv_obj_t* createActionDropdown(
       lv_obj_t* parent, const char* options, int x, int y, int width,
-      int height, std::vector<std::function<void(lv_event_t* event)>> actions);
+      int height, std::vector<std::function<void()>> actions);
 
   lv_obj_t* createTagHitbox(lv_obj_t* parent, int x, int y, int hitboxRadius,
-                            std::function<void(lv_event_t* event)> action,
+                            std::function<void()> action,
                             std::function<bool()> getState = nullptr,
                             lv_color_t activeColor = lv_color_hex(0x00AA55),
                             lv_color_t inactiveColor = lv_color_hex(0x444444),
@@ -158,6 +159,9 @@ class SharedDisplayCalls {
   std::vector<ActionBindingSliderPtr> bindingsSlider_;
   std::function<void()> postActionCallback_;
   static void actionHandler(lv_event_t* event);
+  static void actionEditableTextBoxHandler(lv_event_t* event);
+  static void actionEditableTextBoxDefocusHandler(lv_event_t* event);
+  static void actionEditableTextBoxReleasedHandler(lv_event_t* event);
   static void actionHandlerSlider(lv_event_t* event);
 
   InternalColorConfig internalColorConfig;

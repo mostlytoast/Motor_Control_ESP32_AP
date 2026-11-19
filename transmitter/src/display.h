@@ -60,9 +60,7 @@ class Display {
   void createControllerMenu(lv_obj_t* screen);
 
   void createUI();
-  static void scanEvent(lv_event_t* event);
-  static void controllerMenuEvent(lv_event_t* event);
-  static void receiverSelectEvent(lv_event_t* event);
+
 
   void selectReceiver(Peer* peer);
 

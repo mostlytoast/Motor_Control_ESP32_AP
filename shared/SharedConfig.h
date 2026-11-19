@@ -13,6 +13,14 @@ constexpr unsigned long ESPNOW_TIMEOUT = 1000;
 // compiled???
 constexpr char NAME[] = "steam train";
 
+// Requested motor speed
+// -255 = full reverse
+//   0  = stopped
+// +255 = full forward
+
+inline int MIN_PWM = 0;
+constexpr int MAX_PWM = 255;
+
 // #define RAMP_STEP 1000
 // #define RAMP_MIN 0
 // #define RAMP_MAX 10000
@@ -38,7 +46,5 @@ struct ColorConfig {
   uint32_t colorScan = 0xAA6600;
   uint32_t trackColor = 0x27A3F5;
   uint32_t pathColor = 0x49F527;
-
-
 };
 static ColorConfig colorConfig;

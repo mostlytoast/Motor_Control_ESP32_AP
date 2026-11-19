@@ -12,7 +12,43 @@ void SharedDisplayCalls::actionHandler(lv_event_t* event) {
     return;
   }
 
-  binding->action(event);
+  binding->action();
+
+  if (binding->owner->postActionCallback_) {
+    binding->owner->postActionCallback_();
+  }
+}
+
+void SharedDisplayCalls::actionEditableTextBoxHandler(lv_event_t* event) {
+  auto* binding = static_cast<ActionBinding*>(lv_event_get_user_data(event));
+
+  if (!binding || !binding->action || !binding->owner) {
+    return;
+  }
+
+  binding->action();
+  if (lv_event_get_code(event) == LV_EVENT_VALUE_CHANGED) {
+    binding->updateText(lv_textarea_get_text(binding->object));
+    printf("Value: %s\n", lv_textarea_get_text(binding->object));
+  }
+
+  else if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
+    lv_obj_set_style_border_opa(binding->object, LV_OPA_COVER,
+                                LV_PART_CURSOR | LV_STATE_FOCUSED);
+    lv_obj_move_foreground(binding->associatedObject);
+    lv_obj_set_hidden(binding->associatedObject, false);
+    lv_keyboard_set_textarea(binding->associatedObject, binding->object);
+    // cursor_blink_anim_cb(textarea, false);
+  } else if (lv_event_get_code(event) == LV_EVENT_DEFOCUSED) {
+    binding->updateText(lv_textarea_get_text(binding->object));
+    printf("Value: %s\n", lv_textarea_get_text(binding->object));
+    lv_obj_set_style_border_opa(binding->object, LV_OPA_TRANSP,
+                                LV_PART_CURSOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(binding->object, LV_OPA_TRANSP,
+                            LV_PART_CURSOR | LV_STATE_DEFAULT);
+
+    lv_obj_set_hidden(binding->associatedObject, true);
+  }
 
   if (binding->owner->postActionCallback_) {
     binding->owner->postActionCallback_();
@@ -66,8 +102,8 @@ lv_obj_t* SharedDisplayCalls::createLabel(lv_obj_t* parent,
   lv_label_set_text(label, getText());
 
   auto binding = std::make_unique<ActionBinding>(
-      std::move(nullptr), nullptr, getText, this, label, normalColor,
-      normalColor, normalColor);
+      std::move(nullptr), nullptr, getText, nullptr, this, label, nullptr,
+      normalColor, normalColor, normalColor);
 
   bindings_.push_back(std::move(binding));
 
@@ -86,10 +122,10 @@ void SharedDisplayCalls::setLabelText(lv_obj_t* label, const char* text) {
 // refresh function most likely that would go through a list of these functions
 // and apply those changes
 lv_obj_t* SharedDisplayCalls::createActionButton(
-    lv_obj_t* parent, const char* text,
-    std::function<void(lv_event_t* event)> action, lv_color_t normalColor,
-    std::function<bool()> getState, lv_color_t activeColor,
-    lv_color_t inactiveColor, lv_color_t pressedColor, lv_color_t textColor) {
+    lv_obj_t* parent, const char* text, std::function<void()> action,
+    lv_color_t normalColor, std::function<bool()> getState,
+    lv_color_t activeColor, lv_color_t inactiveColor, lv_color_t pressedColor,
+    lv_color_t textColor) {
   return createActionButton(parent, text, 0, 0, 0, 0, action, normalColor,
                             getState, activeColor, inactiveColor, pressedColor,
                             textColor);
@@ -97,7 +133,7 @@ lv_obj_t* SharedDisplayCalls::createActionButton(
 
 lv_obj_t* SharedDisplayCalls::createActionButton(
     lv_obj_t* parent, const char* text, int x, int y, int width, int height,
-    std::function<void(lv_event_t* event)> action, lv_color_t normalColor,
+    std::function<void()> action, lv_color_t normalColor,
     std::function<bool()> getState, lv_color_t activeColor,
     lv_color_t inactiveColor, lv_color_t pressedColor, lv_color_t textColor) {
   lv_obj_t* button = lv_button_create(parent);
@@ -114,8 +150,8 @@ lv_obj_t* SharedDisplayCalls::createActionButton(
 
   // Create and store callback binding
   auto binding = std::make_unique<ActionBinding>(
-      std::move(action), getState, nullptr, this, button, activeColor,
-      inactiveColor, pressedColor);
+      std::move(action), getState, nullptr, nullptr, this, button, nullptr,
+      activeColor, inactiveColor, pressedColor);
 
   ActionBinding* bindingPtr = binding.get();
 
@@ -190,7 +226,7 @@ void SharedDisplayCalls::setButtonState(lv_obj_t* button, bool state,
 
 lv_obj_t* SharedDisplayCalls::createActionDropdown(
     lv_obj_t* parent, const char* options, int x, int y, int width, int height,
-    std::vector<std::function<void(lv_event_t* event)>> actions) {
+    std::vector<std::function<void()>> actions) {
   lv_obj_t* dropdown = lv_dropdown_create(parent);
 
   lv_obj_set_pos(dropdown, x, y);
@@ -200,15 +236,16 @@ lv_obj_t* SharedDisplayCalls::createActionDropdown(
 
   // Store all option actions inside one lambda.
   auto binding = std::make_unique<ActionBinding>(
-      [dropdown, actions = std::move(actions)](lv_event_t* event) {
+      [dropdown, actions = std::move(actions)]() {
         uint16_t selected = lv_dropdown_get_selected(dropdown);
 
         if (selected < actions.size() && actions[selected]) {
-          actions[selected](event);
+          actions[selected]();
         }
       },
-      nullptr, nullptr, this, dropdown, internalColorConfig.activeColor,
-      internalColorConfig.activeColor, internalColorConfig.activeColor);
+      nullptr, nullptr, nullptr, this, dropdown, nullptr,
+      internalColorConfig.activeColor, internalColorConfig.activeColor,
+      internalColorConfig.activeColor);
 
   // auto bindinga =
   //     std::make_unique<ActionBinding>(std::move(action), getState, this,
@@ -230,9 +267,8 @@ lv_obj_t* SharedDisplayCalls::createActionDropdown(
 
 lv_obj_t* SharedDisplayCalls::createTagHitbox(
     lv_obj_t* parent, int x, int y, int hitboxRadius,
-    std::function<void(lv_event_t* event)> action,
-    std::function<bool()> getState, lv_color_t activeColor,
-    lv_color_t inactiveColor, lv_color_t pressedColor) {
+    std::function<void()> action, std::function<bool()> getState,
+    lv_color_t activeColor, lv_color_t inactiveColor, lv_color_t pressedColor) {
   lv_obj_t* hitbox = lv_button_create(parent);
 
   lv_obj_set_size(hitbox, hitboxRadius, hitboxRadius);
@@ -254,8 +290,8 @@ lv_obj_t* SharedDisplayCalls::createTagHitbox(
 
   // Create and store callback binding
   auto binding = std::make_unique<ActionBinding>(
-      std::move(action), getState, nullptr, this, hitbox, activeColor,
-      inactiveColor, pressedColor);
+      std::move(action), getState, nullptr, nullptr, this, hitbox, nullptr,
+      activeColor, inactiveColor, pressedColor);
 
   ActionBinding* bindingPtr = binding.get();
 
@@ -297,33 +333,9 @@ lv_obj_t* SharedDisplayCalls::createEditableTextBox(
   lv_textarea_set_one_line(textarea, true);
 
   lv_textarea_set_text(textarea, updateText(""));
-  auto action = [keyboard, textarea, updateText](lv_event_t* event) {
-    if (lv_event_get_code(event) == LV_EVENT_VALUE_CHANGED) {
-      updateText(lv_textarea_get_text(textarea));
-      printf("Value: %s\n", lv_textarea_get_text(textarea));
-
-    }
-
-    else if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
-      lv_obj_set_style_border_opa(textarea, LV_OPA_COVER,
-                                  LV_PART_CURSOR | LV_STATE_FOCUSED);
-      lv_obj_move_foreground(keyboard);
-      lv_obj_set_hidden(keyboard, false);
-      lv_keyboard_set_textarea(keyboard, textarea);
-      // cursor_blink_anim_cb(textarea, false);
-    } else if (lv_event_get_code(event) == LV_EVENT_DEFOCUSED) {
-      updateText(lv_textarea_get_text(textarea));
-      printf("Value: %s\n", lv_textarea_get_text(textarea));
-      lv_obj_set_style_border_opa(textarea, LV_OPA_TRANSP,
-                                  LV_PART_CURSOR | LV_STATE_DEFAULT);
-      lv_obj_set_style_bg_opa(textarea, LV_OPA_TRANSP,
-                              LV_PART_CURSOR | LV_STATE_DEFAULT);
-
-      lv_obj_set_hidden(keyboard, true);
-    }
-  };
+  auto action = []() {};
   auto binding = std::make_unique<ActionBinding>(
-      std::move(action), nullptr, nullptr, this, textarea,
+      std::move(action), nullptr, nullptr, updateText, this, textarea, keyboard,
       internalColorConfig.activeColor, internalColorConfig.activeColor,
       internalColorConfig.activeColor);
 
@@ -331,9 +343,12 @@ lv_obj_t* SharedDisplayCalls::createEditableTextBox(
 
   bindings_.push_back(std::move(binding));
 
-  lv_obj_add_event_cb(textarea, actionHandler, LV_EVENT_CLICKED, bindingPtr);
-  lv_obj_add_event_cb(textarea, actionHandler, LV_EVENT_DEFOCUSED, bindingPtr);
-  lv_obj_add_event_cb(textarea, actionHandler, LV_EVENT_RELEASED, bindingPtr);
+  lv_obj_add_event_cb(textarea, actionEditableTextBoxHandler, LV_EVENT_CLICKED,
+                      bindingPtr);
+  lv_obj_add_event_cb(textarea, actionEditableTextBoxHandler,
+                      LV_EVENT_DEFOCUSED, bindingPtr);
+  lv_obj_add_event_cb(textarea, actionEditableTextBoxHandler, LV_EVENT_RELEASED,
+                      bindingPtr);
   lv_obj_add_event_cb(textarea, bindingDeleteHandler, LV_EVENT_DELETE,
                       bindingPtr);
   return textarea;
@@ -379,6 +394,11 @@ void SharedDisplayCalls::updateStates() {
       if (lv_obj_check_type(binding->object, &lv_label_class) &&
           binding->getText != nullptr) {
         setLabelText(binding->object, binding->getText());
+      }
+      if (lv_obj_check_type(binding->object, &lv_textarea_class) &&
+          binding->getText != nullptr) {
+        binding->updateText(lv_textarea_get_text(binding->object));
+        // printf("Value: %s\n", lv_textarea_get_text(binding->object));
       }
     }
   }

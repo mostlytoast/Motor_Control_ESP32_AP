@@ -61,12 +61,12 @@ void ControllerMenu::createMenu(lv_obj_t* screen) {
   espnowController.setReceiverListNeedsRefresh(true);
 
   hide_button = sharedDisplay.createActionButton(
-      root_, "Hide", 215, 27, 100, 25, [this](lv_event_t* event) { toggle(); },
+      root_, "Hide", 215, 27, 100, 25, [this]() { toggle(); },
       lv_color_hex(colorConfig.menuHeaderColor));
   lv_obj_align(hide_button, LV_ALIGN_TOP_MID, 0, 10);
   lv_obj_t* settings = sharedDisplay.createActionButton(
       root_, "settings", 215, 27, 150, 25,
-      [this](lv_event_t* event) { optionsMenuDisplay_->toggle(); },
+      [this]() { optionsMenuDisplay_->toggle(); },
       lv_color_hex(colorConfig.colorScan), []() { return false; });
   lv_obj_align(settings, LV_ALIGN_TOP_RIGHT, 0, 10);
 
@@ -94,8 +94,7 @@ void ControllerMenu::refreshList() {
 
   sharedDisplay.createActionButton(
       list_obj, "SCAN / DISCOVER", 220, 30, 250, 40,
-      [this](lv_event_t* event) { this->scanEvent(nullptr); },
-      lv_color_hex(colorConfig.colorScan));
+      [this]() { this->scanEvent(); }, lv_color_hex(colorConfig.colorScan));
 
   // Receiver buttons
   for (const Peer& peer : espnowController.getPeers()) {
@@ -109,7 +108,7 @@ void ControllerMenu::refreshList() {
 
     lv_obj_t* button = sharedDisplay.createActionButton(
         list_obj, text, 220, 30, 250, 40,
-        [this, mac](lv_event_t* event) { this->selectReceiverByMac(mac); },
+        [this, mac]() { this->selectReceiverByMac(mac); },
         lv_color_hex(colorConfig.colorScan),
         [peer]() { return peer.getState() == PeerState::ACTIVE; });
   }
@@ -125,7 +124,7 @@ void ControllerMenu::refreshList() {
 }
 
 // Logic methods
-void ControllerMenu::scanEvent(lv_event_t* event) {
+void ControllerMenu::scanEvent() {
   espnowController.removePeers();
   espnowController.resetDiscover();
 

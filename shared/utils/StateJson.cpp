@@ -2,6 +2,10 @@
 
 // TODO have special json funcitons that only output track when somethings
 // change?
+namespace {
+JsonDocument previousState;
+bool previousStateUpdated = false;
+}  // namespace
 
 void getStateFromJson(JsonDocument& doc) {
   Serial.println("=== getStateFromJson INPUT ===");
@@ -78,7 +82,7 @@ void getStateFromJson(JsonDocument& doc) {
     app.setRampTime(static_cast<int>(rampSeconds * 1000.0f));
   }
   if (state["aa"].is<bool>()) {
-    app.setAmbianceAudioMode(state["aa"].as<bool>());
+    app.setAmbianceAudioState(state["aa"].as<bool>());
   }
 }
 
@@ -95,7 +99,7 @@ void getJsonFromState(JsonDocument& doc) {
   state["a"] = app.getAutoState();
   state["p"] = app.getUserSpeed();
   state["r"] = app.getRampTime() / 1000.0f;
-  state["aa"] = app.getAmbianceAudioMode();
+  state["aa"] = app.getAmbianceAudioState();
 
   JsonDocument mapDoc;
   trackMap.mapToJson(mapDoc);
@@ -111,9 +115,8 @@ void getJsonFromState(JsonDocument& doc) {
 }
 
 void getStateFromCondensedJson(JsonDocument& doc) {
-  // Serial.println("=== getStateFromCondensedJson INPUT ===");
-  // serializeJsonPretty(doc, Serial);
-  JsonObject state = doc["state"].as<JsonObject>();
+  Serial.println("=== getStateFromCondensedJson INPUT ===");
+  serializeJsonPretty(doc, Serial);
   // TODO returning null? why
   JsonArray tracks = doc["tracks"].as<JsonArray>();
 
@@ -137,6 +140,8 @@ void getStateFromCondensedJson(JsonDocument& doc) {
       Serial.println("didn't set template Track");
     }
   }
+
+  JsonObject state = doc["state"].as<JsonObject>();
 
   if (state["cur"].is<const char*>()) {
     app.setCurrentUid(Uid(state["cur"].as<const char*>()));
@@ -187,7 +192,29 @@ void getStateFromCondensedJson(JsonDocument& doc) {
     app.setRampTime(static_cast<int>(rampSeconds * 1000.0f));
   }
   if (state["aa"].is<bool>()) {
-    app.setAmbianceAudioMode(state["aa"].as<bool>());
+    app.setAmbianceAudioState(state["aa"].as<bool>());
+  }
+
+  JsonObject options = doc["options"].as<JsonObject>();
+  if (options["mp"].is<int>() || options["mp"].is<long>() ||
+      options["mp"].is<float>()) {
+    app.setMinPwm(options["mp"].as<int>());
+  }
+  if (options["lao"].is<float>() || options["lao"].is<long>() ||
+      options["lao"].is<float>()) {
+    app.setLowAudioOffset(options["lao"].as<float>());
+  }
+  if (options["hao"].is<float>() || options["hao"].is<long>() ||
+      options["hao"].is<float>()) {
+    app.setHighAudioOffset(options["hao"].as<float>());
+  }
+  if (options["av"].is<float>() || options["av"].is<long>() ||
+      options["av"].is<float>()) {
+    app.setAmbianceSoundVolume(options["av"].as<float>());
+  }
+  if (options["mv"].is<float>() || options["mv"].is<long>() ||
+      options["mv"].is<float>()) {
+    app.setMovementSoundVolume(options["mv"].as<float>());
   }
 }
 void getCondensedJsonFromStateTransmitter(JsonDocument& doc) {
@@ -209,7 +236,15 @@ void getCondensedJsonFromState(JsonDocument& doc) {
   state["a"] = app.getAutoState();
   state["p"] = app.getUserSpeed();
   state["r"] = app.getRampTime() / 1000.0f;
-  state["aa"] = app.getAmbianceAudioMode();
+  state["aa"] = app.getAmbianceAudioState();
+
+  JsonDocument options;
+  options["mp"] = app.getMinPwm();
+  options["lao"] = app.getLowAudioOffset();
+  options["hao"] = app.getHighAudioOffset();
+  options["av"] = app.getAmbianceSoundVolume();
+  options["mv"] = app.getMovementSoundVolume();
+  doc["options"] = options;
   JsonDocument mapDoc;
   trackMap.mapToCondensedJson(mapDoc);
 
@@ -221,4 +256,27 @@ void getCondensedJsonFromState(JsonDocument& doc) {
   if (const Track* track = app.getTemplateTrack()) {
     track->toCondensedJson(templateTrackDoc);
   }
+}
+
+bool hasStateChanged() {
+  JsonDocument state;
+
+  getCondensedJsonFromState(state);
+  if (state.isNull()) {
+    return false;
+  }
+
+  if (!previousStateUpdated) {
+    previousState = state;  // Ensure previousState is a JsonDocument type
+    previousStateUpdated = true;
+    return false;  // Return  because nothing was sent yet
+  }
+
+  if (previousState == state) {
+    return false;
+  }
+  // Serial.println("refreshAndSend");
+
+  previousState = state;
+  return true;
 }

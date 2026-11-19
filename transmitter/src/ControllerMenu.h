@@ -47,15 +47,10 @@ class ControllerMenu {
     // Internal UI Construction
     void createMenu(lv_obj_t * screen);
 
-    // Event Handlers
-    // Note: These are static or handled via lambdas to be compatible with
-    // LVGL's C-style callbacks static void scanEvent_Static(lv_event_t* event);
-    // static void receiverSelectEvent_Static(lv_event_t* event);
-
     // Internal Logic
-    static void scanEvent(lv_event_t * event);
+    static void scanEvent();
     void selectReceiverByMac(const uint8_t* mac);
-    // static void receiverSelectEvent(lv_event_t* event);
+
     void selectReceiver(Peer * peer);
     void updateStatus();
 

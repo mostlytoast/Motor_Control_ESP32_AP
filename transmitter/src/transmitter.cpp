@@ -122,4 +122,5 @@ void setup() {
 void loop() {
   updateEncoder();
   display.refresh();
+ 
 }

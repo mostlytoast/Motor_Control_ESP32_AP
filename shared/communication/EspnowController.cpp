@@ -323,10 +323,11 @@ void EspnowController::ESPNowCheckFailsafe() {
       // Remove from your peer manager.
       peers.removePeer(mac);
       recentlyTimedOut = true;
-      previousState = {};
-      currentState = {};
-      hasReceivedInitialState = false;
-      hasSentInitialState = false;
+      resetDiscover();
+      // previousState.clear();
+      // currentState.clear();
+      // hasReceivedInitialState = false;
+      // hasSentInitialState = false;
     }
   }
   if (peers.getActiveControllerPeers().size() == 0 && recentlyTimedOut) {

@@ -7,10 +7,9 @@
 char serialBuffer[SERIAL_BUFFER_SIZE];
 size_t serialBufferLength = 0;
 
-
 TrackMap trackMap;
 TrackScanner trackScanner(trackMap);
-
+SavePrefs savePrefs;
 // class WebSerial : public Print {
 //  public:
 //   HardwareSerial& serial;
@@ -84,7 +83,6 @@ void setup() {
 
   LedControl_begin();
 
-
   setupWifi();
 
   if (!espnowController.setupESPNow(getCondensedJsonFromState,
@@ -94,7 +92,7 @@ void setup() {
   }
 
   WebServer_begin();
-  
+
   trackScanner.begin();
 
   Uid emptyUid;
@@ -102,6 +100,14 @@ void setup() {
   audio.setupAudio();
 
   Serial.println("ESP-NOW multi-controller receiver ready");
+  // load in prefs
+  JsonDocument doc;
+
+  if (savePrefs.load(doc)) {
+    doc["state"] = nullptr;
+    getStateFromCondensedJson(doc);
+    Serial.println("loaded prefs");
+  }
 }
 
 // =====================================================
@@ -120,7 +126,7 @@ void loop() {
   // Serial.println(" bytes");
   espnowController.espnowUpdate();
   audio.updateAudioState();
-
+  
   // Automatic mode
 
   // track scanner
@@ -131,6 +137,16 @@ void loop() {
 
   trackScanner.processSerial();
 
+  if (hasStateChanged()) {
+    JsonDocument doc;
+    getCondensedJsonFromState(doc);
+    doc["state"] = nullptr;
+    savePrefs.save(doc);
+    Serial.println("saved prefs");
+
+    // save pref? make sure that track is not overwritten somehow?
+    // need to save prefs for things like name audio settings and tracks
+  }
   // Motor ramp
 
   updateMotorRamp();

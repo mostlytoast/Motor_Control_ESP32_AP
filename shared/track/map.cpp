@@ -150,7 +150,7 @@ bool TrackMap::connectTags(Tag* a, Tag* b) {
   trackA->setPositioned(false);
   trackB->setPositioned(false);
 
-  // Serial.println("Tags connected");
+  Serial.println("Tags connected");
 
   return true;
 }

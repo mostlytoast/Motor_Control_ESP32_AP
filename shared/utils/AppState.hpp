@@ -44,10 +44,23 @@ class AppState {
 
   void setLed1State(bool state) { led1State = state; }
 
+  std::function<void()> toggleLed1StateLambda =
+      [this]() { setLed1State(!getLed1State()); };
+
+  std::function<bool()> getLed1StateLambda = [this] {
+    return getLed1State();
+    ;
+  };
   bool getLed2State() const { return led2State; }
 
   void setLed2State(bool state) { led2State = state; }
 
+  std::function<void()> toggleLed2StateLambda =
+      [this]() { setLed2State(!getLed2State()); };
+  std::function<bool()> getLed2StateLambda = [this] {
+    return getLed2State();
+    ;
+  };
   // -------------------------
   // Automatic mode
   // -------------------------
@@ -56,6 +69,13 @@ class AppState {
 
   void setAutoState(bool state) { autoState = state; }
 
+  std::function<void()> toggleAutoStateLambda =
+      [this]() { setAutoState(!getAutoState()); };
+
+  std::function<bool()> getAutoStateLambda = [this] {
+    return getAutoState();
+    ;
+  };
   AutoMode getAutoMode() const { return autoMode; }
 
   void setAutoMode(AutoMode mode) { autoMode = mode; }
@@ -68,6 +88,33 @@ class AppState {
     previousScanMode = scannerMode;
     scannerMode = newScannerMode;
   }
+
+  std::function<bool()> getScannerModeNormalLambda = [this] {
+    return getScannerMode() == NORMAL;
+  };
+  std::function<bool()> getScannerModeRegisterTracksLambda = [this] {
+    return getScannerMode() == REGISTER_TRACKS;
+  };
+  std::function<bool()> getScannerModeWritingTracksLambda = [this] {
+    return getScannerMode() == WRITING_TRACKS;
+  };
+  std::function<bool()> getScannerModeScanningTracksLambda = [this] {
+    return getScannerMode() == SCANNING_TRACKS;
+  };
+  std::function<bool()> getScannerModePathFindingLambda = [this] {
+    return getScannerMode() == PATH_FINDING;
+  };
+
+  std::function<void()> setScannerModeNormalLambda =
+      [this]() { setScannerMode(NORMAL); };
+  std::function<void()> setScannerModeRegisterTracksLambda =
+      [this]() { setScannerMode(REGISTER_TRACKS); };
+  std::function<void()> setScannerModeWritingTracksLambda =
+      [this]() { setScannerMode(WRITING_TRACKS); };
+  std::function<void()> setScannerModeScanningTracksLambda =
+      [this]() { setScannerMode(SCANNING_TRACKS); };
+  std::function<void()> setScannerModePathFindingLambda =
+      [this]() { setScannerMode(PATH_FINDING); };
   ScannerMode getPreviousScannerMode() { return previousScanMode; }
 
   void setScannerStatusLabelText(String scannerStatusLabelText_) {
@@ -84,19 +131,31 @@ class AppState {
   }
   String getPathFinderStatusText() { return pathFinderStatusText; }
 
-  bool getAmbianceAudioMode() const { return ambianceAudioMode; }
+  bool getAmbianceAudioState() const { return ambianceAudioState; }
 
-  void setAmbianceAudioMode(bool state) { ambianceAudioMode = state; }
+  void setAmbianceAudioState(bool state) { ambianceAudioState = state; }
 
-  bool getMovementAudioMode() const { return movementAudioMode; }
+  std::function<void()> toggleAmbianceAudioStateLambda =
+      [this]() {
+        setAmbianceAudioState(!getAmbianceAudioState());
+      };
 
-  void setMovementAudioMode(bool state) { movementAudioMode = state; }
+  std::function<bool()> getAmbianceAudioStateLambda = [this] {
+    return getAmbianceAudioState();
+    ;
+  };
 
-  bool getAudioState() const { return movementAudioMode && ambianceAudioMode; }
+  bool getMovementAudioState() const { return movementAudioState; }
+
+  void setMovementAudioState(bool state) { movementAudioState = state; }
+
+  bool getAudioState() const {
+    return movementAudioState && ambianceAudioState;
+  }
 
   void setAudioState(bool state) {
-    movementAudioMode = state;
-    ambianceAudioMode = state;
+    movementAudioState = state;
+    ambianceAudioState = state;
   }
 
   void setMovementAudioPitch(float pitch) { movementAudioPitch = pitch; }
@@ -118,14 +177,20 @@ class AppState {
   int getUserSpeed() const { return userSpeed; }
 
   void setUserSpeed(int speed) { userSpeed = speed; }
-  // std::function<void(lv_event_t*)> setUserSpeedLambda = [this](lv_event_t*
-  // event) {
-  //   setUserSpeed(static_cast<int>(value));
-  // };
+  std::function<void()> increaseUserSpeedLambda =
+      [this]() {
+        setUserSpeed(clampInt(getUserSpeed() + 10, -MAX_PWM, MAX_PWM));
+      };
 
-  // std::function<float()> getUserSpeedLambda = [this] {
-  //   return static_cast<float>(getUserSpeed());
-  // };
+  std::function<void()> setUserSpeedZeroLambda =
+      [this]() { setUserSpeed(0); };
+  std::function<void()> decreaseUserSpeedLambda =
+      [this]() {
+        setUserSpeed(clampInt(getUserSpeed() + 10, -MAX_PWM, MAX_PWM));
+      };
+  std::function<float()> getUserSpeedLambda = [this] {
+    return static_cast<float>(getUserSpeed());
+  };
   std::function<const char*()> getUserSpeedLabelLambda = [this] {
     static char text[32];
     std::snprintf(text, sizeof(text), "Speed: %d", abs(getUserSpeed()));
@@ -136,6 +201,15 @@ class AppState {
 
   void setCurrentSpeed(float speed) { currentSpeed = speed; }
 
+  std::function<void()> increaseRampTimeLambda =
+      [this]() {
+        setRampTime(clampInt(getRampTime() + kRampStep, kRampMin, kRampMax));
+      };
+
+  std::function<void()> decreaseRampTimeLambda =
+      [this]() {
+        setRampTime(clampInt(getRampTime() - kRampStep, kRampMin, kRampMax));
+      };
   // -------------------------
   // Ramp
   // -------------------------
@@ -184,7 +258,12 @@ class AppState {
   TrackType getPreviousSelectedTrackType() { return previousSelectedTrackType; }
 
   Tracks* getCurrentTracks() { return &currentTracks; }
-
+  std::function<const char*()> getTrackCountLabelLambda = [this] {
+    static char text[32];
+    snprintf(text, sizeof(text), "Tracks: %u",
+             static_cast<unsigned>(getCurrentTracks()->size()));
+    return text;
+  };
   // const Tracks* getCurrentTracks() const { return &currentTracks; }
   void setPath(Uids path_) { path = path_; }
   Uids& getPath() {
@@ -322,8 +401,8 @@ class AppState {
     pathFinderStatusText = "";
 
     // Audio
-    ambianceAudioMode = false;
-    movementAudioMode = true;
+    ambianceAudioState = false;
+    movementAudioState = true;
 
     movementAudioPitch = 0;
     movementAudioSpeed = 0;
@@ -361,10 +440,10 @@ class AppState {
 
     // settings
     minPwm = 0;
-    lowAudioOffset = 0;
-    highAudioOffset = 0;
-    ambianceSoundVolume = 0;
-    movementSoundVolume = 0;
+    lowAudioOffset = 0.0f;
+    highAudioOffset = 0.0f;
+    ambianceSoundVolume = 0.25;
+    movementSoundVolume = 1.0;
   }
 
   // LEDs
@@ -384,8 +463,8 @@ class AppState {
   String pathFinderStatusText;
 
   // Audio
-  bool ambianceAudioMode;
-  bool movementAudioMode;
+  bool ambianceAudioState;
+  bool movementAudioState;
 
   float movementAudioPitch;
   float movementAudioSpeed;

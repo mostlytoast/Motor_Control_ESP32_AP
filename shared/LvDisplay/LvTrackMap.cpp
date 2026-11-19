@@ -60,22 +60,17 @@ LvTrackMap::LvTrackMap(lv_obj_t* parent,
 
   count_label_ = sharedDisplay.createLabel(
       grid_cont, lv_color_hex(colorConfig.statusColor), 8, 53, LV_PART_MAIN,
-      LV_ALIGN_TOP_LEFT, [this]() -> const char* {
-        static char text[32];
-        snprintf(text, sizeof(text), "Tracks: %u",
-                 static_cast<unsigned>(app.getCurrentTracks()->size()));
-        return text;
-      });
+      LV_ALIGN_TOP_LEFT, app.getTrackCountLabelLambda);
   lv_obj_set_grid_cell(count_label_, LV_GRID_ALIGN_CENTER, 1, 1,
                        LV_GRID_ALIGN_CENTER, 0, 1);
   hide_button_ = sharedDisplay.createActionButton(
-      grid_cont, "Hide", [this](lv_event_t* event) { toggle(); },
+      grid_cont, "Hide", [this]() { toggle(); },
       lv_color_hex(colorConfig.menuHeaderColor));
   lv_obj_set_grid_cell(hide_button_, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 1, 1);
   print_button_ = sharedDisplay.createActionButton(
       grid_cont, "Print",
-      [this](lv_event_t* event) {
+      [this]() {
         JsonDocument outputDoc;
         getJsonFromState(outputDoc);
         String outputString;
@@ -85,9 +80,9 @@ LvTrackMap::LvTrackMap(lv_obj_t* parent,
   lv_obj_set_grid_cell(print_button_, LV_GRID_ALIGN_STRETCH, 1, 1,
                        LV_GRID_ALIGN_STRETCH, 1, 1);
   auto_btn_ = sharedDisplay.createActionButton(
-      grid_cont, "Auto", [this](lv_event_t* event) { togglePathFind(); },
+      grid_cont, "Auto", [this]() { togglePathFind(); },
       lv_color_hex(colorConfig.menuHeaderColor),
-      [this]() { return app.getScannerMode() == PATH_FINDING; });
+      app.getScannerModePathFindingLambda);
   lv_obj_set_grid_cell(auto_btn_, LV_GRID_ALIGN_STRETCH, 2, 1,
                        LV_GRID_ALIGN_STRETCH, 1, 1);
   auto_label_ = sharedDisplay.createLabel(
@@ -485,7 +480,7 @@ void LvTrackMap::createTagHitBox(const Uid destinationUid, const Point point) {
   hitboxUid.emplace_back(destinationUid);
   sharedDisplay.createTagHitbox(
       hitBoxLayer_, cx, cy, config_.tagRadius * 4,
-      [this, destinationUid](lv_event_t* event) {
+      [this, destinationUid]() {
         Serial.println("touch hitbox");
         app.setDestinationUid(destinationUid);
         refreshAndSend();

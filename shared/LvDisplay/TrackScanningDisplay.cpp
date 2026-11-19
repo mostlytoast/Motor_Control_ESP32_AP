@@ -44,7 +44,7 @@ TrackScanningDisplay::TrackScanningDisplay(
   lv_obj_set_grid_dsc_array(grid_cont, col_dsc, row_dsc);
   lv_obj_set_layout(grid_cont, LV_LAYOUT_GRID);
   hide_button_ = sharedDisplay.createActionButton(
-      grid_cont, "Hide", [this](lv_event_t* event) { toggle(); },
+      grid_cont, "Hide", [this]() { toggle(); },
       lv_color_hex(colorConfig.menuHeaderColor));
   lv_obj_set_grid_cell(hide_button_, LV_GRID_ALIGN_STRETCH, 1, 1,
                        LV_GRID_ALIGN_STRETCH, 0, 1);
@@ -55,42 +55,45 @@ TrackScanningDisplay::TrackScanningDisplay(
   lv_obj_set_grid_cell(scan_status_label_, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 1, 1);
   btn_register_ = sharedDisplay.createActionButton(
-      grid_cont, "Register", [this](lv_event_t* event) { registerTracks(); },
-      lv_color_hex(colorConfig.inactiveColor), [this]() { return app.getScannerMode() == REGISTER_TRACKS ; });
+      grid_cont, "Register", app.setScannerModeRegisterTracksLambda,
+      lv_color_hex(colorConfig.inactiveColor),
+      app.getScannerModeRegisterTracksLambda);
   lv_obj_set_grid_cell(btn_register_, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 2, 1);
   btn_write_ = sharedDisplay.createActionButton(
-      grid_cont, "Write", [this](lv_event_t* event) { writeTracks(); },
-      lv_color_hex(colorConfig.inactiveColor),[this]() { return app.getScannerMode() == WRITING_TRACKS ; });
+      grid_cont, "Write", app.setScannerModeWritingTracksLambda,
+      lv_color_hex(colorConfig.inactiveColor),
+      app.getScannerModeWritingTracksLambda);
   lv_obj_set_grid_cell(btn_write_, LV_GRID_ALIGN_STRETCH, 1, 1,
                        LV_GRID_ALIGN_STRETCH, 2, 1);
   btn_scan_ = sharedDisplay.createActionButton(
-      grid_cont, "Scan", [this](lv_event_t* event) { scanNewLayout(); },
-      lv_color_hex(colorConfig.inactiveColor),[this]() { return app.getScannerMode() == SCANNING_TRACKS ; });
+      grid_cont, "Scan", app.setScannerModeScanningTracksLambda,
+      lv_color_hex(colorConfig.inactiveColor),
+      app.getScannerModeScanningTracksLambda);
   lv_obj_set_grid_cell(btn_scan_, LV_GRID_ALIGN_STRETCH, 2, 1,
                        LV_GRID_ALIGN_STRETCH, 2, 1);
   btn_normal_ = sharedDisplay.createActionButton(
-      grid_cont, "Normal", [this](lv_event_t* event) { normal(); },
-      lv_color_hex(colorConfig.inactiveColor),[this]() { return app.getScannerMode() == NORMAL ; });
+      grid_cont, "Normal", app.setScannerModeNormalLambda,
+      lv_color_hex(colorConfig.inactiveColor), app.getScannerModeNormalLambda);
   lv_obj_set_grid_cell(btn_normal_, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 3, 1);
 
   list_tracks_ = sharedDisplay.createActionDropdown(
       grid_cont, "Curved\nStraight\nCross\nStation", 110, 128, 100, 40,
-      {[this](lv_event_t* event) {
+      {[this]() {
          app.setSelectedTrackType(CURVED);
          refresh();
        },
-       [this](lv_event_t* event) {
+       [this]() {
          app.setSelectedTrackType(STRAIGHT);
 
          refresh();
        },
-       [this](lv_event_t* event) {
+       [this]() {
          app.setSelectedTrackType(CROSS);
          refresh();
        },
-       [this](lv_event_t* event) {
+       [this]() {
          app.setSelectedTrackType(STATION);
          refresh();
        }});
@@ -146,13 +149,6 @@ void TrackScanningDisplay::refresh() {
   refreshList();
 }
 
-void TrackScanningDisplay::refreshAndSend() {
-  refresh();
-  if (sendStateToReceiverCallback != nullptr) {
-    sendStateToReceiverCallback();
-  }
-}
-
 void TrackScanningDisplay::refreshList() {
   if (list_tracks_options_ != nullptr) {
     lv_obj_del_async(list_tracks_options_);
@@ -197,34 +193,26 @@ void TrackScanningDisplay::setListAsCurved() {
   track->setDirection(false);
   list_tracks_options_ = sharedDisplay.createActionDropdown(
       grid_cont, "O31\nO36\nO48\nO60\nO72\nO84\nO96\n", 215, 128, 100, 40,
-      {[this](lv_event_t* event) {
+      {[this]() {
          app.getTemplateTrack()->setSectionsAndRadius(8.0, 31.0 / 2.0);
-
-         refreshAndSend();
        },
-       [this](lv_event_t* event) {
+       [this]() {
          app.getTemplateTrack()->setSectionsAndRadius(8.0, 36.0 / 2.0);
-         refreshAndSend();
        },
-       [this](lv_event_t* event) {
+       [this]() {
          app.getTemplateTrack()->setSectionsAndRadius(12.0, 48.0 / 2.0);
-         refreshAndSend();
        },
-       [this](lv_event_t* event) {
+       [this]() {
          app.getTemplateTrack()->setSectionsAndRadius(16.0, 60.0 / 2.0);
-         refreshAndSend();
        },
-       [this](lv_event_t* event) {
+       [this]() {
          app.getTemplateTrack()->setSectionsAndRadius(16.0, 72.0 / 2.0);
-         refreshAndSend();
        },
-       [this](lv_event_t* event) {
+       [this]() {
          app.getTemplateTrack()->setSectionsAndRadius(32.0, 84.0 / 2.0);
-         refreshAndSend();
        },
-       [this](lv_event_t* event) {
+       [this]() {
          app.getTemplateTrack()->setSectionsAndRadius(32.0, 96.0 / 2);
-         refreshAndSend();
        }});
   lv_obj_set_grid_cell(list_tracks_options_, LV_GRID_ALIGN_STRETCH, 2, 1,
                        LV_GRID_ALIGN_STRETCH, 3, 1);
@@ -243,63 +231,21 @@ void TrackScanningDisplay::setListAsStraight() {
 
   list_tracks_options_ = sharedDisplay.createActionDropdown(
       grid_cont, "1 3/8\n1 3/4\n3\n4 1/2\n5\n10\n30\n", 215, 128, 100, 40,
-      {[this](lv_event_t* event) {
-         app.getTemplateTrack()->setLength(1.375);
-         refreshAndSend();
-       },
-       [this](lv_event_t* event) {
-         app.getTemplateTrack()->setLength(1.75);
-         refreshAndSend();
-       },
-       [this](lv_event_t* event) {
-         app.getTemplateTrack()->setLength(3.0);
-         refreshAndSend();
-       },
-       [this](lv_event_t* event) {
-         app.getTemplateTrack()->setLength(4.5);
-         refreshAndSend();
-       },
-       [this](lv_event_t* event) {
-         app.getTemplateTrack()->setLength(5.0);
-         refreshAndSend();
-       },
-       [this](lv_event_t* event) {
-         app.getTemplateTrack()->setLength(10.0);
-         refreshAndSend();
-       },
-       [this](lv_event_t* event) {
-         app.getTemplateTrack()->setLength(30.0);
-         refreshAndSend();
-       }});
+      {[this]() { app.getTemplateTrack()->setLength(1.375); },
+       [this]() { app.getTemplateTrack()->setLength(1.75); },
+       [this]() { app.getTemplateTrack()->setLength(3.0); },
+       [this]() { app.getTemplateTrack()->setLength(4.5); },
+       [this]() { app.getTemplateTrack()->setLength(5.0); },
+       [this]() { app.getTemplateTrack()->setLength(10.0); },
+       [this]() { app.getTemplateTrack()->setLength(30.0); }});
   lv_obj_set_grid_cell(list_tracks_options_, LV_GRID_ALIGN_STRETCH, 2, 1,
                        LV_GRID_ALIGN_STRETCH, 3, 1);
 }
 void TrackScanningDisplay::setListAsNone() {
-  list_tracks_options_ =
-      sharedDisplay.createActionDropdown(grid_cont, "no options", 215, 128, 100,
-                                         40, {[this](lv_event_t* event) {}});
+  list_tracks_options_ = sharedDisplay.createActionDropdown(
+      grid_cont, "no options", 215, 128, 100, 40, {[this]() {}});
   lv_obj_set_grid_cell(list_tracks_options_, LV_GRID_ALIGN_STRETCH, 2, 1,
                        LV_GRID_ALIGN_STRETCH, 3, 1);
-}
-// Scan button
-void TrackScanningDisplay::registerTracks() {
-  app.setScannerMode(REGISTER_TRACKS);
-  refreshAndSend();
-}
-
-void TrackScanningDisplay::writeTracks() {
-  app.setScannerMode(WRITING_TRACKS);
-  refreshAndSend();
-}
-
-void TrackScanningDisplay::scanNewLayout() {
-  app.setScannerMode(SCANNING_TRACKS);
-  refreshAndSend();
-}
-
-void TrackScanningDisplay::normal() {
-  app.setScannerMode(NORMAL);
-  refreshAndSend();
 }
 
 void TrackScanningDisplay::toggle() {

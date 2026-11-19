@@ -591,7 +591,7 @@ static void flushDisplay(lv_display_t* display, const lv_area_t* area,
 static void webLoop() {
   lv_tick_inc(16);
   lv_timer_handler();
-
+  
 #ifdef __EMSCRIPTEN__
 
   if (g_pointerIndev != nullptr) {
@@ -601,6 +601,8 @@ static void webLoop() {
 #endif
 
   lv_timer_handler();
+  g_controller->sendStateToReceiver();
+
 }
 
 // ============================================================

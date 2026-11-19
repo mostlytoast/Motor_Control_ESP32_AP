@@ -64,7 +64,7 @@ void OptionsMenu::createMenu(lv_obj_t* parent) {
   lv_obj_set_hidden(keyboard, true);
   lv_obj_t* hide_button = sharedDisplay.createActionButton(
       grid_cont_, "Hide", 215, 27, 150, 25,
-      [this](lv_event_t* event) { toggle(); },
+      [this]() { toggle(); },
       lv_color_hex(colorConfig.menuHeaderColor));
   lv_obj_set_grid_cell(hide_button, LV_GRID_ALIGN_STRETCH, 1, 0,
                        LV_GRID_ALIGN_STRETCH, 0, 1);
@@ -75,10 +75,11 @@ void OptionsMenu::createMenu(lv_obj_t* parent) {
   lv_obj_set_grid_cell(min_pwm_label, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 1, 1);
 
-  lv_obj_t* min_pwm_ta = sharedDisplay.createActionSlider(
-      grid_cont_, app.setMinPwmLambda, app.getMinPwmLambda, 0.0, 255.0,
+  lv_obj_t* min_pwm_slider = sharedDisplay.createActionSlider(
+      grid_cont_, app.setMinPwmLambda, app.getMinPwmLambda,
+      static_cast<float>(MIN_PWM), static_cast<float>(MAX_PWM),
       lv_color_hex(colorConfig.infoColor));
-  lv_obj_set_grid_cell(min_pwm_ta, LV_GRID_ALIGN_STRETCH, 1, 1,
+  lv_obj_set_grid_cell(min_pwm_slider, LV_GRID_ALIGN_STRETCH, 1, 1,
                        LV_GRID_ALIGN_STRETCH, 1, 1);
   //  ============================= LOW AUDIO =============================
 
@@ -88,10 +89,10 @@ void OptionsMenu::createMenu(lv_obj_t* parent) {
   lv_obj_set_grid_cell(low_audio_offset_label, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 2, 1);
 
-  lv_obj_t* low_audio_offset_ta = sharedDisplay.createActionSlider(
+  lv_obj_t* low_audio_offset_slider = sharedDisplay.createActionSlider(
       grid_cont_, app.setLowAudioOffsetLambda, app.getLowAudioOffsetLambda, 0.0,
       5.0, lv_color_hex(colorConfig.infoColor));
-  lv_obj_set_grid_cell(low_audio_offset_ta, LV_GRID_ALIGN_STRETCH, 1, 1,
+  lv_obj_set_grid_cell(low_audio_offset_slider, LV_GRID_ALIGN_STRETCH, 1, 1,
                        LV_GRID_ALIGN_STRETCH, 2, 1);
 
   //  ============================= HIGH AUDIO =============================
@@ -102,17 +103,17 @@ void OptionsMenu::createMenu(lv_obj_t* parent) {
   lv_obj_set_grid_cell(high_audio_offset_label, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 3, 1);
 
-  lv_obj_t* high_audio_offset_ta = sharedDisplay.createActionSlider(
+  lv_obj_t* high_audio_offset_slider = sharedDisplay.createActionSlider(
       grid_cont_, app.setHighAudioOffsetLambda, app.getHighAudioOffsetLambda,
       0.0, 5.0, lv_color_hex(colorConfig.infoColor));
-  lv_obj_set_grid_cell(high_audio_offset_ta, LV_GRID_ALIGN_STRETCH, 1, 1,
+  lv_obj_set_grid_cell(high_audio_offset_slider, LV_GRID_ALIGN_STRETCH, 1, 1,
                        LV_GRID_ALIGN_STRETCH, 3, 1);
   //  ============================= AMBIANCE =============================
 
-  lv_obj_t* ambiance_sound_volume_ta = sharedDisplay.createLabel(
+  lv_obj_t* ambiance_sound_volume_slider = sharedDisplay.createLabel(
       grid_cont_, lv_color_hex(colorConfig.textColor), 0, 2, LV_PART_MAIN,
       LV_ALIGN_CENTER, app.getAmbianceSoundVolumeLabelLambda);
-  lv_obj_set_grid_cell(ambiance_sound_volume_ta, LV_GRID_ALIGN_STRETCH, 0, 1,
+  lv_obj_set_grid_cell(ambiance_sound_volume_slider, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 4, 1);
 
   lv_obj_t* ambiance_sound_volume_label = sharedDisplay.createActionSlider(
@@ -124,10 +125,10 @@ void OptionsMenu::createMenu(lv_obj_t* parent) {
 
   //  ============================= MOVEMENT =============================
 
-  lv_obj_t* movement_sound_volume_ta = sharedDisplay.createLabel(
+  lv_obj_t* movement_sound_volume_slider = sharedDisplay.createLabel(
       grid_cont_, lv_color_hex(colorConfig.textColor), 0, 2, LV_PART_MAIN,
       LV_ALIGN_CENTER, app.getMovementSoundVolumeLabelLambda);
-  lv_obj_set_grid_cell(movement_sound_volume_ta, LV_GRID_ALIGN_STRETCH, 0, 1,
+  lv_obj_set_grid_cell(movement_sound_volume_slider, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 5, 1);
 
   lv_obj_t* movement_sound_volume_label = sharedDisplay.createActionSlider(

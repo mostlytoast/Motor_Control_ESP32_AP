@@ -13,37 +13,37 @@ void setupMotor() {
 }
 
 void setMotor(int speed) {
-    Serial.print("[Motor] Speed: ");
-    Serial.println(speed);
+  Serial.print("[Motor] Speed: ");
+  Serial.println(speed);
 
-    speed = clampInt(speed, -255, 255);
+  speed = clampInt(speed, -255, 255);
 
-    if (speed == 0) {
-        ledcWrite(IN1, 0);
-        ledcWrite(IN2, 0);
+  if (speed == 0) {
+    ledcWrite(IN1, 0);
+    ledcWrite(IN2, 0);
 
-        digitalWrite(ENA, LOW);
+    digitalWrite(ENA, LOW);
 
-        app.setMovementAudioMode(false);
-        return;
-    }
+    app.setMovementAudioState(false);
+    return;
+  }
 
-    app.setMovementAudioMode(true);
+  app.setMovementAudioState(true);
 
-    int pwm = abs(speed);
+  int pwm = abs(speed);
 
-    pwm = map(pwm, 1, 255, MIN_PWM, MAX_PWM);
-    pwm = clampInt(pwm, MIN_PWM, MAX_PWM);
+  pwm = map(pwm, 1, 255, app.getMinPwm(), MAX_PWM);
+  pwm = clampInt(pwm, app.getMinPwm(), MAX_PWM);
 
-    digitalWrite(ENA, HIGH);
+  digitalWrite(ENA, HIGH);
 
-    if (speed > 0) {
-        ledcWrite(IN1, pwm);
-        ledcWrite(IN2, 0);
-    } else {
-        ledcWrite(IN1, 0);
-        ledcWrite(IN2, pwm);
-    }
+  if (speed > 0) {
+    ledcWrite(IN1, pwm);
+    ledcWrite(IN2, 0);
+  } else {
+    ledcWrite(IN1, 0);
+    ledcWrite(IN2, pwm);
+  }
 }
 // Motor ramping
 
@@ -53,7 +53,7 @@ void updateMotorRamp() {
   // ===================================================
   // Target changed
   // ===================================================
-  
+
   if (app.getTargetSpeed() != app.getLastTargetSpeed()) {
     // Remember starting speed
     app.setRampStartSpeed((int)app.getCurrentSpeed());

@@ -62,7 +62,6 @@ class LvDisplayController {
   ~LvDisplayController() = default;
   lv_obj_t* init(lv_obj_t* screen);
 
-
   void reset();
   void refresh();
 
@@ -86,15 +85,11 @@ class LvDisplayController {
   void toggleTrackMap();
   void applyStateToUi();
 
+  void sendStateToReceiver();
+
  private:
   SharedDisplayCalls sharedDisplay;
-  void updateSpeedLabel();
-  void updateRampLabel();
-  void updateStatusLabel();
 
-  void buttonEventHandler(lv_event_t* event);
-
-  void sendStateToReceiver();
 
   ILvDisplayHost* host_ = nullptr;
   lv_obj_t* screen_ = nullptr;
@@ -115,7 +110,7 @@ class LvDisplayController {
   lv_obj_t* autoButton_ = nullptr;
   lv_obj_t* audioButton_ = nullptr;
   lv_obj_t* infoLabel_ = nullptr;
-lv_obj_t* grid_cont  = nullptr;
+  lv_obj_t* grid_cont = nullptr;
   lv_obj_t* trackMapContainer_ = nullptr;
   LvTrackMap* trackMapDisplay_ = nullptr;
   lv_obj_t* trackScanningContainer_ = nullptr;

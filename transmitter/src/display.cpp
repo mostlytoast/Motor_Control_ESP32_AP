@@ -207,9 +207,9 @@ static bool initTouch() {
 
 void Display::setupDisplay() {
   if (!espnowController.setupESPNow(
-          getCondensedJsonFromStateTransmitter, getStateFromCondensedJson,
+          getCondensedJsonFromState, getStateFromCondensedJson,
           [this]() { this->reset(); }, true)) {
-    app.setStatusLabelText("ERROR");
+  app.setStatusLabelText("ERROR");
   }
 
   app.setTargetSpeed(0);
@@ -313,7 +313,7 @@ void Display::createUI() {
 
   controllerButton = sharedDisplay.createActionButton(
       mainGrid, "Peers",
-      [this](lv_event_t* event) {
+      [this]() {
         if (controllerMenuInstance != nullptr) {
           controllerMenuInstance->toggle();
         }

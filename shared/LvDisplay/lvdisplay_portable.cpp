@@ -2,10 +2,7 @@
 // todo make this use arduinoJson to simplify code
 // TODO odd web bug where buttons dont initially respond until multiple are
 // clicked?
-namespace {
-JsonDocument previousState;
-bool previousStateUpdated = false;
-}  // namespace
+
 TrackMap trackMap;
 
 LvDisplayController::LvDisplayController(ILvDisplayHost* host) : host_(host) {}
@@ -60,6 +57,7 @@ lv_obj_t* LvDisplayController::init(lv_obj_t* screen) {
   lv_obj_set_grid_dsc_array(grid_cont, col_dsc, row_dsc);
   lv_obj_set_layout(grid_cont, LV_LAYOUT_GRID);
 
+  //  ============================= TITLE LABEL =============================
   titleLabel_ = sharedDisplay.createLabel(
       grid_cont, lv_color_hex(colorConfig.textColor), 0, 2, LV_PART_MAIN,
       LV_ALIGN_CENTER, "MOTOR CONTROLS V8");
@@ -67,9 +65,10 @@ lv_obj_t* LvDisplayController::init(lv_obj_t* screen) {
   lv_obj_set_grid_cell(titleLabel_, LV_GRID_ALIGN_CENTER, 1, 0,
                        LV_GRID_ALIGN_CENTER, 0, 0);
 
+  //  ============================= MAP =============================
   mapButton_ = sharedDisplay.createActionButton(
       grid_cont, "show Map",
-      [this](lv_event_t* event) {
+      [this]() {
         trackMapDisplay_->toggle();
         // lv_obj_move_foreground(this->statusLabel_);
       },
@@ -77,9 +76,10 @@ lv_obj_t* LvDisplayController::init(lv_obj_t* screen) {
   lv_obj_set_grid_cell(mapButton_, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 1, 1);
 
+  //  ============================= TRACK SCANNER =============================
   trackScannerButton = sharedDisplay.createActionButton(
       grid_cont, "SCANNER",
-      [this](lv_event_t* event) {
+      [this]() {
         trackScanningDisplay_->toggle();
         // lv_obj_move_foreground(this->statusLabel_);
       },
@@ -87,116 +87,85 @@ lv_obj_t* LvDisplayController::init(lv_obj_t* screen) {
   lv_obj_set_grid_cell(trackScannerButton, LV_GRID_ALIGN_STRETCH, 1, 1,
                        LV_GRID_ALIGN_STRETCH, 1, 1);
 
+  //  ============================= SPEED LABEL =============================
   speedLabel_ = sharedDisplay.createLabel(
       grid_cont, lv_color_hex(colorConfig.textColor), 8, 53, LV_PART_MAIN,
       LV_ALIGN_TOP_LEFT, app.getUserSpeedLabelLambda);
   lv_obj_set_grid_cell(speedLabel_, LV_GRID_ALIGN_CENTER, 0, 1,
                        LV_GRID_ALIGN_CENTER, 2, 1);
 
+  //  ============================= RAMP LABEL =============================
   rampLabel_ = sharedDisplay.createLabel(
       grid_cont, lv_color_hex(colorConfig.textColor), 0, 53, LV_PART_MAIN,
       LV_ALIGN_TOP_MID, app.getRampTimeLabelLambda);
-
   lv_obj_set_grid_cell(rampLabel_, LV_GRID_ALIGN_CENTER, 1, 1,
                        LV_GRID_ALIGN_CENTER, 2, 1);
-  // TODO make this show on top of everything
-  // lv_obj_t * top_obj = lv_obj_create(lv_layer_top());
 
-  // lv_obj_set_grid_cell(statusLabel_, LV_GRID_ALIGN_STRETCH, 2, 1,
-  //                      LV_GRID_ALIGN_STRETCH, 1, 1);
+  //  ============================= FORWARD BUTTON =============================
   forwardButton_ = sharedDisplay.createActionButton(
-      grid_cont, "FORWARD",
-      [this](lv_event_t* event) {
-        // TODO use the min and max for the lambda
-        app.setUserSpeed(clampInt(app.getUserSpeed() + 10, -255, 255));
-        sendStateToReceiver();
-      },
+      grid_cont, "FORWARD", app.increaseUserSpeedLambda,
       lv_color_hex(colorConfig.forwardColor));
-
   lv_obj_set_grid_cell(forwardButton_, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 3, 1);
+
+  //  ============================= STOP BUTTON =============================
   stopButton_ = sharedDisplay.createActionButton(
-      grid_cont, "STOP",
-      [this](lv_event_t* event) {
-        app.setUserSpeed(0);
-        sendStateToReceiver();
-      },
+      grid_cont, "STOP", app.setUserSpeedZeroLambda,
       lv_color_hex(colorConfig.stopColor));
   lv_obj_set_grid_cell(stopButton_, LV_GRID_ALIGN_STRETCH, 1, 1,
                        LV_GRID_ALIGN_STRETCH, 3, 1);
+
+  //  ============================= REVERSE BUTTON =============================
   reverseButton_ = sharedDisplay.createActionButton(
-      grid_cont, "REVERSE",
-      [this](lv_event_t* event) {
-        app.setUserSpeed(clampInt(app.getUserSpeed() - 10, -255, 255));
-        sendStateToReceiver();
-      },
+      grid_cont, "REVERSE", app.decreaseUserSpeedLambda,
       lv_color_hex(colorConfig.reverseColor));
   lv_obj_set_grid_cell(reverseButton_, LV_GRID_ALIGN_STRETCH, 2, 1,
                        LV_GRID_ALIGN_STRETCH, 3, 1);
-  rampDownButton_ = sharedDisplay.createActionButton(
-      grid_cont, "RAMP -",
-      [this](lv_event_t* event) {
-        app.setRampTime(
-            clampInt(app.getRampTime() - kRampStep, kRampMin, kRampMax));
-        sendStateToReceiver();
-      },
-      lv_color_hex(colorConfig.inactiveColor));
 
+  //  ========================= RAMP DOWN BUTTON ===========================
+  rampDownButton_ = sharedDisplay.createActionButton(
+      grid_cont, "RAMP -", app.decreaseRampTimeLambda,
+      lv_color_hex(colorConfig.inactiveColor));
   lv_obj_set_grid_cell(rampDownButton_, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 4, 1);
+
+  //  ============================= RAMP UP BUTTON =============================
   rampUpButton_ = sharedDisplay.createActionButton(
-      grid_cont, "RAMP +",
-      [this](lv_event_t* event) {
-        app.setRampTime(
-            clampInt(app.getRampTime() + kRampStep, kRampMin, kRampMax));
-        sendStateToReceiver();
-      },
+      grid_cont, "RAMP +", app.increaseRampTimeLambda,
       lv_color_hex(colorConfig.inactiveColor));
   lv_obj_set_grid_cell(rampUpButton_, LV_GRID_ALIGN_STRETCH, 1, 1,
                        LV_GRID_ALIGN_STRETCH, 4, 1);
+
+  //  ============================= LED 1 BUTTON =============================
   led1Button_ = sharedDisplay.createActionButton(
-      grid_cont, "LED 1",
-      [this](lv_event_t* event) {
-        app.setLed1State(!app.getLed1State());
-        sendStateToReceiver();
-      },
-      lv_color_hex(colorConfig.inactiveColor),
-      [this]() { return app.getLed1State(); });
+      grid_cont, "LED 1", app.toggleLed1StateLambda,
+      lv_color_hex(colorConfig.inactiveColor), app.getLed1StateLambda);
   lv_obj_set_grid_cell(led1Button_, LV_GRID_ALIGN_STRETCH, 2, 1,
                        LV_GRID_ALIGN_STRETCH, 4, 1);
 
+  //  ============================= LED 3 BUTTON ============================
   led2Button_ = sharedDisplay.createActionButton(
-      grid_cont, "LED 2",
-      [this](lv_event_t* event) {
-        app.setLed2State(!app.getLed2State());
-        sendStateToReceiver();
-      },
-      lv_color_hex(colorConfig.inactiveColor),
-      [this]() { return app.getLed2State(); });
+      grid_cont, "LED 2", app.toggleLed2StateLambda,
+      lv_color_hex(colorConfig.inactiveColor), app.getLed2StateLambda);
 
   lv_obj_set_grid_cell(led2Button_, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 5, 1);
+
+  //  ============================= AUTO BUTTON =============================
   autoButton_ = sharedDisplay.createActionButton(
-      grid_cont, "AUTO",
-      [this](lv_event_t* event) {
-        app.setAutoState(!app.getAutoState());
-        sendStateToReceiver();
-      },
-      lv_color_hex(colorConfig.inactiveColor),
-      [this]() { return app.getAutoState(); });
+      grid_cont, "AUTO", app.toggleAutoStateLambda,
+      lv_color_hex(colorConfig.inactiveColor), app.getAutoStateLambda);
   lv_obj_set_grid_cell(autoButton_, LV_GRID_ALIGN_STRETCH, 1, 1,
                        LV_GRID_ALIGN_STRETCH, 5, 1);
+
+  //  ============================= AUDIO BUTTON =============================
   audioButton_ = sharedDisplay.createActionButton(
-      grid_cont, "AUDIO",
-      [this](lv_event_t* event) {
-        app.setAmbianceAudioMode(!app.getAmbianceAudioMode());
-        sendStateToReceiver();
-      },
-      lv_color_hex(colorConfig.inactiveColor),
-      [this]() { return app.getAmbianceAudioMode(); });
+      grid_cont, "AUDIO", app.toggleAmbianceAudioStateLambda,
+      lv_color_hex(colorConfig.inactiveColor), app.getAmbianceAudioStateLambda);
   lv_obj_set_grid_cell(audioButton_, LV_GRID_ALIGN_STRETCH, 2, 1,
                        LV_GRID_ALIGN_STRETCH, 5, 1);
 
+  //  ============================= INFO LABEL =============================
   infoLabel_ = sharedDisplay.createLabel(
       grid_cont, lv_color_hex(colorConfig.infoColor), 0, -3, LV_PART_MAIN,
       LV_ALIGN_CENTER, "ESP-NOW");
@@ -247,29 +216,24 @@ void LvDisplayController::getStateFromJsonDisplay(const char* json) {
   // todo check if refreshing too much
   refresh();
 }
-
+int lastSend = 0;
+int sendPeriod = 100;
 void LvDisplayController::sendStateToReceiver() {
+  // TODO have it so this gets called when
   // Serial.println("called sendStateToReceiver portable");
+  if (!hasStateChanged()) {
+    return;
+  }
+  if (millis() - lastSend <= sendPeriod) {
+    return;
+  }
+  lastSend = millis();
   JsonDocument state;
 
   getCondensedJsonFromState(state);
   if (state.isNull()) {
     return;
   }
-
-  if (!previousStateUpdated) {
-    previousState = state;  // Ensure previousState is a JsonDocument type
-    previousStateUpdated = true;
-    return;  // Return  because nothing was sent yet
-  }
-
-  if (previousState == state) {
-    return;
-  }
-  // Serial.println("refreshAndSend");
-
-  previousState = state;
-
   String outputString;
   serializeJson(state, outputString);
   host_->sendJson(outputString.c_str());

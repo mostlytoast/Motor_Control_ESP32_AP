@@ -27,8 +27,8 @@ void AudioManager::setupAudio() {
 
   AudioPlayer_stopAll();
 
-  AudioPlayer_setVolume(ambianceSound, ambianceSoundVolume);
-  AudioPlayer_setVolume(movementSound, movementSoundVolume);
+  AudioPlayer_setVolume(ambianceSound, app.getAmbianceSoundVolume());
+  AudioPlayer_setVolume(movementSound, app.getMovementSoundVolume());
 }
 
 void AudioManager::updateAudioState() {
@@ -37,7 +37,8 @@ void AudioManager::updateAudioState() {
 }
 
 void AudioManager::updateAmbianceAudioState() {
-  if (app.getAmbianceAudioMode()) {
+  AudioPlayer_setVolume(ambianceSound, app.getAmbianceSoundVolume());
+  if (app.getAmbianceAudioState()) {
     if (!AudioPlayer_isPlaying(ambianceSound)) {
       if (AudioPlayer_resume(ambianceSound)) {
         Serial.println("AMBIANCE AUDIO ON");
@@ -54,9 +55,11 @@ void AudioManager::updateAmbianceAudioState() {
 }
 
 void AudioManager::updateMovementAudioState() {
+  AudioPlayer_setVolume(movementSound, app.getMovementSoundVolume());
+
   const float speed = std::abs(static_cast<float>(app.getCurrentSpeed()));
 
-  if (app.getMovementAudioMode() && speed != 0) {
+  if (app.getMovementAudioState() && speed != 0) {
     if (!AudioPlayer_isPlaying(movementSound)) {
       if (AudioPlayer_resume(movementSound)) {
         Serial.println("MOVEMENT AUDIO ON");
@@ -73,12 +76,12 @@ void AudioManager::updateMovementAudioState() {
     return;
   }
 
-
   AudioPlayer_setSpeed(
-      movementSound,
-      mapValue(speed, 0.0f, 255.0f, lowAudioOffset, highAudioOffset));
+      movementSound, mapValue(speed, MIN_PWM, MAX_PWM, app.getLowAudioOffset(),
+                              app.getHighAudioOffset()));
 
   AudioPlayer_setPitch(
-      movementSound,
-      mapValue(speed, 0.0f, 255.0f, highAudioOffset, lowAudioOffset) / 12.0f);
+      movementSound, mapValue(speed, MIN_PWM, MAX_PWM, app.getHighAudioOffset(),
+                              app.getLowAudioOffset()) /
+                         12.0f);
 }

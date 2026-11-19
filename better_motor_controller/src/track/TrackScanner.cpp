@@ -44,7 +44,8 @@ void TrackScanner::begin() {
 // ============================================================================
 
 void TrackScanner::processScans() {
-  // TODO maybe want this else where? or have another var that when present overrides userspeed in motor controls
+  // TODO maybe want this else where? or have another var that when present
+  // overrides userspeed in motor controls
   app.setTargetSpeed(app.getUserSpeed());
 
   if (!nfcEnabled) {
@@ -524,11 +525,13 @@ void TrackScanner::processSerial() {
     app.setScannerMode(WRITING_TRACKS);
   } else if (command == '+') {
     Serial.println("increase min pwm");
-    MIN_PWM += 10;
-    Serial.println(MIN_PWM);
+    app.setMinPwm(app.getMinPwm() + 10);
+
+    Serial.println(app.getMinPwm());
   } else if (command == '-') {
     Serial.println("decrease min pwm");
-    MIN_PWM -= 10;
-    Serial.println(MIN_PWM);
+    app.setMinPwm(app.getMinPwm() - 10);
+
+    Serial.println(app.getMinPwm());
   }
 }

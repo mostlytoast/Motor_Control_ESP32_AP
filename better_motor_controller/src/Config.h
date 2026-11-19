@@ -28,13 +28,6 @@ constexpr char AP_PASSWORD[] = "12345678";
 // Motor control variables
 // =====================================================
 
-// Requested motor speed
-// -255 = full reverse
-//   0  = stopped
-// +255 = full forward
-
-inline int MIN_PWM = 100;
-constexpr int MAX_PWM = 255;
 
 // =====================================================
 // CONTROLLERS
@@ -44,8 +37,8 @@ constexpr int MAX_PWM = 255;
 // AUDIO CONFIG
 // =====================================================
 
-constexpr float lowAudioOffset = .75f;
-constexpr float highAudioOffset = 5.0f;
+// constexpr float lowAudioOffset = .75f;
+// constexpr float highAudioOffset = 5.0f;
 constexpr float ambianceSoundVolume = 0.25;
 constexpr float movementSoundVolume = 1.0;
 constexpr uint32_t SAMPLE_RATE = 24000;
