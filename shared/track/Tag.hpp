@@ -56,7 +56,7 @@ class Tag {
     connectedTagUid = connectedTagUid_;
   }
 
-  // TODO make sure no memory issues
+
   Point& getPoint() { return point; }
   Point getPoint() const { return point; }
   // void setPoint(Point point_) { point = point_; }
@@ -212,7 +212,7 @@ class Tag {
   Uid connectedTagUid;
   Uids internalConnectedTagUids;
   Point point;
-  //   TODO think of moving point from tracks to tag
+
 };
 
 #endif  // TAG_HPP

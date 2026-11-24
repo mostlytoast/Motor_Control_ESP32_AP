@@ -1,7 +1,6 @@
 #include "StateJson.h"
 
-// TODO have special json funcitons that only output track when somethings
-// change?
+
 namespace {
 JsonDocument previousState;
 bool previousStateUpdated = false;
@@ -11,7 +10,7 @@ void getStateFromJson(JsonDocument& doc) {
   Serial.println("=== getStateFromJson INPUT ===");
   serializeJsonPretty(doc, Serial);
   JsonObject state = doc["state"].as<JsonObject>();
-  // TODO returning null? why
+
   JsonArray tracks = doc["tracks"].as<JsonArray>();
 
   if (!tracks.isNull()) {
@@ -117,7 +116,6 @@ void getJsonFromState(JsonDocument& doc) {
 void getStateFromCondensedJson(JsonDocument& doc) {
   Serial.println("=== getStateFromCondensedJson INPUT ===");
   serializeJsonPretty(doc, Serial);
-  // TODO returning null? why
   JsonArray tracks = doc["tracks"].as<JsonArray>();
 
   if (!tracks.isNull()) {

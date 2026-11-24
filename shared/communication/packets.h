@@ -19,7 +19,6 @@ enum ESPNowCommandType : uint8_t {
   CMD_SERVER_STATE = 20
 
 };
-// TODO do we want to get rid of failsafe and active controller to put into data
 
 struct ServerStatePacket {
   uint8_t type;

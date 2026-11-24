@@ -67,8 +67,7 @@ class Track {
         }
       }
 
-      // todo might need to find way to add back in pose and position marker
-      // settings?  dont want stateJson to call calculateMap?
+   
 
       return setTagPositions();
     } catch (const std::exception& e) {
@@ -192,8 +191,7 @@ class Track {
       //   return false;
       // }
 
-      // todo might need to find way to add back in pose and position marker
-      // settings?  dont want stateJson to call calculateMap?
+    
       return setTagPositions();
 
     } catch (const std::exception& e) {
@@ -384,7 +382,7 @@ class Track {
    * @param destinationTag
    */
   void calculatePoseFromSourceTag(Tag& sourceTag, Tag* destinationTag) {
-    // TODO find way to make station be positioned relative to track?
+    // TODO find way to make station be positioned relative to track based on if its located halfway in track or other amount?
     if (destinationTag == nullptr) return;
 
     const Point originalDestination = destinationTag->getPoint();
@@ -405,7 +403,7 @@ class Track {
   }
 
  private:
-  // todo maybe move to a math file
+
 
   void setCurveOrStraightPose(Tag& entranceTag, Tag& exitTag, float length_,
                               float radius_) {
@@ -518,7 +516,7 @@ class Track {
     return true;
   }
 
-  // TOdo might want to have these included as offset values in points?
+
   float angle = 0.0;
   float length = 0.0;
   float radius = 0.0;
@@ -544,7 +542,7 @@ class Track {
 
   bool positioned = false;
   TrackType trackType = STRAIGHT;
-  // TODO might want to store in array/dictionary?
+
 
   Tags tags;
 

@@ -51,7 +51,7 @@ TrackScanningDisplay::TrackScanningDisplay(
 
   scan_status_label_ = sharedDisplay.createLabel(
       grid_cont, lv_color_hex(colorConfig.statusColor), 8, 53, LV_PART_MAIN,
-      LV_ALIGN_TOP_LEFT, "");
+      LV_ALIGN_TOP_LEFT, app.getScannerStatusLabelLambda);
   lv_obj_set_grid_cell(scan_status_label_, LV_GRID_ALIGN_STRETCH, 0, 1,
                        LV_GRID_ALIGN_STRETCH, 1, 1);
   btn_register_ = sharedDisplay.createActionButton(
@@ -134,7 +134,7 @@ void TrackScanningDisplay::updateStatusLabel() {
   // if (!app.getStatusLabelText().equals("")) {
   // Serial.print("set track status label");
   // Serial.println(app.getScannerStatusLabelText());
-  // Todo use own vars for this? include trackscanner
+
   sharedDisplay.setLabelText(scan_status_label_,
                              app.getScannerStatusLabelText().c_str());
 

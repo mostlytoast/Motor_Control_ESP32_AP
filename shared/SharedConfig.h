@@ -29,7 +29,7 @@ constexpr int kRampStep = 1000;
 constexpr int kRampMin = 0;
 constexpr int kRampMax = 10000;
 
-// TODO standardize color names
+
 struct ColorConfig {
   uint32_t backgroundColor = 0x101820;
   uint32_t labelColor = 0x003249;

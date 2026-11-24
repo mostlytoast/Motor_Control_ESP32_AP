@@ -8,7 +8,7 @@
 
 #include "../utils/MacUtils.h"
 #include "Peer.h"
-// TODO make it dynamic sized list
+
 class Peers {
  public:
   friend std::ostream& operator<<(std::ostream& os, const Peers& p);

@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "../../../shared/utils/AppState.hpp"
+#include "../../../shared/utils/Math.hpp"
 #include "../Config.h"
 #include "../hardware/AudioPlayer.h"
 
@@ -16,6 +17,8 @@ class AudioManager {
   void updateAudioState();
 
  private:
+  AudioPlayer player;
+
   int movementSound = 0;
   int ambianceSound = 0;
   int sensorValue = 0;

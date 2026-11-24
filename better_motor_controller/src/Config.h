@@ -41,24 +41,3 @@ constexpr char AP_PASSWORD[] = "12345678";
 // constexpr float highAudioOffset = 5.0f;
 constexpr float ambianceSoundVolume = 0.25;
 constexpr float movementSoundVolume = 1.0;
-constexpr uint32_t SAMPLE_RATE = 24000;
-// ============================================================
-// Granular processing
-// ============================================================
-//
-// 512 samples = 32 ms @ 16 kHz
-//
-// 256 sample hop = 16 ms
-//
-// ============================================================
-
-constexpr size_t GRAIN_SIZE = 256;
-constexpr size_t GRAIN_HOP = 128;
-
-// ============================================================
-// Audio task configuration
-// ============================================================
-
-constexpr uint32_t AUDIO_TASK_STACK = 8192;
-
-constexpr UBaseType_t AUDIO_TASK_PRIORITY = 1;

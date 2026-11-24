@@ -20,4 +20,26 @@ static int clampInt(int value, int minValue, int maxValue) {
   return value;
 }
 
+static float clampFloat(float value, float minimum, float maximum) {
+
+  if (value < minimum) {
+    return minimum;
+  }
+
+  if (value > maximum) {
+    return maximum;
+  }
+
+  return value;
+}
+
+static float mapValue(float value, float inMin, float inMax, float outMin,
+               float outMax) {
+
+  if (inMax == inMin) {
+    return outMin;
+  }
+
+  return (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+}
 #endif  // MATH_HPP

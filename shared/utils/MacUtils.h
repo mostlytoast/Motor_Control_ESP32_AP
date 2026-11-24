@@ -4,7 +4,7 @@
 
 #include <cstdint>
 #define MAC_LENGTH 6
-// TODO might move to utils?
+
 String macToString(const uint8_t* mac);
 
 bool macEqual(const uint8_t* a, const uint8_t* b);

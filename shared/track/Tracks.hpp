@@ -25,14 +25,26 @@ class Tracks {
 
     return nullptr;
   }
-  bool isFull(){
-    return tracks.size() >= MAX_TRACKS;
-  }
+  bool isFull() { return tracks.size() >= MAX_TRACKS; }
   Tag* findTagByUid(Uid uid) {
     if (!uid.isValid()) return nullptr;
 
     for (Track& track : tracks) {
       for (Tag& tag : track.getTags()) {
+        if (tag.getUid().isValid() && tag.getUid().equals(uid)) {
+          return &tag;
+        }
+      }
+    }
+
+    return nullptr;
+  }
+
+  const Tag* findTagByUid(Uid uid) const {
+    if (!uid.isValid()) return nullptr;
+
+    for (const Track& track : tracks) {
+      for (const Tag& tag : track.getTags()) {
         if (tag.getUid().isValid() && tag.getUid().equals(uid)) {
           return &tag;
         }

@@ -1,8 +1,4 @@
 #include "SharedDisplayCalls.h"
-// TODO add something that allows you to add a button that changes whenever a
-// variable changes? have it so we provide it with the variable todo have to
-// make sure that its updating json state and updates its received json
-// SharedDisplayCalls::SharedDisplayCalls(Config config_) { config = config_; }
 SharedDisplayCalls::SharedDisplayCalls() {}
 
 void SharedDisplayCalls::actionHandler(lv_event_t* event) {
@@ -75,8 +71,7 @@ void SharedDisplayCalls::actionHandlerSlider(lv_event_t* event) {
   }
 }
 
-// todo have way for this and other functions to use align as optional to
-// position? or have no position
+
 
 lv_obj_t* SharedDisplayCalls::createLabel(lv_obj_t* parent,
                                           lv_color_t normalColor, int x, int y,
@@ -116,11 +111,7 @@ void SharedDisplayCalls::setLabelText(lv_obj_t* label, const char* text) {
 
   lv_label_set_text(label, text);
 }
-// TODO idea to add a variable callback action where you can pass in a function
-// like value getVariable(bool& hasChanged - false); and if hasChanged is true
-// it would update the value of the object this would have to be managed by some
-// refresh function most likely that would go through a list of these functions
-// and apply those changes
+
 lv_obj_t* SharedDisplayCalls::createActionButton(
     lv_obj_t* parent, const char* text, std::function<void()> action,
     lv_color_t normalColor, std::function<bool()> getState,

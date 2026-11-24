@@ -88,9 +88,9 @@ class Point {
   }
 
   void movePoint(float heading_, float distance_) {
-    // TODO get working with tag.getPoint
+
     float radians = degreesToRadians(heading_);
-    // todo have to check heading
+
     x = x + cos(radians) * distance_;
     y = y + sin(radians) * distance_;
     heading = heading_;

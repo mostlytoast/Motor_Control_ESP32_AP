@@ -6,7 +6,7 @@
 // ==============================================
 char serialBuffer[SERIAL_BUFFER_SIZE];
 size_t serialBufferLength = 0;
-
+AudioManager audio;
 TrackMap trackMap;
 TrackScanner trackScanner(trackMap);
 SavePrefs savePrefs;
@@ -73,10 +73,6 @@ void setup() {
 
   Serial.println("Main setup");
 
-  if (!AudioPlayer_begin()) {
-    CLOGE << "AudioPlayer initialization failed";
-  }
-
   setupMotor();
 
   setMotor(0);
@@ -126,7 +122,7 @@ void loop() {
   // Serial.println(" bytes");
   espnowController.espnowUpdate();
   audio.updateAudioState();
-  
+
   // Automatic mode
 
   // track scanner

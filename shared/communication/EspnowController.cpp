@@ -197,9 +197,6 @@ void EspnowController::processESPNowEvents() {
       peer = &temporaryPeer;
     }
 
-    //
-    // TODO MAJOR have to decide if we want to pass peer or mac through?
-    // RECEIVE
     if (event.type == ESP_NOW_EVENT_RECEIVE) {
       if (event.len <= 0) {
         continue;
@@ -235,9 +232,8 @@ void EspnowController::processESPNowEvents() {
 
       if (event.sendStatus == ESP_NOW_SEND_FAIL && peer != nullptr) {
         Serial.println("esp now fail");
-
+        // TODO have a way to log why it failed?
         // Controller-side receiver
-        // Todo put into a controller function
 
         std::cout << *peer << "\n";
 
@@ -267,7 +263,7 @@ void EspnowController::processESPNowEvents() {
 void EspnowController::handleUnkownPacket(Peer* peer, EspNowEvent& event) {
   Serial.printf("Unknown ESP-NOW packet from %s ( %d bytes)\n",
                 macToString(peer->getMac()), event.len);
-  // TODO unpair
+
   ESPNowCommand command = {};
   command.type = CMD_UNPAIR_REQUEST;
   // command.value = 0;
@@ -290,8 +286,15 @@ void EspnowController::processDiscovery() {
   ESPNowCommand command{};
   command.type = CMD_DISCOVER;
 
-  esp_now_send(broadcastMac, reinterpret_cast<const uint8_t*>(&command),
-               sizeof(command));
+  esp_err_t result =
+      esp_now_send(broadcastMac, reinterpret_cast<const uint8_t*>(&command),
+                   sizeof(command));
+
+  if (result != ESP_OK) {
+    Serial.printf("send failed -> %s ", macToString(broadcastMac));
+
+
+  }
 }
 // FAILSAFE
 
@@ -338,8 +341,6 @@ void EspnowController::ESPNowCheckFailsafe() {
   // Check AFTER iterating.
 }
 void EspnowController::processStateChanges() {
-  // Todo need to fix peers.getActivePeers() and use it here
-
   for (Peer& peer : peers.getActivePeers()) {  // Changed Peer* to Peer&
     sendServerState(&peer);
   }
@@ -394,7 +395,6 @@ bool EspnowController::sendServerState(Peer* peer) {
 
 // PEER MANAGEMENT
 
-// TODO unify names of peer receiver and controller to be peer?? maybe not
 bool EspnowController::addPeer(const uint8_t* mac, uint8_t channel,
                                const char* name) {
   // Keep the existing implementation.
@@ -436,8 +436,8 @@ bool EspnowController::addPeer(Peer* peer) {
   esp_err_t result = esp_now_add_peer(&peerInfo);
 
   if (result != ESP_OK && result != ESP_ERR_ESPNOW_EXIST) {
-    Serial.printf("ESP-NOW add peer failed -> %s, free mem %s",
-                  macToString(storedPeer->getMac()), ESP.getFreeHeap());
+    Serial.printf("ESP-NOW add peer failed -> %s",
+                  macToString(storedPeer->getMac()));
     return false;
   }
 
@@ -703,8 +703,7 @@ bool EspnowController::sendCommandToPeer(Peer* peer, ESPNowCommand command) {
                    sizeof(command));
 
   if (result != ESP_OK) {
-    Serial.printf("send failed -> %s, free mem %s", macToString(peer->getMac()),
-                  ESP.getFreeHeap());
+    Serial.printf("send failed -> %s ", macToString(peer->getMac()));
 
     return false;
   }
@@ -837,7 +836,8 @@ bool EspnowController::processReceivedJsonFragment(Peer* peer,
   }
 
   getStateFromJsonCallback(currentState);
-
+  // TODO make it so it does not need delay fixes by using acknowledgments
+  delay(15);
   return true;
 }
 

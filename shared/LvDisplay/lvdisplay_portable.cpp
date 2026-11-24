@@ -1,5 +1,5 @@
 #include "lvdisplay_portable.h"
-// todo make this use arduinoJson to simplify code
+
 // TODO odd web bug where buttons dont initially respond until multiple are
 // clicked?
 
@@ -198,7 +198,7 @@ void LvDisplayController::refresh() {
   }
 }
 
-// TODO check this is working on both sides
+
 
 void LvDisplayController::getStateFromJsonDisplay(const char* json) {
   JsonDocument doc;
@@ -213,13 +213,13 @@ void LvDisplayController::getStateFromJsonDisplay(const char* json) {
     return;
   }
   getStateFromCondensedJson(doc);
-  // todo check if refreshing too much
+
   refresh();
 }
 int lastSend = 0;
 int sendPeriod = 100;
 void LvDisplayController::sendStateToReceiver() {
-  // TODO have it so this gets called when
+
   // Serial.println("called sendStateToReceiver portable");
   if (!hasStateChanged()) {
     return;

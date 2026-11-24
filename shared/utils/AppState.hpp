@@ -44,8 +44,9 @@ class AppState {
 
   void setLed1State(bool state) { led1State = state; }
 
-  std::function<void()> toggleLed1StateLambda =
-      [this]() { setLed1State(!getLed1State()); };
+  std::function<void()> toggleLed1StateLambda = [this]() {
+    setLed1State(!getLed1State());
+  };
 
   std::function<bool()> getLed1StateLambda = [this] {
     return getLed1State();
@@ -55,8 +56,9 @@ class AppState {
 
   void setLed2State(bool state) { led2State = state; }
 
-  std::function<void()> toggleLed2StateLambda =
-      [this]() { setLed2State(!getLed2State()); };
+  std::function<void()> toggleLed2StateLambda = [this]() {
+    setLed2State(!getLed2State());
+  };
   std::function<bool()> getLed2StateLambda = [this] {
     return getLed2State();
     ;
@@ -69,8 +71,9 @@ class AppState {
 
   void setAutoState(bool state) { autoState = state; }
 
-  std::function<void()> toggleAutoStateLambda =
-      [this]() { setAutoState(!getAutoState()); };
+  std::function<void()> toggleAutoStateLambda = [this]() {
+    setAutoState(!getAutoState());
+  };
 
   std::function<bool()> getAutoStateLambda = [this] {
     return getAutoState();
@@ -105,16 +108,21 @@ class AppState {
     return getScannerMode() == PATH_FINDING;
   };
 
-  std::function<void()> setScannerModeNormalLambda =
-      [this]() { setScannerMode(NORMAL); };
-  std::function<void()> setScannerModeRegisterTracksLambda =
-      [this]() { setScannerMode(REGISTER_TRACKS); };
-  std::function<void()> setScannerModeWritingTracksLambda =
-      [this]() { setScannerMode(WRITING_TRACKS); };
-  std::function<void()> setScannerModeScanningTracksLambda =
-      [this]() { setScannerMode(SCANNING_TRACKS); };
-  std::function<void()> setScannerModePathFindingLambda =
-      [this]() { setScannerMode(PATH_FINDING); };
+  std::function<void()> setScannerModeNormalLambda = [this]() {
+    setScannerMode(NORMAL);
+  };
+  std::function<void()> setScannerModeRegisterTracksLambda = [this]() {
+    setScannerMode(REGISTER_TRACKS);
+  };
+  std::function<void()> setScannerModeWritingTracksLambda = [this]() {
+    setScannerMode(WRITING_TRACKS);
+  };
+  std::function<void()> setScannerModeScanningTracksLambda = [this]() {
+    setScannerMode(SCANNING_TRACKS);
+  };
+  std::function<void()> setScannerModePathFindingLambda = [this]() {
+    setScannerMode(PATH_FINDING);
+  };
   ScannerMode getPreviousScannerMode() { return previousScanMode; }
 
   void setScannerStatusLabelText(String scannerStatusLabelText_) {
@@ -124,6 +132,16 @@ class AppState {
   }
   String getScannerStatusLabelText() { return scannerStatusLabelText; }
 
+  std::function<const char*()> getScannerStatusLabelLambda = [this] {
+    // if (!getScannerStatusLabelText().equals("")) {
+    static char text[32];
+
+    std::snprintf(text, sizeof(text), "%s",
+                  getScannerStatusLabelText().c_str());
+
+    return text;
+    // }
+  };
   void setPathFinderStatusText(String pathFinderStatusText_) {
     // Serial.print("Path Finder status ");
     // Serial.println(pathFinderStatusText_);
@@ -131,14 +149,29 @@ class AppState {
   }
   String getPathFinderStatusText() { return pathFinderStatusText; }
 
+  std::function<const char*()> getPathFinderStatusLambda = [this] {
+    if (!getPathFinderStatusText().equals("")) {
+      static char text[32];
+
+      std::snprintf(text, sizeof(text), "%s",
+                    getPathFinderStatusText().c_str());
+
+      return text;
+    } else {
+      static char text[32];
+
+      std::snprintf(text, sizeof(text), "none");
+
+      return text;
+    }
+  };
   bool getAmbianceAudioState() const { return ambianceAudioState; }
 
   void setAmbianceAudioState(bool state) { ambianceAudioState = state; }
 
-  std::function<void()> toggleAmbianceAudioStateLambda =
-      [this]() {
-        setAmbianceAudioState(!getAmbianceAudioState());
-      };
+  std::function<void()> toggleAmbianceAudioStateLambda = [this]() {
+    setAmbianceAudioState(!getAmbianceAudioState());
+  };
 
   std::function<bool()> getAmbianceAudioStateLambda = [this] {
     return getAmbianceAudioState();
@@ -177,17 +210,15 @@ class AppState {
   int getUserSpeed() const { return userSpeed; }
 
   void setUserSpeed(int speed) { userSpeed = speed; }
-  std::function<void()> increaseUserSpeedLambda =
-      [this]() {
-        setUserSpeed(clampInt(getUserSpeed() + 10, -MAX_PWM, MAX_PWM));
-      };
 
-  std::function<void()> setUserSpeedZeroLambda =
-      [this]() { setUserSpeed(0); };
-  std::function<void()> decreaseUserSpeedLambda =
-      [this]() {
-        setUserSpeed(clampInt(getUserSpeed() + 10, -MAX_PWM, MAX_PWM));
-      };
+  std::function<void()> increaseUserSpeedLambda = [this]() {
+    setUserSpeed(clampInt(getUserSpeed() + 10, -MAX_PWM, MAX_PWM));
+  };
+
+  std::function<void()> setUserSpeedZeroLambda = [this]() { setUserSpeed(0); };
+  std::function<void()> decreaseUserSpeedLambda = [this]() {
+    setUserSpeed(clampInt(getUserSpeed() - 10, -MAX_PWM, MAX_PWM));
+  };
   std::function<float()> getUserSpeedLambda = [this] {
     return static_cast<float>(getUserSpeed());
   };
@@ -201,15 +232,13 @@ class AppState {
 
   void setCurrentSpeed(float speed) { currentSpeed = speed; }
 
-  std::function<void()> increaseRampTimeLambda =
-      [this]() {
-        setRampTime(clampInt(getRampTime() + kRampStep, kRampMin, kRampMax));
-      };
+  std::function<void()> increaseRampTimeLambda = [this]() {
+    setRampTime(clampInt(getRampTime() + kRampStep, kRampMin, kRampMax));
+  };
 
-  std::function<void()> decreaseRampTimeLambda =
-      [this]() {
-        setRampTime(clampInt(getRampTime() - kRampStep, kRampMin, kRampMax));
-      };
+  std::function<void()> decreaseRampTimeLambda = [this]() {
+    setRampTime(clampInt(getRampTime() - kRampStep, kRampMin, kRampMax));
+  };
   // -------------------------
   // Ramp
   // -------------------------
@@ -276,6 +305,15 @@ class AppState {
   void setStatusLabelText(String statusLabelText_) {
     statusLabelText = statusLabelText_;
   }
+  std::function<const char*()> getStatusLabelLambda = [this] {
+    // if (!getStatusLabelText().equals("")) {
+    static char text[32];
+
+    std::snprintf(text, sizeof(text), "%s", getStatusLabelText().c_str());
+
+    return text;
+    // }
+  };
 
   Uid getDestinationUid() { return destinationUid; };
   void setDestinationUid(Uid destinationUid_) {
@@ -428,7 +466,7 @@ class AppState {
     currentTracks = {};
 
     // display status label
-    statusLabelText = "";
+    statusLabelText = "NO PEER";
 
     // location
 
@@ -439,7 +477,7 @@ class AppState {
     path.clear();
 
     // settings
-    minPwm = 0;
+    minPwm = 50;
     lowAudioOffset = 0.0f;
     highAudioOffset = 0.0f;
     ambianceSoundVolume = 0.25;

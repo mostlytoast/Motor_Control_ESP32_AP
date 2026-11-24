@@ -115,8 +115,6 @@ class LvDisplayController {
   LvTrackMap* trackMapDisplay_ = nullptr;
   lv_obj_t* trackScanningContainer_ = nullptr;
   TrackScanningDisplay* trackScanningDisplay_ = nullptr;
-
-  // todo use app state instead
 };
 
 #endif

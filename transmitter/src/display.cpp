@@ -24,9 +24,6 @@
 // ============================================================
 
 // todo need to be able to access statusLabel in lvdisplay portable
-// todo convert espnow to use Json for communication get rid of server state
-// todo make espnow shared
-// todo need to update everything to use appState and update cycle
 
 LvDisplayController* gDisplayController = nullptr;
 Esp32DisplayHost gEsp32DisplayHost;
@@ -332,18 +329,7 @@ void Display::createUI() {
 
   statusLabel_ = sharedDisplay.createLabel(
       mainGrid, lv_color_hex(colorConfig.statusColor), 0, 0, LV_PART_MAIN,
-      LV_ALIGN_CENTER, [this]() -> const char* {
-        if (!app.getStatusLabelText().equals("")) {
-          static char text[32];
-
-          std::snprintf(text, sizeof(text), "%s",
-                        app.getStatusLabelText().c_str());
-
-          return text;
-        }
-
-        return "NO PEER";
-      });
+      LV_ALIGN_CENTER, app.getStatusLabelLambda);
 
   lv_obj_set_grid_cell(statusLabel_, LV_GRID_ALIGN_CENTER, 2, 1,
                        LV_GRID_ALIGN_CENTER, 2, 1);

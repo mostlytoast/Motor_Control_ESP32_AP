@@ -63,11 +63,6 @@ void TrackMap::calculateMap() {
       }
 
       for (Tag& tag : source.getTags()) {
-        // TODO could simplify positionConnectedTrack by changing its call
-        // structure?
-        // Serial.println("positioning track");
-        // Serial.println(tag.getUid().toString());
-        // Serial.println(tag.getConnectedTagUid().toString());
 
         if (positionConnectedTrack(source, tag)) {
           changed = true;
@@ -175,7 +170,7 @@ void TrackMap::mapToJson(JsonDocument& doc) {
 }
 
 void TrackMap::jsonToMap(JsonArray doc) {
-  // todo find better way to prevent it creating multiple of same track
+
   // if (tracks->size() ==1 ) return;
   clearMap();
   Tracks* tracks = app.getCurrentTracks();
@@ -218,7 +213,6 @@ void TrackMap::mapToCondensedJson(JsonDocument& doc) {
   }
 }
 void TrackMap::condensedJsonToMap(JsonArray doc) {
-  // todo find better way to prevent it creating multiple of same track
   // if (tracks->size() ==1 ) return;
   clearMap();
   Tracks* tracks = app.getCurrentTracks();

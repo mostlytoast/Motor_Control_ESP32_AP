@@ -1,7 +1,6 @@
 #include "transmitter.h"
 
-// TODO add usefull debug print lines througout code
-
+// TODO add usefull debug print lines througout code that can be turned on and off
 // =====================================================
 // SETUP
 // =====================================================

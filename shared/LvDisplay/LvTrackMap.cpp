@@ -87,8 +87,8 @@ LvTrackMap::LvTrackMap(lv_obj_t* parent,
                        LV_GRID_ALIGN_STRETCH, 1, 1);
   auto_label_ = sharedDisplay.createLabel(
       grid_cont, lv_color_hex(colorConfig.statusColor), 8, 53, LV_PART_MAIN,
-      LV_ALIGN_TOP_LEFT, "Auto status");
-  lv_obj_set_grid_cell(auto_label_, LV_GRID_ALIGN_CENTER, 2, 1,
+      LV_ALIGN_TOP_LEFT, app.getPathFinderStatusLambda);
+  lv_obj_set_grid_cell(auto_label_, LV_GRID_ALIGN_CENTER, 0, 1,
                        LV_GRID_ALIGN_CENTER, 2, 1);
 
   hitBoxLayer_ = lv_obj_create(grid_cont);
@@ -385,6 +385,15 @@ void LvTrackMap::drawEvent(lv_event_t* e) {
   for (const Track& track : *tracks) {
     self->drawTrack(layer, track, index++);
   }
+  if (tracks->findTagByUid(app.getCurrentUid()) != nullptr) {
+    const Point point =
+        self->worldToMap(tracks->findTagByUid(app.getCurrentUid())->getPoint());
+    // TODO make drawTrain function where it draws rectangle of train
+    // TODO have to add suppport for having a point x% of the way through a
+    // track so we can have constant train monitoring
+    self->drawCircle(layer, point, self->config_.tagRadius * 4,
+                     self->config_.tagConnected, true, point.getHeading());
+  }
 }
 // ============================================================
 // TRACK DRAWING
@@ -593,7 +602,6 @@ void LvTrackMap::drawBumper(lv_layer_t* layer, const Track& track) const {
   const float dx = sinf(heading) * halfWidth;
 
   const float dy = -cosf(heading) * halfWidth;
-  // TODO check angle
 
   drawSegment(
       layer,
@@ -646,7 +654,6 @@ void LvTrackMap::drawLabel(lv_layer_t* layer, const Track& track,
   const Point a = worldToMap(track.getTags()[0].getPoint());
 
   const Point b = worldToMap(track.getTags()[1].getPoint());
-  // todo check angle
   Point center = {(a.getX() + b.getX()) * 0.5f,
                   (a.getY() + b.getY()) * 0.5f - 12.0f, 0.0f};
 

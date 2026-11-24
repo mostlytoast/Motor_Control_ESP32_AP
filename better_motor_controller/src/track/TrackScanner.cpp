@@ -1,8 +1,6 @@
 
 #include "TrackScanner.h"
-
-// TODO fix issue where if track is scanned it does not get sent to display
-// unless you connect to website
+// TODO switch to using a higher speed coms method like spi not i2c 
 NFC nfc;
 // ============================================================================
 // CONSTRUCTOR
@@ -155,7 +153,7 @@ void TrackScanner::pathFind() {
       app.setTargetSpeed(-setSpeed);
     }
     app.setPathFinderStatusText(context);
-    // TODO find way to display found path
+
     for (const Uid& uid : app.getPath()) {
       Serial.println(uid.toString());
     }
@@ -163,7 +161,7 @@ void TrackScanner::pathFind() {
   } else {
     app.setPathFinderStatusText("No path exists.");
   }
-  // TODO write these functions
+  //  write these functions
   // if we have a destination tag app.getDestinationUid() then we calculate
   // the path using PathFinder and use location data to decide if we should
   // move forwards or backwards
@@ -182,7 +180,7 @@ void TrackScanner::trackLocation(const Uid& uid) {
       backwardsUid = Uid();
     }
   }
-  // TODO write these functions
+  //  write these functions
   // reads current tag and uses that to set our current scanned uid used for
   // locating need to determine what direction the train is facing can do that
   // with a forward and backward uid tag that records what tag was in front and
@@ -196,7 +194,7 @@ void TrackScanner::writeTag(const Uid& uid, JsonObject& jsonTag) {
   if (app.getPreviousScannerMode() != WRITING_TRACKS) {
     app.setScannerStatusLabelText("switching back to writing");
     app.setScannerMode(WRITING_TRACKS);
-    // Todo might cause error???
+
   }
   if (haveFirstTag && app.getTemplateTrack()->getTrackType() != STATION) {
     app.setScannerStatusLabelText("ERROR: Scan the second tag first.");

@@ -1,138 +1,365 @@
-#ifndef CLOG_PREFIX_DATE
-#define CLOG_PREFIX_DATE (0)
-#endif
-#ifndef CLOG_PREFIX_PID
-#define CLOG_PREFIX_PID (0)
-#endif
-#ifndef CLOG_PREFIX_TID
-#define CLOG_PREFIX_TID (0)
-#endif
-
 #include "AudioPlayer.h"
 
-namespace {
-
 // ============================================================
-// Multi-stream configuration
-// ============================================================
-//
-// Maximum number of simultaneous audio streams.
-//
-// Each stream consumes:
-//
-//   - state
-//   - one source position
-//
-// The source PCM itself is supplied by the caller.
-//
+// INITIALIZE
 // ============================================================
 
-constexpr size_t MAX_AUDIO_STREAMS = 4;
+bool AudioPlayer::begin() {
+  CLOGI << "Initializing AudioPlayer";
 
-// ============================================================
-// Output configuration
-// ============================================================
+  // Reset stream state
 
-constexpr size_t AUDIO_CHUNK_SIZE = GRAIN_HOP;
-
-// ============================================================
-// I2S
-// ============================================================
-
-I2SClass i2s;
-
-// ============================================================
-// FreeRTOS task
-// ============================================================
-
-TaskHandle_t audioTaskHandle = nullptr;
-
-// ============================================================
-// Global state
-// ============================================================
-
-volatile bool audioInitialized = false;
-
-volatile bool stopRequested = false;
-
-// ============================================================
-// Stream structure
-// ============================================================
-
-struct AudioStream {
-  // State
-
-  volatile bool active;
-
-  volatile bool stopRequested;
-
-  // PCM source
-
-  const int16_t* samples;
-
-  size_t sampleCount;
-
-  // Playback
-
-  float sourcePosition;
-
-  bool loop;
-
-  // Real-time controls
-
-  volatile float speed;
-
-  volatile float pitch;
-
-  volatile float volume;
-};
-
-// ============================================================
-// Stream storage
-// ============================================================
-
-AudioStream streams[MAX_AUDIO_STREAMS];
-
-// ============================================================
-// Working buffers
-// ============================================================
-
-float grainBuffer[GRAIN_SIZE];
-
-float streamAccumulator[MAX_AUDIO_STREAMS][GRAIN_SIZE + GRAIN_HOP];
-
-int16_t outputBuffer[AUDIO_CHUNK_SIZE];
-
-
-
-// ============================================================
-// Utility
-// ============================================================
-
-float clampFloat(float value, float minimum, float maximum) {
-  if (value < minimum) {
-    return minimum;
+  for (size_t i = 0; i < MAX_AUDIO_STREAMS; i++) {
+    resetStream(i);
   }
 
-  if (value > maximum) {
-    return maximum;
+  // Configure I2S
+
+  i2s.setPins(I2S_BCLK, I2S_WS, I2S_DOUT, -1, -1);
+
+  // Initialize I2S
+
+  if (!i2s.begin(I2S_MODE_STD, SAMPLE_RATE, I2S_DATA_BIT_WIDTH_16BIT,
+                 I2S_SLOT_MODE_MONO)) {
+    CLOGE << "Failed to initialize I2S";
+
+    return false;
   }
 
-  return value;
+  CLOGI << "I2S initialized";
+
+  // Create audio task
+
+  BaseType_t result =
+      xTaskCreate(AudioPlayer::audioTask, "AudioTask", AUDIO_TASK_STACK, this,
+                  AUDIO_TASK_PRIORITY, &audioTaskHandle);
+
+  if (result != pdPASS) {
+    CLOGE << "Failed to create audio task";
+
+    audioTaskHandle = nullptr;
+
+    return false;
+  }
+
+  audioInitialized = true;
+
+  CLOGI << "AudioPlayer initialized";
+
+  return true;
+}
+
+// ============================================================
+// CREATE / START STREAM
+// ============================================================
+//
+// Returns a stream ID.
+//
+// Example:
+//
+//   int id = AudioPlayer::play(
+//     sound,
+//     soundSamples,
+//     false
+//   );
+//
+// ============================================================
+
+int AudioPlayer::play(const unsigned char* _samples, size_t sampleCount,
+                      bool loop, bool initialize) {
+  if (!audioInitialized) {
+    CLOGE << "AudioPlayer not initialized";
+
+    return -1;
+  }
+
+  const int16_t* samples = reinterpret_cast<const int16_t*>(_samples);
+
+  sampleCount = sampleCount / 2;
+
+  if (samples == nullptr || sampleCount < 2) {
+    CLOGE << "Invalid PCM stream";
+
+    return -1;
+  }
+
+  // Find free stream
+
+  for (size_t i = 0; i < MAX_AUDIO_STREAMS; i++) {
+    if (!streams[i].active) {
+      AudioStreamData& stream = streams[i];
+
+      stream.samples = samples;
+
+      stream.sampleCount = sampleCount;
+
+      stream.sourcePosition = 0.0f;
+
+      stream.loop = loop;
+
+      stream.speed = 1.0f;
+
+      stream.pitch = 0.0f;
+
+      stream.volume = 1.0f;
+
+      stream.stopRequested = false;
+
+      stream.active = true;
+
+      CLOGI << "Started audio stream " << i;
+
+      return (int)i;
+    }
+  }
+
+  CLOGE << "No free audio stream slots";
+
+  return -1;
+}
+
+// ============================================================
+// STOP ONE STREAM
+// ============================================================
+
+bool AudioPlayer::stop(int streamId) {
+  if (!audioInitialized) {
+    CLOGE << "AudioPlayer not initialized";
+
+    return false;
+  }
+  if (streamId < 0 || streamId >= (int)MAX_AUDIO_STREAMS) {
+    CLOGI << "no audio stream" << streamId;
+    return false;
+  }
+
+  AudioStreamData& stream = streams[streamId];
+
+  if (!stream.active) {
+    CLOGI << "Audio stream already stopped" << streamId;
+    return false;
+  }
+
+  stream.stopRequested = true;
+
+  stream.active = false;
+
+  CLOGI << "Stopped audio stream " << streamId;
+
+  return true;
+}
+
+bool AudioPlayer::resume(int streamId) {
+  if (!audioInitialized) {
+    CLOGE << "AudioPlayer not initialized";
+
+    return false;
+  }
+  if (streamId < 0 || streamId >= (int)MAX_AUDIO_STREAMS) {
+    CLOGI << "No audio stream" << streamId;
+    return false;
+  }
+
+  AudioStreamData& stream = streams[streamId];
+
+  if (stream.active) {
+    CLOGI << "Audio stream already active" << streamId;
+
+    return false;
+  }
+
+  stream.stopRequested = false;
+
+  stream.active = true;
+
+  CLOGI << "Resumed audio stream " << streamId;
+
+  return true;
+}
+
+// ============================================================
+// STOP ALL STREAMS
+// ============================================================
+
+void AudioPlayer::stopAll() {
+  if (!audioInitialized) {
+    CLOGE << "AudioPlayer not initialized";
+
+    return;
+  }
+  stopRequested = true;
+
+  for (size_t i = 0; i < MAX_AUDIO_STREAMS; i++) {
+    streams[i].stopRequested = true;
+
+    streams[i].active = false;
+  }
+}
+
+// ============================================================
+// CHECK STREAM PLAYING
+// ============================================================
+
+bool AudioPlayer::isPlaying(int streamId) {
+  if (!audioInitialized) {
+    CLOGE << "AudioPlayer not initialized";
+
+    return false;
+  }
+  if (streamId < 0 || streamId >= (int)MAX_AUDIO_STREAMS) {
+    CLOGI << "No audio stream" << streamId;
+    return false;
+  }
+
+  return streams[streamId].active;
+}
+
+// ============================================================
+// CHECK ANY STREAM PLAYING
+// ============================================================
+
+bool AudioPlayer::isPlaying() {
+  if (!audioInitialized) {
+    CLOGE << "AudioPlayer not initialized";
+
+    return false;
+  }
+  return anyStreamActive();
+}
+
+// ============================================================
+// SET SPEED
+// ============================================================
+
+void AudioPlayer::setSpeed(int streamId, float speed) {
+  if (!audioInitialized) {
+    CLOGE << "AudioPlayer not initialized";
+
+    return;
+  }
+  if (streamId < 0 || streamId >= (int)MAX_AUDIO_STREAMS) {
+    CLOGI << "No audio stream" << streamId;
+    return;
+  }
+
+  speed = clampFloat(speed, MIN_SPEED, MAX_SPEED);
+
+  streams[streamId].speed = speed;
+}
+
+// ============================================================
+// GET SPEED
+// ============================================================
+
+float AudioPlayer::getSpeed(int streamId) {
+  if (!audioInitialized) {
+    CLOGE << "AudioPlayer not initialized";
+
+    return 0.0f;
+  }
+  if (streamId < 0 || streamId >= (int)MAX_AUDIO_STREAMS) {
+    CLOGI << "No audio stream" << streamId;
+    return 1.0f;
+  }
+
+  return streams[streamId].speed;
+}
+
+// ============================================================
+// SET PITCH
+// ============================================================
+
+void AudioPlayer::setPitch(int streamId, float semitones) {
+  if (!audioInitialized) {
+    CLOGE << "AudioPlayer not initialized";
+
+    return;
+  }
+  if (streamId < 0 || streamId >= (int)MAX_AUDIO_STREAMS) {
+    CLOGI << "No audio stream" << streamId;
+    return;
+  }
+
+  semitones = clampFloat(semitones, MIN_SEMITONES, MAX_SEMITONES);
+
+  streams[streamId].pitch = semitones;
+}
+
+// ============================================================
+// GET PITCH
+// ============================================================
+
+float AudioPlayer::getPitch(int streamId) {
+  if (!audioInitialized) {
+    CLOGE << "AudioPlayer not initialized";
+
+    return 0.0f;
+  }
+  if (streamId < 0 || streamId >= (int)MAX_AUDIO_STREAMS) {
+    CLOGI << "No audio stream" << streamId;
+    return 0.0f;
+  }
+
+  return streams[streamId].pitch;
+}
+
+// ============================================================
+// SET VOLUME
+// ============================================================
+//
+// 0.0 = silent
+// 1.0 = full volume
+//
+// ============================================================
+
+void AudioPlayer::setVolume(int streamId, float volume) {
+  if (!audioInitialized) {
+    CLOGE << "AudioPlayer not initialized";
+
+    return;
+  }
+  if (streamId < 0 || streamId >= (int)MAX_AUDIO_STREAMS) {
+    CLOGI << "No audio stream" << streamId;
+    return;
+  }
+
+  volume = clampFloat(volume, MIN_VOLUME, MAX_VOLUME);
+
+  streams[streamId].volume = volume;
+}
+
+// ============================================================
+// GET VOLUME
+// ============================================================
+
+float AudioPlayer::getVolume(int streamId) {
+  if (!audioInitialized) {
+    CLOGE << "AudioPlayer not initialized";
+
+    return 0.0f;
+  }
+  if (streamId < 0 || streamId >= (int)MAX_AUDIO_STREAMS) {
+    CLOGI << "No audio stream" << streamId;
+    return 0.0f;
+  }
+
+  return streams[streamId].volume;
 }
 
 // ============================================================
 // Pitch -> ratio
 // ============================================================
 
-float pitchToRatio(float semitones) { return powf(2.0f, semitones / 12.0f); }
+float AudioPlayer::pitchToRatio(float semitones) {
+  return powf(2.0f, semitones / 12.0f);
+}
 
 // ============================================================
 // Linear interpolation
 // ============================================================
 
-float interpolateSample(const int16_t* samples, size_t sampleCount,
-                        float position) {
+float AudioPlayer::interpolateSample(const int16_t* samples, size_t sampleCount,
+                                     float position) {
   if (samples == nullptr || sampleCount == 0) {
     return 0.0f;
   }
@@ -160,7 +387,7 @@ float interpolateSample(const int16_t* samples, size_t sampleCount,
 // Hann window
 // ============================================================
 
-float grainWindow(size_t index) {
+float AudioPlayer::grainWindow(size_t index) {
   if (GRAIN_SIZE <= 1) {
     return 1.0f;
   }
@@ -173,7 +400,7 @@ float grainWindow(size_t index) {
 // Float -> int16
 // ============================================================
 
-int16_t floatToPCM(float value) {
+int16_t AudioPlayer::floatToPCM(float value) {
   if (value > 32767.0f) {
     value = 32767.0f;
   }
@@ -189,7 +416,7 @@ int16_t floatToPCM(float value) {
 // Clear accumulators
 // ============================================================
 
-void clearAccumulators() {
+void AudioPlayer::clearAccumulators() {
   for (size_t streamIndex = 0; streamIndex < MAX_AUDIO_STREAMS; streamIndex++) {
     for (size_t i = 0; i < GRAIN_SIZE + GRAIN_HOP; i++) {
       streamAccumulator[streamIndex][i] = 0.0f;
@@ -205,7 +432,7 @@ void clearAccumulators() {
 // Initialize stream
 // ============================================================
 
-void resetStream(size_t index) {
+void AudioPlayer::resetStream(size_t index) {
   if (index >= MAX_AUDIO_STREAMS) {
     return;
   }
@@ -233,7 +460,7 @@ void resetStream(size_t index) {
 // Write audio to I2S
 // ============================================================
 
-bool writeAudio(const int16_t* samples, size_t sampleCount) {
+bool AudioPlayer::writeAudio(const int16_t* samples, size_t sampleCount) {
   if (samples == nullptr || sampleCount == 0) {
     return true;
   }
@@ -268,13 +495,13 @@ bool writeAudio(const int16_t* samples, size_t sampleCount) {
 //
 // ============================================================
 
-bool processStream(size_t streamIndex) {
+bool AudioPlayer::processStream(size_t streamIndex) {
   if (!audioInitialized) {
     CLOGE << "AudioPlayer not initialized";
 
     return false;
   }
-  AudioStream& stream = streams[streamIndex];
+  AudioStreamData& stream = streams[streamIndex];
 
   if (!stream.active) {
     return false;
@@ -294,11 +521,11 @@ bool processStream(size_t streamIndex) {
 
   float volume = stream.volume;
 
-  speed = clampFloat(speed, 0.25f, 4.0f);
+  speed = clampFloat(speed, MIN_SPEED, MAX_SPEED);
 
-  pitch = clampFloat(pitch, -24.0f, 24.0f);
+  pitch = clampFloat(pitch, MIN_PITCH, MAX_PITCH);
 
-  volume = clampFloat(volume, 0.0f, 1.0f);
+  volume = clampFloat(volume, MIN_VOLUME, MAX_VOLUME);
 
   float pitchRatio = pitchToRatio(pitch);
 
@@ -411,7 +638,7 @@ bool processStream(size_t streamIndex) {
 // Mix streams
 // ============================================================
 
-void mixStreams() {
+void AudioPlayer::mixStreams() {
   // Clear output
 
   for (size_t i = 0; i < AUDIO_CHUNK_SIZE; i++) {
@@ -443,7 +670,7 @@ void mixStreams() {
 // Shift stream accumulators
 // ============================================================
 
-void shiftAccumulators() {
+void AudioPlayer::shiftAccumulators() {
   for (size_t streamIndex = 0; streamIndex < MAX_AUDIO_STREAMS; streamIndex++) {
     for (size_t i = GRAIN_HOP; i < GRAIN_SIZE + GRAIN_HOP; i++) {
       streamAccumulator[streamIndex][i - GRAIN_HOP] =
@@ -460,7 +687,7 @@ void shiftAccumulators() {
 // Check if any streams are active
 // ============================================================
 
-bool anyStreamActive() {
+bool AudioPlayer::anyStreamActive() {
   if (!audioInitialized) {
     CLOGE << "AudioPlayer not initialized";
 
@@ -479,58 +706,58 @@ bool anyStreamActive() {
 // Audio task
 // ============================================================
 
-void audioTask(void* parameter) {
-  // if (!audioInitialized) {
-  //   CLOGE << "AudioPlayer not initialized";
-
-  //   return;
-  // }
-  (void)parameter;
+void AudioPlayer::audioTask(void* parameter) {
+  AudioPlayer* player = static_cast<AudioPlayer*>(parameter);
+  if (player == nullptr) {
+    CLOGE << "Audio task received null AudioPlayer";
+    vTaskDelete(nullptr);
+    return;
+  }
 
   while (true) {
     // --------------------------------------------------------
     // Wait until a stream becomes active
     // --------------------------------------------------------
 
-    if (!anyStreamActive()) {
+    if (!player->anyStreamActive()) {
       vTaskDelay(pdMS_TO_TICKS(5));
 
       continue;
     }
 
-    stopRequested = false;
+    player->stopRequested = false;
 
     // --------------------------------------------------------
     // Reset accumulators
     // --------------------------------------------------------
 
-    clearAccumulators();
+    player->clearAccumulators();
 
     // ========================================================
     // Main mixer loop
     // ========================================================
 
-    while (!stopRequested && anyStreamActive()) {
+    while (!player->stopRequested && player->anyStreamActive()) {
       // ------------------------------------------------------
       // Generate one grain for every active stream.
       // ------------------------------------------------------
 
       for (size_t streamIndex = 0; streamIndex < MAX_AUDIO_STREAMS;
            streamIndex++) {
-        processStream(streamIndex);
+        player->processStream(streamIndex);
       }
 
       // ------------------------------------------------------
       // Mix all streams.
       // ------------------------------------------------------
 
-      mixStreams();
+      player->mixStreams();
 
       // ------------------------------------------------------
       // Output mixed audio.
       // ------------------------------------------------------
 
-      if (!writeAudio(outputBuffer, AUDIO_CHUNK_SIZE)) {
+      if (!player->writeAudio(player->outputBuffer, AUDIO_CHUNK_SIZE)) {
         break;
       }
 
@@ -538,383 +765,31 @@ void audioTask(void* parameter) {
       // Shift all stream accumulators.
       // ------------------------------------------------------
 
-      shiftAccumulators();
+      player->shiftAccumulators();
     }
 
     // ========================================================
     // STOP / FINISH
     // ========================================================
 
-    i2s.flush();
+    player->i2s.flush();
 
     // --------------------------------------------------------
     // Stop all streams if global stop was requested.
     // --------------------------------------------------------
 
-    if (stopRequested) {
+    if (player->stopRequested) {
       for (size_t i = 0; i < MAX_AUDIO_STREAMS; i++) {
-        streams[i].active = false;
+        player->streams[i].active = false;
 
-        streams[i].stopRequested = false;
+        player->streams[i].stopRequested = false;
       }
 
       CLOGI << "All audio streams stopped";
     }
 
-    clearAccumulators();
+    player->clearAccumulators();
 
-    stopRequested = false;
+    player->stopRequested = false;
   }
-}
-
-}  // namespace
-
-// ============================================================
-// PUBLIC API
-// ============================================================
-
-// ============================================================
-// INITIALIZE
-// ============================================================
-
-bool AudioPlayer_begin() {
-  CLOGI << "Initializing AudioPlayer";
-
-  // Reset stream state
-
-  for (size_t i = 0; i < MAX_AUDIO_STREAMS; i++) {
-    resetStream(i);
-  }
-
-  // Configure I2S
-
-  i2s.setPins(I2S_BCLK, I2S_WS, I2S_DOUT, -1, -1);
-
-  // Initialize I2S
-
-  if (!i2s.begin(I2S_MODE_STD, SAMPLE_RATE, I2S_DATA_BIT_WIDTH_16BIT,
-                 I2S_SLOT_MODE_MONO)) {
-    CLOGE << "Failed to initialize I2S";
-
-    return false;
-  }
-
-  CLOGI << "I2S initialized";
-
-  // Create audio task
-
-  BaseType_t result =
-      xTaskCreate(audioTask, "AudioTask", AUDIO_TASK_STACK, nullptr,
-                  AUDIO_TASK_PRIORITY, &audioTaskHandle);
-
-  if (result != pdPASS) {
-    CLOGE << "Failed to create audio task";
-
-    audioTaskHandle = nullptr;
-
-    return false;
-  }
-
-  audioInitialized = true;
-
-  CLOGI << "AudioPlayer initialized";
-
-  return true;
-}
-
-// ============================================================
-// CREATE / START STREAM
-// ============================================================
-//
-// Returns a stream ID.
-//
-// Example:
-//
-//   int id = AudioPlayer_play(
-//     sound,
-//     soundSamples,
-//     false
-//   );
-//
-// ============================================================
-
-int AudioPlayer_play(const unsigned char* _samples, size_t sampleCount,
-                     bool loop, bool initialize) {
-  if (!audioInitialized) {
-    CLOGE << "AudioPlayer not initialized";
-
-    return -1;
-  }
-
-  const int16_t* samples = reinterpret_cast<const int16_t*>(_samples);
-
-  sampleCount = sampleCount / 2;
-
-  if (samples == nullptr || sampleCount < 2) {
-    CLOGE << "Invalid PCM stream";
-
-    return -1;
-  }
-
-  // Find free stream
-
-  for (size_t i = 0; i < MAX_AUDIO_STREAMS; i++) {
-    if (!streams[i].active) {
-      AudioStream& stream = streams[i];
-
-      stream.samples = samples;
-
-      stream.sampleCount = sampleCount;
-
-      stream.sourcePosition = 0.0f;
-
-      stream.loop = loop;
-
-      stream.speed = 1.0f;
-
-      stream.pitch = 0.0f;
-
-      stream.volume = 1.0f;
-
-      stream.stopRequested = false;
-
-      stream.active = true;
-
-      CLOGI << "Started audio stream " << i;
-
-      return (int)i;
-    }
-  }
-
-  CLOGE << "No free audio stream slots";
-
-  return -1;
-}
-
-// ============================================================
-// STOP ONE STREAM
-// ============================================================
-
-bool AudioPlayer_stop(int streamId) {
-  if (!audioInitialized) {
-    CLOGE << "AudioPlayer not initialized";
-
-    return false;
-  }
-  if (streamId < 0 || streamId >= (int)MAX_AUDIO_STREAMS) {
-    CLOGI << "no audio stream" << streamId;
-    return false;
-  }
-
-  AudioStream& stream = streams[streamId];
-
-  if (!stream.active) {
-    CLOGI << "Audio stream already stopped" << streamId;
-    return false;
-  }
-
-  stream.stopRequested = true;
-
-  stream.active = false;
-
-  CLOGI << "Stopped audio stream " << streamId;
-
-  return true;
-}
-
-bool AudioPlayer_resume(int streamId) {
-  if (!audioInitialized) {
-    CLOGE << "AudioPlayer not initialized";
-
-    return false;
-  }
-  if (streamId < 0 || streamId >= (int)MAX_AUDIO_STREAMS) {
-    CLOGI << "No audio stream" << streamId;
-    return false;
-  }
-
-  AudioStream& stream = streams[streamId];
-
-  if (stream.active) {
-    CLOGI << "Audio stream already active" << streamId;
-
-    return false;
-  }
-
-  stream.stopRequested = false;
-
-  stream.active = true;
-
-  CLOGI << "Resumed audio stream " << streamId;
-
-  return true;
-}
-
-// ============================================================
-// STOP ALL STREAMS
-// ============================================================
-
-void AudioPlayer_stopAll() {
-  if (!audioInitialized) {
-    CLOGE << "AudioPlayer not initialized";
-
-    return;
-  }
-  stopRequested = true;
-
-  for (size_t i = 0; i < MAX_AUDIO_STREAMS; i++) {
-    streams[i].stopRequested = true;
-
-    streams[i].active = false;
-  }
-}
-
-// ============================================================
-// CHECK STREAM PLAYING
-// ============================================================
-
-bool AudioPlayer_isPlaying(int streamId) {
-  if (!audioInitialized) {
-    CLOGE << "AudioPlayer not initialized";
-
-    return false;
-  }
-  if (streamId < 0 || streamId >= (int)MAX_AUDIO_STREAMS) {
-    CLOGI << "No audio stream" << streamId;
-    return false;
-  }
-
-  return streams[streamId].active;
-}
-
-// ============================================================
-// CHECK ANY STREAM PLAYING
-// ============================================================
-
-bool AudioPlayer_isPlaying() {
-  if (!audioInitialized) {
-    CLOGE << "AudioPlayer not initialized";
-
-    return false;
-  }
-  return anyStreamActive();
-}
-
-// ============================================================
-// SET SPEED
-// ============================================================
-
-void AudioPlayer_setSpeed(int streamId, float speed) {
-  if (!audioInitialized) {
-    CLOGE << "AudioPlayer not initialized";
-
-    return;
-  }
-  if (streamId < 0 || streamId >= (int)MAX_AUDIO_STREAMS) {
-    CLOGI << "No audio stream" << streamId;
-    return;
-  }
-
-  speed = clampFloat(speed, 0.25f, 4.0f);
-
-  streams[streamId].speed = speed;
-}
-
-// ============================================================
-// GET SPEED
-// ============================================================
-
-float AudioPlayer_getSpeed(int streamId) {
-  if (!audioInitialized) {
-    CLOGE << "AudioPlayer not initialized";
-
-    return 0.0f;
-  }
-  if (streamId < 0 || streamId >= (int)MAX_AUDIO_STREAMS) {
-    CLOGI << "No audio stream" << streamId;
-    return 1.0f;
-  }
-
-  return streams[streamId].speed;
-}
-
-// ============================================================
-// SET PITCH
-// ============================================================
-
-void AudioPlayer_setPitch(int streamId, float semitones) {
-  if (!audioInitialized) {
-    CLOGE << "AudioPlayer not initialized";
-
-    return;
-  }
-  if (streamId < 0 || streamId >= (int)MAX_AUDIO_STREAMS) {
-    CLOGI << "No audio stream" << streamId;
-    return;
-  }
-
-  semitones = clampFloat(semitones, -24.0f, 24.0f);
-
-  streams[streamId].pitch = semitones;
-}
-
-// ============================================================
-// GET PITCH
-// ============================================================
-
-float AudioPlayer_getPitch(int streamId) {
-  if (!audioInitialized) {
-    CLOGE << "AudioPlayer not initialized";
-
-    return 0.0f;
-  }
-  if (streamId < 0 || streamId >= (int)MAX_AUDIO_STREAMS) {
-    CLOGI << "No audio stream" << streamId;
-    return 0.0f;
-  }
-
-  return streams[streamId].pitch;
-}
-
-// ============================================================
-// SET VOLUME
-// ============================================================
-//
-// 0.0 = silent
-// 1.0 = full volume
-//
-// ============================================================
-
-void AudioPlayer_setVolume(int streamId, float volume) {
-  if (!audioInitialized) {
-    CLOGE << "AudioPlayer not initialized";
-
-    return;
-  }
-  if (streamId < 0 || streamId >= (int)MAX_AUDIO_STREAMS) {
-    CLOGI << "No audio stream" << streamId;
-    return;
-  }
-
-  volume = clampFloat(volume, 0.0f, 1.0f);
-
-  streams[streamId].volume = volume;
-}
-
-// ============================================================
-// GET VOLUME
-// ============================================================
-
-float AudioPlayer_getVolume(int streamId) {
-  if (!audioInitialized) {
-    CLOGE << "AudioPlayer not initialized";
-
-    return 0.0f;
-  }
-  if (streamId < 0 || streamId >= (int)MAX_AUDIO_STREAMS) {
-    CLOGI << "No audio stream" << streamId;
-    return 0.0f;
-  }
-
-  return streams[streamId].volume;
 }
