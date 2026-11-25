@@ -27,6 +27,8 @@ struct ServerStatePacket {
 };
 struct __attribute__((packed)) ESPNowCommand {
   uint8_t type;
+  int16_t value;
+
   uint8_t mac[6];
   char name[24];
   uint8_t channel;

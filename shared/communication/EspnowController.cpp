@@ -1,5 +1,7 @@
 #include "EspnowController.h"
 
+#include <freertos/FreeRTOS.h>
+
 EspnowController espnowController;
 EspnowController* EspnowController::callbackInstance = nullptr;
 namespace {
@@ -7,6 +9,7 @@ JsonDocument previousState;
 JsonDocument currentState;
 bool hasReceivedInitialState = false;
 bool hasSentInitialState = false;
+
 }  // namespace
 
 // SETUP
@@ -166,7 +169,7 @@ void EspnowController::espnowUpdate() {
 
   processESPNowEvents();
 
-  processDiscovery();
+  sendDiscovery();
 
   ESPNowCheckFailsafe();
 
@@ -272,7 +275,7 @@ void EspnowController::handleUnkownPacket(Peer* peer, EspNowEvent& event) {
 
 // DISCOVERY UPDATE
 
-void EspnowController::processDiscovery() {
+void EspnowController::sendDiscovery() {
   if (!discoveryActive) return;
 
   const unsigned long now = millis();
@@ -292,8 +295,6 @@ void EspnowController::processDiscovery() {
 
   if (result != ESP_OK) {
     Serial.printf("send failed -> %s ", macToString(broadcastMac));
-
-
   }
 }
 // FAILSAFE
@@ -489,27 +490,29 @@ bool EspnowController::addOrUpdateDiscoveredPeer(Peer* peer,
 }
 
 // BINARY DISCOVERY RESPONSE
-
 void EspnowController::sendDiscoveryResponse(Peer* peer) {
+  if (peer == nullptr) {
+    return;
+  }
+
   ESPNowCommand response{};
 
   response.type = CMD_DISCOVERY_RESPONSE;
 
-  uint8_t currentMac[6];
-
-  WiFi.macAddress(currentMac);
-
-  memcpy(response.mac, currentMac, 6);
+  // Advertise our own MAC, not the requesting peer's MAC.
+  memcpy(response.mac, localMac, 6);
 
   strncpy(response.name, NAME, sizeof(response.name) - 1);
 
   response.channel = WIFI_CHANNEL;
 
-  if (!isBroadcastMac(peer->getMac())) {
-    addPeer(peer);
-  }
+  // Serial.printf("[DISCOVERY] Responding to %s with MAC %s\n",
+  //               macToString(peer->getMac()).c_str(),
+  //               macToString(localMac).c_str());
 
-  sendCommandToPeer(peer, response);
+  if (!sendCommandToPeer(peer, response)) {
+    Serial.println("[DISCOVERY] Failed to send response");
+  }
 }
 
 // BINARY PAIR RESPONSE
@@ -540,65 +543,171 @@ void EspnowController::sendPairResponse(Peer* peer) {
 // GENERIC JSON SEND
 
 bool EspnowController::sendJsonDocument(Peer* peer, JsonDocument& doc) {
-  // Calculate the serialized JSON size
+  if (peer == nullptr || peer->getMac() == nullptr) {
+    Serial.println("Cannot send JSON state to an invalid peer");
+    return false;
+  }
+
   const size_t jsonLength = measureJson(doc);
 
   const size_t requiredChunks =
       (jsonLength + JSON_FRAGMENT_DATA_SIZE - 1) / JSON_FRAGMENT_DATA_SIZE;
+
+  if (requiredChunks == 0) {
+    return true;
+  }
 
   const size_t packetBufferSize = requiredChunks * JSON_FRAGMENT_PACKET_SIZE;
 
   uint8_t* packets = static_cast<uint8_t*>(malloc(packetBufferSize));
 
   if (packets == nullptr) {
-    Serial.println("Failed to allocate JSON packet buffer");
-
+    Serial.println("[ESP-NOW] Failed to allocate JSON packet buffer");
     return false;
   }
 
   size_t totalChunks = 0;
-  // Generate packets
-  if (jsonAssembler.disassembleJson(doc, packets, totalChunks)) {
-    // TODO use object thats an array of packets
-    // Read each packet
-    for (size_t i = 0; i < totalChunks; i++) {
-      ESPNowCommand command{};
 
-      command.type = CMD_SERVER_STATE;
+  if (!jsonAssembler.disassembleJson(doc, packets, totalChunks)) {
+    Serial.println("[ESP-NOW] Failed to fragment JSON document");
+    free(packets);
+    return false;
+  }
 
-      uint8_t* packet = packets + (i * JSON_FRAGMENT_PACKET_SIZE);
+  // Stop-and-wait transmission.
+  //
+  // IMPORTANT:
+  // While waiting for an ACK, we continue processing incoming ESP-NOW
+  // events. This allows the other ESP32 to receive its ACK even when
+  // both devices are transmitting simultaneously.
 
-      memcpy(command.data, packet, JSON_FRAGMENT_PACKET_SIZE);
-      // Serial.println("sending CMD_SERVER_STATE");
-      if (!sendCommandToPeer(peer, command)) {
-        Serial.println("failed sending CMD_SERVER_STATE");
+  for (size_t i = 0; i < totalChunks; ++i) {
+    ESPNowCommand command{};
 
-        free(packets);
-        return false;
+    command.type = CMD_SERVER_STATE;
+
+    uint8_t* packet = packets + (i * JSON_FRAGMENT_PACKET_SIZE);
+
+    memcpy(command.data, packet, JSON_FRAGMENT_PACKET_SIZE);
+
+    PacketSequence sequence = nextPacketSequence++;
+
+    if (sequence == 0) {
+      sequence = nextPacketSequence++;
+    }
+
+    command.value = sequence;
+
+    bool acknowledged = false;
+
+    for (uint8_t attempt = 0; attempt <= PACKET_ACK_RETRIES; ++attempt) {
+      // Prepare ACK tracking before transmitting.
+      portENTER_CRITICAL(&packetAckMux);
+
+      memcpy(packetAckTargetMac, peer->getMac(), 6);
+
+      packetAckSequence = sequence;
+      packetAckReceived = false;
+      packetAckWaiting = true;
+
+      portEXIT_CRITICAL(&packetAckMux);
+
+      if (sendCommandToPeer(peer, command)) {
+        const uint32_t started = millis();
+
+        while (millis() - started < PACKET_ACK_TIMEOUT_MS) {
+          // CRITICAL FIX:
+          // Process incoming packets while waiting for our ACK.
+          //
+          // Without this, both ESP32s can block inside this function,
+          // preventing them from processing the other device's fragments.
+
+          processESPNowEvents();
+
+          if (isPacketAckReceived()) {
+            acknowledged = true;
+            break;
+          }
+
+          delay(1);
+        }
       }
-      // Give the ESP-NOW driver time to process the transmission.
-      delay(5);
+
+      if (acknowledged) {
+        break;
+      }
+
+      if (attempt < PACKET_ACK_RETRIES) {
+        Serial.printf(
+            "[ESP-NOW] No ACK for fragment %u (attempt %u); retrying\n",
+            static_cast<unsigned>(sequence),
+            static_cast<unsigned>(attempt + 1));
+      }
+    }
+
+    // Stop accepting ACKs for this fragment.
+    portENTER_CRITICAL(&packetAckMux);
+
+    packetAckWaiting = false;
+    packetAckReceived = false;
+
+    portEXIT_CRITICAL(&packetAckMux);
+
+    if (!acknowledged) {
+      Serial.printf("[ESP-NOW] ACK timeout for fragment %u\n",
+                    static_cast<unsigned>(sequence));
+
+      free(packets);
+      return false;
     }
   }
+
   free(packets);
 
   return true;
 }
-
 // PROCESS BINARY RECEIVER-SIDE PACKETS
 
 bool EspnowController::processReceivedPeerBinaryPacket(Peer* peer,
                                                        const uint8_t* data,
                                                        int len) {
-  if (peer == nullptr || data == nullptr || len != sizeof(ESPNowCommand)) {
+  if (peer == nullptr || data == nullptr) {
+    Serial.println("[RX] Invalid peer or data pointer");
     return false;
   }
-  ESPNowCommand command = {};
+
+  if (len != sizeof(ESPNowCommand)) {
+    Serial.printf("[RX] Binary packet size mismatch: received=%d expected=%u\n",
+                  len, static_cast<unsigned>(sizeof(ESPNowCommand)));
+    return false;
+  }
+
+  ESPNowCommand command{};
   memcpy(&command, data, sizeof(command));
 
+  // Serial.printf("[RX] Binary packet type=0x%02X size=%d from=%s\n",
+  //               static_cast<unsigned>(command.type), len,
+  //               macToString(peer->getMac()).c_str());
+
+  // Existing command handlers follow...
   // DISCOVERY
+  // DISCOVERY REQUEST
   if (command.type == CMD_DISCOVER) {
+    // Serial.printf("[DISCOVERY] Request received from %s\n",
+    //               macToString(peer->getMac()).c_str());
+
+    peer->setLastSeen(millis());
+
+    // Ensure the sender is registered as an ESP-NOW peer.
+    if (!addPeer(peer)) {
+      Serial.println("[DISCOVERY] Failed to register requesting peer");
+      return true;
+    }
+
+    // Serial.println("[DISCOVERY] Sending discovery response");
+
     sendDiscoveryResponse(peer);
+
     return true;
   }
 
@@ -647,6 +756,7 @@ bool EspnowController::processReceivedPeerBinaryPacket(Peer* peer,
     Serial.println("received CMD_CONTROLLER_CLAIM");
 
     peer->setLastSeen(millis());
+
     if (peer->getState() == PeerState::PAIRED) {
       discoveryActive = false;
 
@@ -656,14 +766,19 @@ bool EspnowController::processReceivedPeerBinaryPacket(Peer* peer,
       peer->setLastSeen(millis());
 
       Serial.print("ACTIVE PEER -> ");
-
       Serial.println(peer->getName());
+
       addPeer(peer);
-      sendServerState(peer);
+
+      // Do not send JSON synchronously from the event handler.
+      //
+      // processStateChanges() runs immediately after processESPNowEvents()
+      // in espnowUpdate(), and will send the initial state.
 
     } else {
       Serial.println("Claim rejected: controller not paired");
     }
+
     return true;
   }
   return false;
@@ -715,7 +830,7 @@ bool EspnowController::sendCommandToPeer(Peer* peer, ESPNowCommand command) {
 bool EspnowController::processReceivedControllerBinaryPacket(
     Peer* peer, const uint8_t* data, int len) {
   if (peer == nullptr || data == nullptr || len != sizeof(ESPNowCommand)) {
-    Serial.println("response from unknown peer");
+    // Serial.println("response from unknown peer");
     return false;
   }
 
@@ -772,51 +887,77 @@ bool EspnowController::processReceivedJsonFragment(Peer* peer,
                                                    const uint8_t* data,
                                                    size_t len) {
   if (peer == nullptr || data == nullptr || len != sizeof(ESPNowCommand)) {
-    Serial.println("response from unknown peer");
     return false;
   }
 
-  ESPNowCommand command = {};
+  ESPNowCommand command{};
   memcpy(&command, data, sizeof(command));
 
   if (command.type != CMD_SERVER_STATE) {
     return false;
   }
 
-  JsonDocument doc;
-
-  if (!jsonAssembler.jsonFragmentToJson(peer->getMac(), command.data,
-                                        sizeof(command.data), doc)) {
-    Serial.println("failed to fragment");
+  if (peer->getMac() == nullptr || (peer->getState() != PeerState::PAIRED &&
+                                    peer->getState() != PeerState::ACTIVE)) {
+    Serial.println("[STATE] Peer invalid");
     return false;
   }
-  if (doc.isNull()) {
-    Serial.println("[STATE] Waiting for remaining fragments");
-    return true;  // Packet handled, not an unknown packet!
-  }
 
-  if (doc["data"].isNull()) {
-    Serial.println("[STATE] Complete message has no data");
+  const PacketSequence sequence = command.value;
+
+  // Handle retransmitted fragments.
+  // ACK them again without feeding them into the assembler twice.
+
+  if (sequence != 0 && wasJsonPacketReceived(peer->getMac(), sequence)) {
+    peer->setLastSeen(millis());
+
+    sendPacketAck(this, peer, sequence);
+
     return true;
   }
-  if (peer->getState() != PeerState::PAIRED &&
-      peer->getState() != PeerState::ACTIVE) {
-    Serial.println("peer invalid ");
+
+  JsonDocument doc;
+
+  // Only acknowledge fragments that the assembler successfully accepts.
+  if (!jsonAssembler.jsonFragmentToJson(peer->getMac(), command.data,
+                                        sizeof(command.data), doc)) {
+    Serial.println("[STATE] Failed to assemble JSON fragment");
 
     return false;
   }
 
   peer->setLastSeen(millis());
 
+  // Remember the fragment before sending its ACK.
+  // If the ACK is lost, a retransmission will be recognized as a duplicate.
+
+  rememberJsonPacket(peer->getMac(), sequence);
+
+  // ACK IMMEDIATELY.
+  //
+  // Do this before applying the completed state because that operation
+  // may take considerably longer than processing the fragment itself.
+
+  sendPacketAck(this, peer, sequence);
+
+  if (doc.isNull()) {
+    Serial.println("[STATE] Waiting for remaining fragments");
+    return true;
+  }
+
+  if (doc["data"].isNull()) {
+    Serial.println("[STATE] Complete message has no data");
+    return true;
+  }
+
   JsonVariantConst incoming = doc["data"];
 
   if (incoming.isNull()) {
-    Serial.println("data invalid ");
-
-    return false;
+    Serial.println("[STATE] Incoming data is invalid");
+    return true;
   }
 
-  bool isFullUpdate = doc["full"] | false;
+  const bool isFullUpdate = doc["full"] | false;
 
   if (isFullUpdate) {
     // Replace the entire existing state.
@@ -828,6 +969,7 @@ bool EspnowController::processReceivedJsonFragment(Peer* peer,
     if (!hasReceivedInitialState) {
       Serial.println(
           "[STATE] Delta received before initial full state. Ignoring.");
+
       return true;
     }
 
@@ -835,12 +977,13 @@ bool EspnowController::processReceivedJsonFragment(Peer* peer,
     JsonChangeFilter::applyDelta(currentState.as<JsonVariant>(), incoming);
   }
 
-  getStateFromJsonCallback(currentState);
-  // TODO make it so it does not need delay fixes by using acknowledgments
-  delay(15);
+  // Apply the completed state.
+  if (getStateFromJsonCallback != nullptr) {
+    getStateFromJsonCallback(currentState);
+  }
+
   return true;
 }
-
 void EspnowController::sendHeartbeat() {
   static unsigned long lastHeartbeat = 0;
 
@@ -900,6 +1043,7 @@ void EspnowController::resetDiscover() {
   hasReceivedInitialState = false;
   hasSentInitialState = false;
   resetStateCallback();
+  lastReceivedJsonPackets.clear();
 
   discoveryActive = true;
 
@@ -947,7 +1091,13 @@ Peer* EspnowController::getActiveReceiverPeer() {
 void EspnowController::queueEspNowEvent(EspNowEventType type,
                                         const uint8_t* mac, const uint8_t* data,
                                         int len) {
-  if (espNowEventQueue == nullptr) {
+  if (espNowEventQueue == nullptr || mac == nullptr) {
+    return;
+  }
+
+  if (len < 0 || len > ESPNOW_EVENT_DATA_MAX) {
+    Serial.printf("[RX] Invalid packet length: %d (maximum %d)\n", len,
+                  ESPNOW_EVENT_DATA_MAX);
     return;
   }
 
@@ -955,55 +1105,166 @@ void EspnowController::queueEspNowEvent(EspNowEventType type,
 
   event.type = type;
 
-  if (mac != nullptr) {
-    memcpy(event.mac, mac, 6);
-  }
+  memcpy(event.mac, mac, 6);
 
   if (data != nullptr && len > 0) {
-    len = std::min(len, ESPNOW_EVENT_DATA_MAX);
-
     memcpy(event.data, data, len);
     event.len = len;
   }
 
   if (xQueueSend(espNowEventQueue, &event, 0) != pdPASS) {
-    static uint32_t droppedEvents = 0;
-    droppedEvents++;
-
-    if (droppedEvents % 100 == 0) {
-      Serial.printf("[ESP-NOW] Dropped events: %lu\n",
-                    static_cast<unsigned long>(droppedEvents));
-    }
+    Serial.println("[RX] Failed to enqueue ESP-NOW event");
   }
 }
 // RECEIVE CALLBACK
 
 void EspnowController::onESPNowReceive(const esp_now_recv_info_t* info,
                                        const uint8_t* data, int len) {
-  if (info == nullptr || data == nullptr || len <= 0 ||
-      callbackInstance == nullptr) {
+  if (info == nullptr || data == nullptr || len <= 0) {
     return;
   }
 
-  callbackInstance->queueEspNowEvent(ESP_NOW_EVENT_RECEIVE, info->src_addr,
-                                     data, len);
-}
+  // Capture the controller instance used by this callback.
+  EspnowController* instance = callbackInstance;
 
+  if (instance == nullptr) {
+    return;
+  }
+
+  // Handle ACKs directly in the Wi-Fi callback.
+  // Do not put ACKs into the event queue because sendJsonDocument()
+  // is waiting for them to arrive.
+  if (len == sizeof(ESPNowCommand)) {
+    ESPNowCommand command{};
+    memcpy(&command, data, sizeof(command));
+
+    if (static_cast<uint8_t>(command.type) == CMD_PACKET_ACK) {
+      bool waiting;
+      bool macMatches;
+      bool sequenceMatches;
+      PacketSequence expectedSequence;
+
+      portENTER_CRITICAL(&instance->packetAckMux);
+
+      waiting = instance->packetAckWaiting;
+
+      macMatches = memcmp(instance->packetAckTargetMac, info->src_addr, 6) == 0;
+
+      expectedSequence = instance->packetAckSequence;
+
+      sequenceMatches = command.value == expectedSequence;
+
+      if (waiting && macMatches && sequenceMatches) {
+        instance->packetAckReceived = true;
+      }
+
+      portEXIT_CRITICAL(&instance->packetAckMux);
+
+      Serial.printf(
+          "[ACK RX] received=%u expected=%u waiting=%d mac=%d seq=%d\n",
+          static_cast<unsigned>(command.value),
+          static_cast<unsigned>(expectedSequence), waiting, macMatches,
+          sequenceMatches);
+
+      return;
+    }
+  }
+  instance->queueEspNowEvent(ESP_NOW_EVENT_RECEIVE, info->src_addr, data, len);
+}
 // SEND CALLBACK
 void EspnowController::onESPNowSendActual(const wifi_tx_info_t* tx_info,
                                           esp_now_send_status_t status) {
-  if (tx_info == nullptr || callbackInstance == nullptr ||
-      callbackInstance->espNowEventQueue == nullptr) {
+  if (tx_info == nullptr || callbackInstance == nullptr) {
+    return;
+  }
+
+  // Successful transmissions don't need to enter the event queue.
+  if (status == ESP_NOW_SEND_SUCCESS) {
+    return;
+  }
+
+  if (callbackInstance->espNowEventQueue == nullptr) {
     return;
   }
 
   EspNowEvent event{};
 
   memcpy(event.mac, tx_info->des_addr, 6);
+
   event.type = ESP_NOW_EVENT_SEND;
   event.sendStatus = status;
 
   if (xQueueSend(callbackInstance->espNowEventQueue, &event, 0) != pdPASS) {
+    // Don't print on every failure; the queue may already be full.
+    static uint32_t droppedSendEvents = 0;
+
+    if (++droppedSendEvents % 20 == 0) {
+      Serial.printf("[ESP-NOW] Dropped send events: %lu\n",
+                    static_cast<unsigned long>(droppedSendEvents));
+    }
+  }
+}
+bool EspnowController::wasJsonPacketReceived(const uint8_t* mac,
+                                             PacketSequence sequence) {
+  if (mac == nullptr || sequence == 0) return false;
+
+  for (const auto& packet : lastReceivedJsonPackets) {
+    if (memcmp(packet.mac, mac, 6) != 0) continue;
+
+    for (uint8_t i = 0; i < packet.storedCount; ++i) {
+      if (packet.sequences[i] == sequence) return true;
+    }
+  }
+  return false;
+}
+
+void EspnowController::rememberJsonPacket(const uint8_t* mac,
+                                          PacketSequence sequence) {
+  if (mac == nullptr || sequence == 0 || wasJsonPacketReceived(mac, sequence)) {
     return;
   }
+
+  for (auto& packet : lastReceivedJsonPackets) {
+    if (memcmp(packet.mac, mac, 6) != 0) continue;
+
+    packet.sequences[packet.nextIndex] = sequence;
+    packet.nextIndex = (packet.nextIndex + 1) % RECENT_JSON_SEQUENCE_COUNT;
+    if (packet.storedCount < RECENT_JSON_SEQUENCE_COUNT) {
+      ++packet.storedCount;
+    }
+    return;
+  }
+
+  LastReceivedJsonPacket packet{};
+  memcpy(packet.mac, mac, 6);
+  packet.sequences[0] = sequence;
+  packet.storedCount = 1;
+  packet.nextIndex = 1 % RECENT_JSON_SEQUENCE_COUNT;
+  lastReceivedJsonPackets.push_back(packet);
+}
+void EspnowController::sendPacketAck(EspnowController* controller, Peer* peer,
+                                     PacketSequence sequence) {
+  if (controller == nullptr || peer == nullptr || sequence == 0) {
+    return;
+  }
+
+  ESPNowCommand ack{};
+
+  ack.type = static_cast<decltype(ack.type)>(CMD_PACKET_ACK);
+  ack.value = sequence;
+
+  Serial.printf("[ACK TX] Sending ACK sequence=%u to %s\n",
+                static_cast<unsigned>(sequence),
+                macToString(peer->getMac()).c_str());
+
+  if (!controller->sendCommandToPeer(peer, ack)) {
+    Serial.println("[ACK TX] FAILED");
+  }
+}
+
+bool EspnowController::isPacketAckReceived() {
+  portENTER_CRITICAL(&packetAckMux);
+  const bool received = packetAckReceived;
+  portEXIT_CRITICAL(&packetAckMux);
+  return received;
 }

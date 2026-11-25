@@ -115,7 +115,7 @@ void getJsonFromState(JsonDocument& doc) {
 
 void getStateFromCondensedJson(JsonDocument& doc) {
   Serial.println("=== getStateFromCondensedJson INPUT ===");
-  serializeJsonPretty(doc, Serial);
+  serializeJson(doc, Serial);
   JsonArray tracks = doc["tracks"].as<JsonArray>();
 
   if (!tracks.isNull()) {

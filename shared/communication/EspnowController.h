@@ -17,7 +17,6 @@
 #include "../utils/MacUtils.h"
 #include "JsonAssembler.h"
 #include "JsonChangeFilter.hpp"
-
 #include "Peers.h"
 #include "packets.h"
 
@@ -75,6 +74,8 @@ struct EspNowEvent {
 
 class EspnowController {
  public:
+  using PacketSequence = decltype(ESPNowCommand{}.value);
+
   using GetJsonFromStateCallback = void (*)(JsonDocument&);
   using GetStateFromJsonCallback = void (*)(JsonDocument&);
   using ResetStateCallback = std::function<void()>;
@@ -139,7 +140,7 @@ class EspnowController {
   bool sendServerState(Peer* peer);
   // Discovery
 
-  void processDiscovery();
+  void sendDiscovery();
 
   void sendDiscoveryResponse(Peer* peer);
 
@@ -171,6 +172,44 @@ class EspnowController {
   void processStateChanges();
 
   void handleUnkownPacket(Peer* peer, EspNowEvent& event);
+
+  bool wasJsonPacketReceived(const uint8_t* mac, PacketSequence sequence);
+
+  void rememberJsonPacket(const uint8_t* mac, PacketSequence sequence);
+
+  void sendPacketAck(EspnowController* controller, Peer* peer,
+                     PacketSequence sequence);
+  bool isPacketAckReceived();
+
+  // ACK
+  // Application-level ACK for JSON fragments. 0xFE is reserved for this
+  // internal command and does not change the ESPNowCommand packet layout.
+  static constexpr uint8_t CMD_PACKET_ACK = 0xFE;
+  static constexpr uint32_t PACKET_ACK_TIMEOUT_MS = 250;
+  static constexpr uint8_t PACKET_ACK_RETRIES = 3;
+
+
+  static constexpr size_t RECENT_JSON_SEQUENCE_COUNT = PACKET_ACK_RETRIES + 2;
+
+  portMUX_TYPE packetAckMux = portMUX_INITIALIZER_UNLOCKED;
+
+  bool packetAckWaiting = false;
+  bool packetAckReceived = false;
+
+  uint8_t packetAckTargetMac[6] = {};
+
+  PacketSequence packetAckSequence = 0;
+  PacketSequence nextPacketSequence = 1;
+
+  struct LastReceivedJsonPacket {
+    uint8_t mac[6];
+    PacketSequence sequences[RECENT_JSON_SEQUENCE_COUNT];
+    uint8_t storedCount = 0;
+    uint8_t nextIndex = 0;
+  };
+
+  std::vector<LastReceivedJsonPacket> lastReceivedJsonPackets;
+
   // =====================================================
   // LOCAL ESP-NOW STATE
   // =====================================================
