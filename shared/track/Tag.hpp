@@ -56,7 +56,6 @@ class Tag {
     connectedTagUid = connectedTagUid_;
   }
 
-
   Point& getPoint() { return point; }
   Point getPoint() const { return point; }
   // void setPoint(Point point_) { point = point_; }
@@ -90,7 +89,8 @@ class Tag {
       return false;
     }
     if (obj["connectedTagUid"].is<const char*>()) {
-      const char* connectedTagUidString = obj["cu"] | "";
+      // Serial.println("con");
+      const char* connectedTagUidString = obj["connectedTagUid"] | "";
       connectedTagUid.fromString(connectedTagUidString);
     }
 
@@ -139,6 +139,8 @@ class Tag {
       return false;
     }
     if (obj["cu"].is<const char*>()) {
+      // Serial.println("con1");
+
       const char* connectedTagUidString = obj["cu"] | "";
       connectedTagUid.fromString(connectedTagUidString);
     }
@@ -163,12 +165,10 @@ class Tag {
   }
 
   void toCondensedJson(JsonObject& obj) const {
-    if (obj.isNull()) {
-      return;
-    }
-
     obj["uid"] = uid.toString();
     if (connectedTagUid.isValid()) {
+      // Serial.println("con2");
+
       obj["cu"] = connectedTagUid.toString();
     }
 
@@ -212,7 +212,6 @@ class Tag {
   Uid connectedTagUid;
   Uids internalConnectedTagUids;
   Point point;
-
 };
 
 #endif  // TAG_HPP

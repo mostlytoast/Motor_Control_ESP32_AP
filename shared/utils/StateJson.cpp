@@ -5,7 +5,7 @@ namespace {
 JsonDocument previousState;
 bool previousStateUpdated = false;
 }  // namespace
-
+// TODO need to get all toJson and fromJson working for non condensed versions 
 void getStateFromJson(JsonDocument& doc) {
   Serial.println("=== getStateFromJson INPUT ===");
   serializeJsonPretty(doc, Serial);

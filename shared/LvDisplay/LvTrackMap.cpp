@@ -415,7 +415,7 @@ void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
       drawBumper(layer, track);
     case STRAIGHT:
     case CURVED:
-      // if (track.getTags().size() < 2) return;
+      if (track.getTags().size() < 2) return;
 
       drawCurveOrStraight(
           layer, worldToMap(track.getTags()[0].getPoint()),
@@ -425,7 +425,7 @@ void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
       break;
 
     case SWITCH:
-      // if (track.getTags().size() < 4) return;
+      if (track.getTags().size() < 4) return;
 
       drawCurveOrStraight(
           layer, worldToMap(track.getTags()[0].getPoint()),
@@ -438,7 +438,7 @@ void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
       break;
 
     case CROSS:
-      // if (track.getTags().size() < 4) return;
+      if (track.getTags().size() < 4) return;
       drawCurveOrStraight(
           layer, worldToMap(track.getTags()[0].getPoint()),
           worldToMap(track.getTags()[1].getPoint()),
@@ -449,6 +449,8 @@ void LvTrackMap::drawTrack(lv_layer_t* layer, const Track& track,
           generateColorForTrack(track.getTags()[2], track.getTags()[3]));
       break;
     case STATION:
+      if (track.getTags().size() < 1) return;
+
       const Point point = worldToMap(track.getTags()[0].getPoint());
       // drawCurveOrStraight(layer, worldToMap(track.getTags()[0].getPoint()),
       //                     worldToMap(track.getTags()[0].getPoint()));

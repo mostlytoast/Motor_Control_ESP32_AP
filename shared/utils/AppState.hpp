@@ -326,7 +326,7 @@ class AppState {
   int getMinPwm() { return minPwm; };
   void setMinPwm(int minPwm_) {
     minPwm = minPwm_;
-    Serial.println(minPwm);
+
   };
   std::function<void(float)> setMinPwmLambda = [this](float value) {
     setMinPwm(static_cast<int>(value));
